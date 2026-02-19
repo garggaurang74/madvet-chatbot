@@ -114,22 +114,25 @@ export default function AdminPage() {
   const [product, setProduct] = useState<ProductData>(EMPTY_PRODUCT)
   const [error, setError] = useState('')
   const [savedProduct, setSavedProduct] = useState<ProductData | null>(null)
+
   const productInputRef = useRef<HTMLInputElement>(null)
   const saltInputRef = useRef<HTMLInputElement>(null)
 
-  // Show password gate if locked
-  if (!unlocked) {
-    return <PasswordGate onUnlock={() => setUnlocked(true)} />
-  }
-
-  // Check password on mount
   useEffect(() => {
-    const savedPassword = localStorage.getItem('madvet_admin_password')
-    if (savedPassword === 'madvetkaboss') {
-      setUnlocked(true)
-    }
+    const saved = localStorage.getItem('madvet_admin_auth')
+    if (saved === 'madvetkaboss') setUnlocked(true)
   }, [])
 
+  if (!unlocked) {
+    return (
+      <PasswordGate onUnlock={() => {
+        localStorage.setItem('madvet_admin_auth', 'madvetkaboss')
+        setUnlocked(true)
+      }} />
+    )
+  }
+
+  
   const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -190,7 +193,10 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/save-product', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '',
+        },
         body: JSON.stringify(product)
       })
       const data = await res.json()
