@@ -41,41 +41,35 @@ function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
 
 // ─────────────────────────────────────────────
 // PRODUCT CONTEXT BUILDER
+// FIX: Removed remaining catalog — send only matched products
+// Saves ~10,000+ tokens per request at scale
 // ─────────────────────────────────────────────
-function formatProductContext(
-  matched: MadvetProduct[],
-  remaining: MadvetProduct[]
-): string {
-  const formatOne = (p: MadvetProduct, i: number, label = ''): string => {
-    const lines: string[] = [`[${label}Product ${i + 1}]`]
-    if (p.product_name)                         lines.push(`Name: ${p.product_name}`)
-    // ❌ NO salt_ingredient
-    // ❌ NO salt
-    // ❌ NO composition
-    if (p.category)                             lines.push(`Category: ${p.category}`)
-    if (p.species)                              lines.push(`For Species: ${p.species}`)
-    if (p.indication)                           lines.push(`Used For: ${p.indication}`)
-    if (p.packaging || (p as any).packing)      lines.push(`Packing: ${p.packaging || (p as any).packing}`)
-    if (p.description)                          lines.push(`Details: ${p.description}`)
-    if (p.usp_benefits)                         lines.push(`Benefits: ${p.usp_benefits}`)
-    if (p.aliases)                              lines.push(`Also known as: ${p.aliases}`)
-    // ❌ NO dosage shown to user either
+const MAX_REMAINING_PRODUCTS = 12 // safety cap if needed in future
+
+function formatProductContext(matched: MadvetProduct[]): string {
+  if (matched.length === 0) {
+    return 'No Madvet products found matching this query.'
+  }
+
+  const formatOne = (p: MadvetProduct, i: number): string => {
+    const lines: string[] = [`[Product ${i + 1}]`]
+    if (p.product_name)                        lines.push(`Name: ${p.product_name}`)
+    if (p.category)                            lines.push(`Category: ${p.category}`)
+    if (p.species)                             lines.push(`For Species: ${p.species}`)
+    if (p.indication)                          lines.push(`Used For: ${p.indication}`)
+    if (p.packaging || (p as any).packing)     lines.push(`Packing: ${p.packaging || (p as any).packing}`)
+    if (p.description)                         lines.push(`Details: ${p.description}`)
+    if (p.usp_benefits)                        lines.push(`Benefits: ${p.usp_benefits}`)
+    if (p.aliases)                             lines.push(`Also known as: ${p.aliases}`)
+    // ❌ No salt / composition / dosage
     return lines.join('\n')
   }
 
-  const parts: string[] = []
-
-  if (matched.length > 0) {
-    parts.push('## TOP MATCHES (most relevant to query)\n')
-    parts.push(matched.map((p, i) => formatOne(p, i + 1, 'MATCH-')).join('\n\n---\n\n'))
-  }
-
-  if (remaining.length > 0) {
-    parts.push('\n\n## REMAINING CATALOG (for reference)\n')
-    parts.push(remaining.map((p, i) => formatOne(p, matched.length + i + 1)).join('\n\n---\n\n'))
-  }
-
-  return parts.join('\n') || 'No Madvet products available.'
+  return [
+    '## MADVET MATCHED PRODUCTS\n',
+    matched.map((p, i) => formatOne(p, i + 1)).join('\n\n---\n\n'),
+    '\n\nIMPORTANT: Only recommend products listed above. If none match, say no product is available.',
+  ].join('')
 }
 
 // ─────────────────────────────────────────────
@@ -85,31 +79,36 @@ const MAX_HISTORY  = 30
 const SLIDING_LAST = 20
 
 function buildApiMessages(
-  messages: Message[],
+  history: Message[],
   enrichedUserMessage: Message
 ): Message[] {
-  let history: Message[]
+  let trimmed: Message[]
 
-  if (messages.length > MAX_HISTORY) {
-    // Keep first message (initial context) + last N messages
-    const first = messages[0]
-    const recent = messages.slice(-SLIDING_LAST)
-    history = [first, ...recent]
+  // Trim history if too long
+  if (history.length > MAX_HISTORY) {
+    const first  = history[0]
+    const recent = history.slice(-SLIDING_LAST)
+    trimmed = [first, ...recent]
   } else {
-    history = [...messages]
+    trimmed = [...history]
   }
 
-  // Replace last user message with enriched version (has product context)
-  const lastIdx = history.length - 1
-  const last = history[lastIdx]
+  // FIX: Find and replace the LAST user message specifically
+  // Don't blindly replace last item — it may be an assistant message
+  const lastUserIdx = [...trimmed]
+    .map((m, i) => ({ m, i }))
+    .filter(({ m }) => m.role === 'user')
+    .at(-1)?.i ?? -1
 
-  if (last?.role === 'user') {
-    history[lastIdx] = enrichedUserMessage
-  } else {
-    history.push(enrichedUserMessage)
+  if (lastUserIdx !== -1) {
+    // Replace the last user message with enriched version
+    const result = [...trimmed]
+    result[lastUserIdx] = enrichedUserMessage
+    return result
   }
 
-  return history
+  // No user message found — append
+  return [...trimmed, enrichedUserMessage]
 }
 
 // ─────────────────────────────────────────────
@@ -154,42 +153,39 @@ export async function POST(req: NextRequest) {
 
     // ── Product search ──────────────────────
     const products = await getCachedProducts()
+    const matched  = searchProducts(products, truncatedMessage, 6)
 
-    const matched   = searchProducts(products, truncatedMessage, 6)
-    const matchedSet = new Set(
-      matched.map((p) => `${p.product_name}||${p.salt_ingredient || (p as any).salt || ''}`)
-    )
-    const remaining = products.filter(
-      (p) => !matchedSet.has(`${p.product_name}||${p.salt_ingredient || (p as any).salt || ''}`)
-    )
+    // FIX: Only send matched products — no remaining catalog
+    const productContext = formatProductContext(matched)
 
-    const productContext = formatProductContext(matched, remaining)
-
-    // ── Build enriched user message ─────────
+    // ── Build enriched user message ───────────
     const isFollowUp = isFollowUpMessage(truncatedMessage)
 
     const enrichedContent = isFollowUp
       ? `[FOLLOW-UP MESSAGE]
-MADVET PRODUCT CONTEXT (reference only):
+MADVET PRODUCT CONTEXT (for reference):
 ${productContext}
 
 Customer says: "${truncatedMessage}"
 
-Note: This is a follow-up — respond concisely, build on previous answer, do not repeat full product intro.`
+Respond concisely. Build on previous answer. Do not repeat full product intro.`
       : `[NEW QUERY]
-MADVET PRODUCT CONTEXT — Use clinical knowledge to recommend most relevant product(s):
+MADVET PRODUCT CONTEXT — Recommend a single most relevant product:
 
 ${productContext}
 
 Customer asks: "${truncatedMessage}"`
 
     const enrichedUserMessage: Message = {
-      role: 'user',
+      role:    'user',
       content: enrichedContent,
     }
 
-    // ── Build final message array ───────────
-    const apiMessages = buildApiMessages(messages, enrichedUserMessage)
+    // ── Build final message array ─────────────
+    // FIX: Pass history WITHOUT the latest raw message
+    // The latest message is already inside enrichedUserMessage
+    const historyWithoutLatest = messages.slice(0, -1)
+    const apiMessages = buildApiMessages(historyWithoutLatest, enrichedUserMessage)
 
     // ── OpenAI streaming call ───────────────
     const model = process.env.OPENAI_MODEL ?? 'gpt-4o'
