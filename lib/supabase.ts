@@ -34,7 +34,9 @@ const FALLBACK_TABLE_NAMES = [
 function getConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  const table = process.env.NEXT_PUBLIC_SUPABASE_TABLE?.trim() || ''
+  const table = process.env.NEXT_PUBLIC_SUPABASE_TABLE?.trim() || 
+                process.env.SUPABASE_PRODUCTS_TABLE?.trim() || 
+                'products_enriched'
   const valid =
     url && key && url.startsWith('http') && !url.includes('YOUR_')
   return { url, key, table, valid }
