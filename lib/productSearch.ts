@@ -2,37 +2,36 @@ import Fuse from 'fuse.js'
 import type { MadvetProduct } from './supabase'
 
 const HINDI_KEYWORD_MAP: Record<string, string> = {
-  keeda: 'parasite antiparasitic',
-  kide: 'parasite antiparasitic',
-  kira: 'parasite worm',
-  bukhar: 'fever antibiotic',
-  bukhaar: 'fever antibiotic',
+  keeda: 'parasite antiparasitic anthelmintic',
+  keede: 'parasite antiparasitic anthelmintic',
+  kide: 'parasite antiparasitic anthelmintic',
+  kira: 'parasite worm anthelmintic',
+  kire: 'parasite worm anthelmintic',
+  bukhar: 'fever antibiotic antipyretic',
+  bukhaar: 'fever antibiotic antipyretic',
   dast: 'diarrhea antidiarrheal loose motions',
+  pechish: 'diarrhea dysentery antidiarrheal',
   ulti: 'vomiting gastro',
   dudh: 'milk mastitis udder',
   teat: 'mastitis udder',
   kamzori: 'vitamin supplement weakness',
-  kamjori: 'vitamin supplement',
+  kamjori: 'vitamin supplement weakness',
   zakhm: 'wound topical antiseptic',
-  ghav: 'wound topical',
-  khujli: 'itch parasite antifungal skin',
+  ghav: 'wound topical antiseptic',
+  khujli: 'itch parasite antifungal skin dermatitis',
   khaj: 'itch parasite skin',
   sans: 'respiratory pneumonia breathing',
   khansi: 'cough respiratory',
   liver: 'liver hepato tonic',
-  pet: 'gastro intestinal stomach',
   haddi: 'calcium bone mineral',
   motions: 'diarrhea antidiarrheal',
   loose: 'diarrhea antidiarrheal',
-  stop: 'diarrhea antidiarrheal bolus',
   bolus: 'bolus tablet oral',
   injection: 'injection injectable',
   dawai: 'medicine treatment',
   dawa: 'medicine treatment',
   ilaj: 'treatment medicine',
   sust: 'weakness vitamin supplement liver tonic',
-  'khana nahi': 'appetite digestive vitamin',
-  'chaara nahi': 'appetite digestive vitamin',
   'dudh kam': 'milk production udder mastitis',
   'pet phula': 'bloat tympany gastro',
   'pair sujan': 'foot rot joint infection',
@@ -41,17 +40,20 @@ const HINDI_KEYWORD_MAP: Record<string, string> = {
   'bachcha nahi rukta': 'repeat breeding reproductive infertility',
   garbhpat: 'abortion reproductive progesterone',
   thaan: 'mastitis udder teat milk',
-  'sujan injection': 'anti-inflammatory pain fever',
-  'dard hai': 'pain anti-inflammatory analgesic',
-  sujan: 'inflammation anti-inflammatory',
+  sujan: 'inflammation anti-inflammatory swelling',
   'tez bukhar': 'high fever antibiotic antipyretic',
   safai: 'antiseptic wound topical',
-  wounds: 'wound topical antiseptic',
   cheechad: 'tick ectoparasiticide permethrin',
   chittal: 'tick ectoparasiticide',
   jheen: 'lice ectoparasiticide',
-  allergy: 'antihistamine anti-allergic',
-  daane: 'allergy antihistamine urticaria',
+  allergy: 'antihistamine anti-allergic urticaria',
+  daane: 'allergy antihistamine urticaria skin',
+  chamdi: 'skin dermatological topical',
+  deworming: 'anthelmintic antiparasitic worm',
+  dewormer: 'anthelmintic antiparasitic worm',
+  antibiotic: 'antibiotic bacterial infection',
+  spray: 'spray topical dermatological',
+  soap: 'soap ectoparasiticide topical',
 }
 
 function buildKeywordQuery(query: string): string {
@@ -65,6 +67,23 @@ function buildKeywordQuery(query: string): string {
   return expanded
 }
 
+// Check if query is asking about a specific product by name
+function isSpecificProductQuery(query: string, products: MadvetProduct[]): MadvetProduct | null {
+  const lower = query.toLowerCase().trim()
+  for (const p of products) {
+    const name = (p.product_name || '').toLowerCase()
+    if (!name) continue
+    // Direct name match
+    if (lower.includes(name)) return p
+    // Check aliases
+    const aliases = (p.aliases || '').toLowerCase().split(',').map(a => a.trim())
+    for (const alias of aliases) {
+      if (alias.length >= 4 && lower.includes(alias)) return p
+    }
+  }
+  return null
+}
+
 export function searchProducts(
   products: MadvetProduct[],
   query: string,
@@ -72,17 +91,23 @@ export function searchProducts(
 ): MadvetProduct[] {
   if (!query?.trim() || products.length === 0) return []
 
+  // Check for specific product query first — if found, return only that product
+  const specificMatch = isSpecificProductQuery(query, products)
+  if (specificMatch) return [specificMatch]
+
   // Dynamically discover all string column names from actual product data
   const allKeys = products.length > 0
     ? Object.keys(products[0]).filter((k) => typeof products[0][k] === 'string')
-    : ['product_name', 'salt', 'dosage', 'category', 'species']
+    : ['product_name', 'salt_ingredient', 'dosage', 'category', 'species', 'indication', 'aliases']
 
   const fuseKeys = allKeys.map((k) => ({
     name: k,
     weight:
       k.includes('name') ? 3 :
+      k === 'aliases' ? 2.5 :
+      k.includes('indication') ? 2 :
       k.includes('salt') || k.includes('composition') ? 2 :
-      k.includes('category') || k.includes('species') || k.includes('use') || k.includes('indication') ? 1.5 : 0.5,
+      k.includes('category') || k.includes('species') ? 1.5 : 0.5,
   }))
 
   const fuse = new Fuse(products, {
@@ -90,24 +115,26 @@ export function searchProducts(
     threshold: 0.45,
     includeScore: true,
     ignoreLocation: true,
-    minMatchCharLength: 2,
+    minMatchCharLength: 3,
     shouldSort: true,
   })
 
   const lowerQuery = query.toLowerCase()
   const expandedQuery = buildKeywordQuery(query)
 
-  // Layer 0: direct word-level match against product name + salt
-  const queryWords = lowerQuery.split(/\s+/).filter((w) => w.length >= 2)
+  // Layer 0: direct word-level match — minimum 4 chars to avoid noise
+  const queryWords = lowerQuery.split(/\s+/).filter((w) => w.length >= 4)
   const directMatches: MadvetProduct[] = []
+  
   for (const p of products) {
     const searchable = (
       (p.product_name || '') + ' ' +
-      (p.salt || '') + ' ' +
+      (p.salt_ingredient || p.salt || '') + ' ' +
       (p.category || '') + ' ' +
-      (p.species || '') + ' ' +
-      (p.dosage || '')
+      (p.indication || '') + ' ' +
+      (p.aliases || '')
     ).toLowerCase()
+    
     if (queryWords.some((w) => searchable.includes(w))) {
       directMatches.push(p)
     }
@@ -125,7 +152,7 @@ export function searchProducts(
   const seen = new Set<string>()
   const combined: MadvetProduct[] = []
   for (const p of [...directMatches, ...layer1, ...layer2]) {
-    const key = (p.product_name || '') + '||' + (p.salt || '')
+    const key = (p.product_name || '') + '||' + (p.salt_ingredient || p.salt || '')
     if (!seen.has(key)) {
       seen.add(key)
       combined.push(p)
