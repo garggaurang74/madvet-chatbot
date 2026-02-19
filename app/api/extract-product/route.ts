@@ -64,11 +64,33 @@ Rules:
       messages: [{ role: 'user', content }]
     })
 
-    const text = response.choices[0]?.message?.content || ''
-    
-    // Clean and parse JSON
-    const cleaned = text.replace(/```json|```/g, '').trim()
-    const extracted = JSON.parse(cleaned)
+    const text = response.choices[0]?.message?.content ?? ''
+
+    // ✅ FIX 3: Robust JSON extraction
+    let extracted: Record<string, string>
+
+    try {
+      // Strip any accidental markdown
+      const cleaned = text
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/gi, '')
+        .trim()
+
+      // Extract JSON object even if there's surrounding text
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('No JSON found in response')
+
+      extracted = JSON.parse(jsonMatch[0])
+    } catch (parseErr) {
+      console.error('[Extract] JSON parse failed:', parseErr, '\nRaw:', text)
+      return Response.json(
+        {
+          success: false,
+          error:   'AI response parse karne mein problem — dobara try karein',
+        },
+        { status: 500 }
+      )
+    }
 
     return Response.json({ success: true, data: extracted })
   } catch (err) {
