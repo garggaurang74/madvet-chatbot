@@ -1,88 +1,251 @@
 import Fuse from 'fuse.js'
 import type { MadvetProduct } from './supabase'
 
-const HINDI_KEYWORD_MAP: Record<string, string> = {
-  keeda: 'parasite antiparasitic anthelmintic',
-  keede: 'parasite antiparasitic anthelmintic',
-  kide: 'parasite antiparasitic anthelmintic',
-  kira: 'parasite worm anthelmintic',
-  kire: 'parasite worm anthelmintic',
-  bukhar: 'fever antibiotic antipyretic',
-  bukhaar: 'fever antibiotic antipyretic',
-  dast: 'diarrhea antidiarrheal loose motions',
-  pechish: 'diarrhea dysentery antidiarrheal',
-  ulti: 'vomiting gastro',
-  dudh: 'milk mastitis udder',
-  teat: 'mastitis udder',
-  kamzori: 'vitamin supplement weakness',
-  kamjori: 'vitamin supplement weakness',
-  zakhm: 'wound topical antiseptic',
-  ghav: 'wound topical antiseptic',
-  khujli: 'itch parasite antifungal skin dermatitis',
-  khaj: 'itch parasite skin',
-  sans: 'respiratory pneumonia breathing',
-  khansi: 'cough respiratory',
-  liver: 'liver hepato tonic',
-  haddi: 'calcium bone mineral',
-  motions: 'diarrhea antidiarrheal',
-  loose: 'diarrhea antidiarrheal',
-  bolus: 'bolus tablet oral',
-  injection: 'injection injectable',
-  dawai: 'medicine treatment',
-  dawa: 'medicine treatment',
-  ilaj: 'treatment medicine',
-  sust: 'weakness vitamin supplement liver tonic',
-  'dudh kam': 'milk production udder mastitis',
-  'pet phula': 'bloat tympany gastro',
-  'pair sujan': 'foot rot joint infection',
-  'aankhein laal': 'pink eye vitamin eye infection',
-  'baar baar garam': 'repeat breeding reproductive hormone',
-  'bachcha nahi rukta': 'repeat breeding reproductive infertility',
-  garbhpat: 'abortion reproductive progesterone',
-  thaan: 'mastitis udder teat milk',
-  sujan: 'inflammation anti-inflammatory swelling',
-  'tez bukhar': 'high fever antibiotic antipyretic',
-  safai: 'antiseptic wound topical',
-  cheechad: 'tick ectoparasiticide permethrin',
-  chittal: 'tick ectoparasiticide',
-  jheen: 'lice ectoparasiticide',
-  allergy: 'antihistamine anti-allergic urticaria',
-  daane: 'allergy antihistamine urticaria skin',
-  chamdi: 'skin dermatological topical',
-  deworming: 'anthelmintic antiparasitic worm',
-  dewormer: 'anthelmintic antiparasitic worm',
-  antibiotic: 'antibiotic bacterial infection',
-  spray: 'spray topical dermatological',
-  soap: 'soap ectoparasiticide topical',
+// ─────────────────────────────────────────────
+// HINDI / HINGLISH → CLINICAL KEYWORD MAP
+// ─────────────────────────────────────────────
+const HINDI_KEYWORD_MAP: Record<string, string[]> = {
+  // Parasites
+  keeda:           ['parasite', 'anthelmintic', 'antiparasitic', 'worm'],
+  keede:           ['parasite', 'anthelmintic', 'antiparasitic', 'worm'],
+  kide:            ['parasite', 'anthelmintic', 'antiparasitic', 'worm'],
+  kira:            ['worm', 'anthelmintic', 'parasite'],
+  kire:            ['worm', 'anthelmintic', 'parasite'],
+  deworming:       ['anthelmintic', 'antiparasitic', 'worm', 'bolus'],
+  dewormer:        ['anthelmintic', 'antiparasitic', 'worm'],
+  cheechad:        ['tick', 'ectoparasiticide', 'permethrin'],
+  chittal:         ['tick', 'ectoparasiticide'],
+  jheen:           ['lice', 'ectoparasiticide'],
+
+  // Fever & Infection
+  bukhar:          ['fever', 'antibiotic', 'antipyretic'],
+  bukhaar:         ['fever', 'antibiotic', 'antipyretic'],
+  'tez bukhar':    ['high fever', 'antibiotic', 'antipyretic', 'critical'],
+  infection:       ['antibiotic', 'bacterial', 'antimicrobial'],
+  antibiotic:      ['antibiotic', 'bacterial', 'antimicrobial'],
+
+  // Digestive
+  dast:            ['diarrhea', 'antidiarrheal', 'loose motions'],
+  pechish:         ['diarrhea', 'dysentery', 'antidiarrheal'],
+  ulti:            ['vomiting', 'gastro', 'antiemetic'],
+  loose:           ['diarrhea', 'antidiarrheal'],
+  motions:         ['diarrhea', 'antidiarrheal'],
+  'pet phula':     ['bloat', 'tympany', 'gastro', 'emergency'],
+  pet:             ['gastro', 'digestive', 'gastric'],
+
+  // Milk & Udder
+  dudh:            ['milk', 'mastitis', 'udder', 'production'],
+  'dudh kam':      ['milk production', 'udder', 'mastitis', 'galactagogue'],
+  teat:            ['mastitis', 'udder', 'teat'],
+  thaan:           ['mastitis', 'udder', 'teat', 'milk'],
+  mastitis:        ['mastitis', 'udder', 'antibiotic', 'intramammary'],
+
+  // Weakness & Nutrition
+  kamzori:         ['vitamin', 'supplement', 'weakness', 'tonic'],
+  kamjori:         ['vitamin', 'supplement', 'weakness', 'tonic'],
+  sust:            ['weakness', 'vitamin', 'supplement', 'liver tonic'],
+  bhook:           ['appetite', 'digestive', 'tonic', 'liver'],
+  'khana nahi':    ['appetite loss', 'liver', 'tonic', 'supplement'],
+  'chaara nahi':   ['appetite loss', 'digestive', 'fever', 'stress'],
+
+  // Wounds & Skin
+  zakhm:           ['wound', 'topical', 'antiseptic', 'wound care'],
+  ghav:            ['wound', 'topical', 'antiseptic'],
+  khujli:          ['itch', 'parasite', 'antifungal', 'skin', 'dermatitis'],
+  khaj:            ['itch', 'parasite', 'skin', 'mange'],
+  chamdi:          ['skin', 'dermatological', 'topical'],
+  daane:           ['allergy', 'antihistamine', 'urticaria', 'skin'],
+  safai:           ['antiseptic', 'wound', 'topical'],
+  spray:           ['spray', 'topical', 'dermatological'],
+
+  // Respiratory
+  sans:            ['respiratory', 'pneumonia', 'breathing'],
+  khansi:          ['cough', 'respiratory', 'bronchitis'],
+
+  // Bones & Minerals
+  haddi:           ['calcium', 'bone', 'mineral', 'phosphorus'],
+  calcium:         ['calcium', 'mineral', 'hypocalcemia', 'milk fever'],
+  'milk fever':    ['hypocalcemia', 'calcium', 'emergency', 'calving'],
+
+  // Reproductive
+  garbhpat:        ['abortion', 'reproductive', 'progesterone'],
+  'baar baar garam': ['repeat breeding', 'reproductive', 'hormone'],
+  'bachcha nahi':  ['repeat breeding', 'reproductive', 'infertility'],
+  byaana:          ['calving', 'parturition', 'oxytocin', 'reproductive'],
+  heat:            ['estrus', 'reproductive', 'hormone'],
+  garam:           ['estrus', 'heat', 'reproductive'],
+
+  // Joints & Swelling
+  'pair sujan':    ['foot rot', 'joint infection', 'anti-inflammatory'],
+  sujan:           ['inflammation', 'anti-inflammatory', 'swelling'],
+  'aankhein laal': ['pink eye', 'conjunctivitis', 'vitamin A', 'eye'],
+  liver:           ['liver', 'hepato', 'tonic', 'hepatoprotective'],
+  allergy:         ['antihistamine', 'anti-allergic', 'urticaria'],
+
+  // Form factors
+  bolus:           ['bolus', 'tablet', 'oral'],
+  injection:       ['injection', 'injectable', 'parenteral'],
+  soap:            ['soap', 'ectoparasiticide', 'topical'],
+  dawai:           ['medicine', 'treatment'],
+  dawa:            ['medicine', 'treatment'],
+  ilaj:            ['treatment', 'medicine'],
 }
 
-function buildKeywordQuery(query: string): string {
+// Category priority map for targeted boosts
+const CATEGORY_PRIORITY_MAP: Record<string, string[]> = {
+  skin:          ['dermatological', 'topical', 'spray', 'ointment'],
+  chamdi:        ['dermatological', 'topical'],
+  khujli:        ['dermatological', 'antiparasitic'],
+  wound:         ['topical', 'antiseptic', 'wound care'],
+  zakhm:         ['topical', 'antiseptic'],
+  infection:     ['antibiotic'],   // only if "infection" explicitly said
+  bukhar:        ['antibiotic', 'antipyretic'],
+}
+
+// Species keyword map
+const SPECIES_MAP: Record<string, string[]> = {
+  gaay:     ['cattle', 'cow', 'bovine'],
+  cow:      ['cattle', 'cow', 'bovine'],
+  bhains:   ['buffalo', 'bovine'],
+  buffalo:  ['buffalo', 'bovine'],
+  bakri:    ['goat', 'caprine', 'small ruminant'],
+  goat:     ['goat', 'caprine'],
+  bhed:     ['sheep', 'ovine', 'small ruminant'],
+  sheep:    ['sheep', 'ovine'],
+  murgi:    ['poultry', 'chicken', 'broiler', 'layer'],
+  chicken:  ['poultry', 'broiler', 'layer'],
+  poultry:  ['poultry', 'chicken', 'broiler'],
+  ghoda:    ['horse', 'equine'],
+  horse:    ['horse', 'equine'],
+  suar:     ['pig', 'swine', 'porcine'],
+  pig:      ['pig', 'swine'],
+  kutte:    ['dog', 'canine'],
+  dog:      ['dog', 'canine'],
+  billi:    ['cat', 'feline'],
+  cat:      ['cat', 'feline'],
+}
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
+function expandQuery(query: string): {
+  expanded: string
+  speciesHints: string[]
+  clinicalHints: string[]
+} {
   const lower = query.toLowerCase().trim()
-  let expanded = lower
-  for (const [hindi, english] of Object.entries(HINDI_KEYWORD_MAP)) {
-    if (lower.includes(hindi)) {
-      expanded += ' ' + english
+  const clinicalHints: string[] = []
+  const speciesHints: string[] = []
+
+  // Multi-word phrases first (longer = more specific)
+  const sortedKeys = Object.keys(HINDI_KEYWORD_MAP).sort((a, b) => b.length - a.length)
+  for (const key of sortedKeys) {
+    if (lower.includes(key)) {
+      clinicalHints.push(...HINDI_KEYWORD_MAP[key])
     }
   }
-  return expanded
+
+  for (const [key, values] of Object.entries(SPECIES_MAP)) {
+    if (lower.includes(key)) {
+      speciesHints.push(...values)
+    }
+  }
+
+  const expanded = [lower, ...clinicalHints, ...speciesHints].join(' ')
+  return { expanded, speciesHints, clinicalHints }
 }
 
-// Check if query is asking about a specific product by name
-function isSpecificProductQuery(query: string, products: MadvetProduct[]): MadvetProduct | null {
+function getSearchableText(p: MadvetProduct): string {
+  return [
+    p.product_name,
+    p.salt_ingredient,
+    (p as any).salt,
+    p.category,
+    p.indication,
+    p.species,
+    p.aliases,
+    p.description,
+    p.usp_benefits,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+/** 
+ * Exact / near-exact product name match (handles typos up to 2 chars)
+ */
+function findSpecificProductMatch(
+  query: string,
+  products: MadvetProduct[]
+): MadvetProduct | null {
   const lower = query.toLowerCase().trim()
+
   for (const p of products) {
     const name = (p.product_name || '').toLowerCase()
-    if (!name) continue
-    // Direct name match
+    if (!name || name.length < 3) continue
+
+    // Direct substring match
     if (lower.includes(name)) return p
-    // Check aliases
-    const aliases = (p.aliases || '').toLowerCase().split(',').map(a => a.trim())
+
+    // Alias match
+    const aliases = (p.aliases || '')
+      .toLowerCase()
+      .split(/[,|]/)
+      .map((a) => a.trim())
+      .filter((a) => a.length >= 3)
     for (const alias of aliases) {
-      if (alias.length >= 4 && lower.includes(alias)) return p
+      if (lower.includes(alias)) return p
     }
   }
+
   return null
 }
+
+function scoreProduct(p: MadvetProduct, queryWords: string[], speciesHints: string[], clinicalHints: string[]): number {
+  const text = getSearchableText(p)
+  let score = 0
+
+  for (const word of queryWords) {
+    if (word.length < 3) continue
+    if ((p.product_name || '').toLowerCase().includes(word)) score += 10
+    if ((p.indication || '').toLowerCase().includes(word)) score += 6
+    if (((p as any).salt_ingredient || (p as any).salt || '').toLowerCase().includes(word)) score += 5
+    if ((p.category || '').toLowerCase().includes(word)) score += 4
+    if ((p.aliases || '').toLowerCase().includes(word)) score += 8
+    if (text.includes(word)) score += 2
+  }
+
+  for (const hint of clinicalHints) {
+    if (text.includes(hint)) score += 4
+  }
+
+  for (const hint of speciesHints) {
+    const sp = (p.species || '').toLowerCase()
+    if (sp.includes(hint)) score += 5
+    else if (sp === '' || sp.includes('all')) score += 1 // species-agnostic bonus
+  }
+
+  // Category priority boosts
+  const lowerQuery = queryWords.join(' ').toLowerCase()
+  for (const [category, keywords] of Object.entries(CATEGORY_PRIORITY_MAP)) {
+    if (lowerQuery.includes(category)) {
+      for (const keyword of keywords) {
+        if (text.includes(keyword)) {
+          score += 15 // Dermatology boost
+          break
+        }
+      }
+    }
+  }
+
+  return score
+}
+
+// ─────────────────────────────────────────────
+// MAIN EXPORT
+// ─────────────────────────────────────────────
 
 export function searchProducts(
   products: MadvetProduct[],
@@ -91,68 +254,53 @@ export function searchProducts(
 ): MadvetProduct[] {
   if (!query?.trim() || products.length === 0) return []
 
-  // Check for specific product query first — if found, return only that product
-  const specificMatch = isSpecificProductQuery(query, products)
+  // Step 1: Specific product name query → return ONLY that product
+  const specificMatch = findSpecificProductMatch(query, products)
   if (specificMatch) return [specificMatch]
 
-  // Dynamically discover all string column names from actual product data
-  const allKeys = products.length > 0
-    ? Object.keys(products[0]).filter((k) => typeof products[0][k] === 'string')
-    : ['product_name', 'salt_ingredient', 'dosage', 'category', 'species', 'indication', 'aliases']
+  const lower = query.toLowerCase()
+  const { expanded, speciesHints, clinicalHints } = expandQuery(query)
 
-  const fuseKeys = allKeys.map((k) => ({
-    name: k,
-    weight:
-      k.includes('name') ? 3 :
-      k === 'aliases' ? 2.5 :
-      k.includes('indication') ? 2 :
-      k.includes('salt') || k.includes('composition') ? 2 :
-      k.includes('category') || k.includes('species') ? 1.5 : 0.5,
-  }))
+  // Step 2: Custom weighted scoring
+  const queryWords = lower.split(/\s+/).filter((w) => w.length >= 3)
+  const expandedWords = expanded.split(/\s+/).filter((w) => w.length >= 3)
+
+  const scoredByCustom = products
+    .map((p) => ({ p, score: scoreProduct(p, expandedWords, speciesHints, clinicalHints) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ p }) => p)
+
+  // Step 3: Fuse.js fuzzy search as fallback layer
+  const fuseKeys = [
+    { name: 'product_name',   weight: 3.0 },
+    { name: 'aliases',        weight: 2.5 },
+    { name: 'indication',     weight: 2.0 },
+    { name: 'salt_ingredient',weight: 2.0 },
+    { name: 'salt',           weight: 2.0 },
+    { name: 'category',       weight: 1.5 },
+    { name: 'species',        weight: 1.5 },
+    { name: 'description',    weight: 0.8 },
+    { name: 'usp_benefits',   weight: 0.5 },
+  ]
 
   const fuse = new Fuse(products, {
     keys: fuseKeys,
-    threshold: 0.45,
+    threshold: 0.42,
     includeScore: true,
     ignoreLocation: true,
     minMatchCharLength: 3,
     shouldSort: true,
   })
 
-  const lowerQuery = query.toLowerCase()
-  const expandedQuery = buildKeywordQuery(query)
+  const fuseResults = fuse.search(expanded).map((r) => r.item)
 
-  // Layer 0: direct word-level match — minimum 4 chars to avoid noise
-  const queryWords = lowerQuery.split(/\s+/).filter((w) => w.length >= 4)
-  const directMatches: MadvetProduct[] = []
-  
-  for (const p of products) {
-    const searchable = (
-      (p.product_name || '') + ' ' +
-      (p.salt_ingredient || p.salt || '') + ' ' +
-      (p.category || '') + ' ' +
-      (p.indication || '') + ' ' +
-      (p.aliases || '')
-    ).toLowerCase()
-    
-    if (queryWords.some((w) => searchable.includes(w))) {
-      directMatches.push(p)
-    }
-  }
-
-  // Layer 1: fuzzy on original query
-  const layer1 = fuse.search(query).map((r) => r.item)
-
-  // Layer 2: fuzzy on Hindi-expanded query
-  const layer2 = expandedQuery !== lowerQuery
-    ? fuse.search(expandedQuery).map((r) => r.item)
-    : []
-
-  // Merge all layers, deduplicate
+  // Step 4: Merge, deduplicate
   const seen = new Set<string>()
   const combined: MadvetProduct[] = []
-  for (const p of [...directMatches, ...layer1, ...layer2]) {
-    const key = (p.product_name || '') + '||' + (p.salt_ingredient || p.salt || '')
+
+  for (const p of [...scoredByCustom, ...fuseResults]) {
+    const key = `${p.product_name || ''}||${(p as any).salt_ingredient || (p as any).salt || ''}` 
     if (!seen.has(key)) {
       seen.add(key)
       combined.push(p)
@@ -160,4 +308,21 @@ export function searchProducts(
   }
 
   return combined.slice(0, topK)
+}
+
+// ─────────────────────────────────────────────
+// UTILITY: detect if message is a follow-up
+// ─────────────────────────────────────────────
+export function isFollowUpMessage(message: string): boolean {
+  if (message.length > 80) return false
+
+  const followUpPatterns = [
+    /^(aur|dose|kitna|kab|kaise|theek|haan|nahi|ok|acha|samajh|batao|explain|details|price|kitne|kahan)/i,
+    /^(और|खुराक|कितना|कब|कैसे|ठीक|हाँ|नहीं|ओके|अच्छा|बताओ|दाम|कहाँ)/u,
+    /^(how much|how long|where|when|can i|is it|what about|any side|withdrawal)/i,
+    /^\?+$/,
+    /^(yes|no|ok|okay|thanks|got it|understood)/i,
+  ]
+
+  return followUpPatterns.some((p) => p.test(message.trim()))
 }
