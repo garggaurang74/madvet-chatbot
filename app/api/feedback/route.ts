@@ -1,39 +1,38 @@
-// Run in Supabase SQL Editor:
-// CREATE TABLE chat_feedback (
-//   id SERIAL PRIMARY KEY,
-//   rating TEXT,
-//   message_content TEXT,
-//   created_at TIMESTAMPTZ DEFAULT NOW()
-// );
+/*
+Run in Supabase SQL Editor first:
+
+CREATE TABLE IF NOT EXISTS chat_feedback (
+  id SERIAL PRIMARY KEY,
+  rating TEXT NOT NULL,
+  message_content TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+*/
 
 import { NextRequest } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { messageId, rating, messageContent } = body
+    const { messageId, rating, messageContent } = await req.json()
+
+    if (!rating || !['up', 'down'].includes(rating)) {
+      return new Response(JSON.stringify({ error: 'Invalid rating' }), { status: 400 })
+    }
 
     const supabase = getSupabaseClient()
-    if (!supabase) {
-      return new Response(JSON.stringify({ ok: false }), { status: 500 })
+    if (supabase) {
+      await supabase.from('chat_feedback').insert({
+        rating,
+        message_content: (messageContent || '').slice(0, 1000), // limit size
+      })
     }
 
-    const { error } = await supabase.from('chat_feedback').insert({
-      rating: rating === 'up' ? 'up' : 'down',
-      message_content: messageContent ?? '',
-    })
-
-    if (error) {
-      console.error('[Madvet] Feedback insert error:', error)
-      return new Response(JSON.stringify({ ok: false }), { status: 500 })
-    }
-
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },
-      status: 200,
     })
-  } catch {
-    return new Response(JSON.stringify({ ok: false }), { status: 500 })
+  } catch (err) {
+    console.error('[Feedback error]', err)
+    return new Response(JSON.stringify({ success: false }), { status: 500 })
   }
 }

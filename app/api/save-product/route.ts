@@ -3,26 +3,50 @@ import { getSupabaseClient } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
   try {
+    // Simple secret-based auth — set ADMIN_SECRET in Vercel env vars
+    const authHeader = req.headers.get('x-admin-secret')
+    const expectedSecret = process.env.ADMIN_SECRET
+
+    if (expectedSecret && authHeader !== expectedSecret) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    }
+
     const product = await req.json()
     const supabase = getSupabaseClient()
-    if (!supabase) return Response.json({ error: 'Supabase not configured' }, { status: 500 })
+    if (!supabase) {
+      return new Response(JSON.stringify({ error: 'Supabase not configured' }), { status: 500 })
+    }
 
-    // Remove id if present (let Supabase auto-generate)
-    const { id, ...productData } = product
+    // Sanitize — only allow known fields
+    const allowed = [
+      'product_name', 'salt_ingredient', 'packaging', 'description',
+      'category', 'species', 'indication', 'aliases', 'dosage', 'usp_benefits'
+    ]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const safe: Record<string, any> = {}
+    for (const key of allowed) {
+      if (product[key] !== undefined) safe[key] = product[key]
+    }
+
+    if (!safe.product_name) {
+      return new Response(JSON.stringify({ error: 'product_name is required' }), { status: 400 })
+    }
 
     const { data, error } = await supabase
       .from('products_enriched')
-      .insert(productData)
+      .insert(safe)
       .select()
       .single()
 
     if (error) {
       console.error('[Save Product Error]', error)
-      return Response.json({ error: error.message }, { status: 500 })
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 })
     }
 
-    return Response.json({ success: true, product: data })
+    return new Response(JSON.stringify({ success: true, product: data }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 })
+    return new Response(JSON.stringify({ error: String(err) }), { status: 500 })
   }
 }
