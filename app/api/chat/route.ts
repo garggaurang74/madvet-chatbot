@@ -49,14 +49,17 @@ function formatProductContext(
   const formatOne = (p: MadvetProduct, i: number, label = ''): string => {
     const lines: string[] = [`[${label}Product ${i + 1}]`]
     if (p.product_name)                         lines.push(`Name: ${p.product_name}`)
+    // ❌ NO salt_ingredient
+    // ❌ NO salt
+    // ❌ NO composition
     if (p.category)                             lines.push(`Category: ${p.category}`)
     if (p.species)                              lines.push(`For Species: ${p.species}`)
     if (p.indication)                           lines.push(`Used For: ${p.indication}`)
     if (p.packaging || (p as any).packing)      lines.push(`Packing: ${p.packaging || (p as any).packing}`)
-    if (p.dosage)                               lines.push(`Dosage: ${p.dosage}`)
     if (p.description)                          lines.push(`Details: ${p.description}`)
     if (p.usp_benefits)                         lines.push(`Benefits: ${p.usp_benefits}`)
     if (p.aliases)                              lines.push(`Also known as: ${p.aliases}`)
+    // ❌ NO dosage shown to user either
     return lines.join('\n')
   }
 
