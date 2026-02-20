@@ -63,7 +63,6 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
   ointment:           ['wound', 'dermatological', 'topical', 'ointment'],
   maggot:             ['wound', 'dermatological', 'topical', 'maggot'],
   ghao:               ['wound', 'topical', 'antiseptic', 'dermatological'],
-  zakhm:              ['wound', 'topical', 'antiseptic', 'dermatological'],
 
   // Respiratory
   sans:               ['respiratory', 'pneumonia', 'breathing'],
