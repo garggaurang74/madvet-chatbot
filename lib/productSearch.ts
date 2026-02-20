@@ -309,7 +309,7 @@ export function searchProducts(
   const combined: MadvetProduct[] = []
 
   for (const p of [...scoredByCustom, ...fuseResults]) {
-    const key = `${p.product_name ?? ''}||${p.salt_ingredient ?? ''}`
+    const key = `${p.product_name ?? ''}||${p.salt_ingredient ?? ''}||${p.category ?? ''}` 
     if (!seen.has(key)) {
       seen.add(key)
       combined.push(p)
