@@ -116,7 +116,7 @@ function buildApiMessages(history: Message[], enrichedUserMessage: Message): Mes
 function getPreviousQuery(messages: Message[]): string | null {
   const userMessages = messages.filter((m): m is Message & { role: 'user' } => m.role === 'user').reverse()
   for (const m of userMessages) {
-    const raw = m.content.replace(/Customer (says|asks): "(.+?)"\n[\s\S]*/, '$2').trim()
+    const raw = m.content.replace(/Customer (?:says|asks): "(.+?)"[\s\S]*/, '$1').trim()
     if (raw && !isFollowUpMessage(raw) && raw.length > 3) return raw
   }
   return null
