@@ -1,44 +1,43 @@
 import { createClient } from '@supabase/supabase-js'
 
+// ─────────────────────────────────────────────
+// CANONICAL TYPE — matches DB exactly
+// Single source of truth — no more dual column names
+// ─────────────────────────────────────────────
 export interface MadvetProduct {
-  product_name?: string
-  salt?: string
-  salt_ingredient?: string
-  dosage?: string
-  packing?: string
-  packaging?: string
-  category?: string
-  species?: string
-  indication?: string
-  description?: string
-  usp_benefits?: string
-  aliases?: string
-  [key: string]: unknown
+  id?:              number
+  product_name?:    string
+  salt_ingredient?: string   // canonical — DB column name
+  packaging?:       string   // canonical — DB column name
+  category?:        string
+  species?:         string
+  indication?:      string
+  description?:     string
+  usp_benefits?:    string
+  aliases?:         string
+  dosage?:          string   // stored in DB but NEVER shown to user
+  created_at?:      string
+  updated_at?:      string
 }
 
-let cachedProducts: MadvetProduct[] = []
-let cacheTimestamp = 0
-let resolvedTableName: string | null = null
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
-
-// Fallback table names to try (Supabase table names are often lowercase)
-const FALLBACK_TABLE_NAMES = [
-  'products_enriched',
-  'products',
-  'product',
-  'madvet_products',
-  'madvet_product',
-  'items',
-]
-
+// ─────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────
 function getConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  const table = process.env.NEXT_PUBLIC_SUPABASE_TABLE?.trim() || 
-                process.env.SUPABASE_PRODUCTS_TABLE?.trim() || 
-                'products_enriched'
-  const valid =
-    url && key && url.startsWith('http') && !url.includes('YOUR_')
+  const url   = process.env.NEXT_PUBLIC_SUPABASE_URL   ?? ''
+  const key   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+  const table = (
+    process.env.NEXT_PUBLIC_SUPABASE_TABLE ??
+    process.env.SUPABASE_PRODUCTS_TABLE    ??
+    'products_enriched'
+  ).trim()
+
+  const valid = Boolean(
+    url && key &&
+    url.startsWith('http') &&
+    !url.includes('YOUR_')
+  )
+
   return { url, key, table, valid }
 }
 
@@ -48,61 +47,55 @@ export function getSupabaseClient() {
   return createClient(url, key)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function resolveTableName(supabase: any): Promise<string> {
-  if (resolvedTableName) return resolvedTableName
-  const { table } = getConfig()
-  const toTry = table ? [table, ...FALLBACK_TABLE_NAMES.filter((t) => t !== table)] : FALLBACK_TABLE_NAMES
-  for (const name of toTry) {
-    const { error } = await supabase.from(name).select('*').limit(1)
-    if (!error) {
-      resolvedTableName = name
-      return name
-    }
-  }
-  return toTry[0] || 'products'
-}
-
+// ─────────────────────────────────────────────
+// FETCH — single cache layer (productCache.ts handles TTL)
+// ─────────────────────────────────────────────
 export async function fetchAllProducts(): Promise<MadvetProduct[]> {
-  const now = Date.now()
-  if (cachedProducts.length > 0 && now - cacheTimestamp < CACHE_TTL_MS) {
-    return cachedProducts
-  }
+  const { table } = getConfig()
+  const supabase  = getSupabaseClient()
 
-  const supabase = getSupabaseClient()
   if (!supabase) {
+    console.warn('[Madvet] Supabase not configured')
     return []
   }
 
   try {
-    const table = await resolveTableName(supabase)
     const { data, error } = await supabase
       .from(table)
-      .select('*')
+      .select(
+        'id, product_name, salt_ingredient, packaging, category, ' +
+        'species, indication, description, usp_benefits, aliases, dosage'
+      )
       .limit(500)
 
     if (error) {
-      console.error('[Madvet] Supabase fetch error:', error)
-      return cachedProducts.length > 0 ? cachedProducts : []
+      console.error('[Madvet] Supabase fetch error:', error.message)
+      return []
     }
 
-    const products = (data || []).map((row: Record<string, unknown>) => {
-      const p: MadvetProduct = {}
-      for (const [k, v] of Object.entries(row)) {
-        if (v != null && typeof v === 'string') {
-          p[k] = v
-        } else if (v != null) {
-          p[k] = String(v)
-        }
-      }
-      return p
-    }) as MadvetProduct[]
-
-    cachedProducts = products
-    cacheTimestamp = now
+    // Normalize rows — ensure every field is a string or undefined
+    const products = (data ?? []).map((row: any): MadvetProduct => ({
+      id:              Number(row.id) || undefined,
+      product_name:    str(row.product_name),
+      salt_ingredient: str(row.salt_ingredient),
+      packaging:       str(row.packaging),
+      category:        str(row.category),
+      species:         str(row.species),
+      indication:      str(row.indication),
+      description:     str(row.description),
+      usp_benefits:    str(row.usp_benefits),
+      aliases:         str(row.aliases),
+      dosage:          str(row.dosage),
+    }))
     return products
   } catch (err) {
     console.error('[Madvet] Supabase fetch exception:', err)
-    return cachedProducts.length > 0 ? cachedProducts : []
+    return []
   }
+}
+
+function str(v: unknown): string | undefined {
+  if (v == null) return undefined
+  const s = String(v).trim()
+  return s.length > 0 ? s : undefined
 }

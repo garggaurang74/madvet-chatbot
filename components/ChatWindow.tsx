@@ -37,6 +37,7 @@ export default function ChatWindow() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeConvIdRef = useRef<string | null>(null)
 
@@ -81,11 +82,22 @@ export default function ChatWindow() {
     if (activeConversationId === id) startNewChat()
   }, [activeConversationId, startNewChat])
 
+const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+  e.stopPropagation()
+  if (confirmDeleteId === id) {
+    handleDelete(id)
+    setConfirmDeleteId(null)
+  } else {
+    setConfirmDeleteId(id)
+    setTimeout(() => setConfirmDeleteId(null), 3000)
+  }
+}
+
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || sending) return
     setShowQuickReplies(false)
 
-    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
+    const userMsg: ChatMessage = { id: Math.random().toString(36).substring(2, 15), role: 'user', content: text.trim() }
     setMessages(prev => [...prev, userMsg])
     setSending(true)
 
@@ -103,13 +115,18 @@ export default function ChatWindow() {
     // Save user message
     if (convId) await saveMessage(convId, 'user', text.trim())
 
-    const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }))
+    // FIX: CRITICAL - Send clean history WITHOUT current user message
+    // route.ts will add enriched version, so we don't include latest message twice
+    const cleanHistory = messages.map(m => ({ role: m.role, content: m.content }))
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, latestMessage: text.trim() }),
+        body: JSON.stringify({ 
+          messages: cleanHistory, 
+          latestMessage: text.trim() 
+        }),
       })
 
       if (!res.ok) throw new Error('Request failed')
@@ -117,7 +134,7 @@ export default function ChatWindow() {
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       let full = ''
-      const assistantId = crypto.randomUUID()
+      const assistantId = Math.random().toString(36).substring(2, 15)
 
       setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', products: [] }])
 
@@ -135,8 +152,8 @@ export default function ChatWindow() {
 
       // Save assistant message
       if (convId && full) await saveMessage(convId, 'assistant', full)
-
-    } catch {
+    } catch (error) {
+      console.error('[ChatWindow] Error sending message:', error)
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(), role: 'assistant',
         content: 'Thoda technical issue aa gaya, please dobara try karein 🙏'
@@ -229,6 +246,7 @@ export default function ChatWindow() {
                   role={m.role}
                   content={m.content}
                   products={m.products}
+                  showFeedback={m.role === 'assistant' && m.content.length > 0}
                   dark={true}
                 />
               ))}

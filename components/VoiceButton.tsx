@@ -5,9 +5,10 @@ import { useState, useRef } from 'react'
 interface VoiceButtonProps {
   onTranscript: (text: string) => void
   disabled?: boolean
+  dark?: boolean
 }
 
-export default function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
+export default function VoiceButton({ onTranscript, disabled, dark }: VoiceButtonProps) {
   const [listening, setListening] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)

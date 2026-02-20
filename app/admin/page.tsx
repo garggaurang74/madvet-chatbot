@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { generateAdminToken, isAdminAuthenticated, setStoredAdminToken, clearStoredAdminToken } from '@/lib/auth'
 
 type ProductData = {
   product_name: string
@@ -31,16 +32,16 @@ const CATEGORIES = [
 
 const SPECIES_OPTIONS = ['Cattle', 'Buffalo', 'Sheep', 'Goat', 'Dog', 'Cat', 'Horse', 'Poultry']
 
-function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
+function PasswordGate({ onUnlock }: { onUnlock: (password: string) => boolean }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
   const [shake, setShake] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (password === 'madvetkaboss') {
-      localStorage.setItem('madvet_admin_password', 'madvetkaboss')
-      onUnlock()
+    const isValid = onUnlock(password)
+    if (isValid) {
+      setError(false)
     } else {
       setError(true)
       setShake(true)
@@ -119,15 +120,22 @@ export default function AdminPage() {
   const saltInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const saved = localStorage.getItem('madvet_admin_auth')
-    if (saved === 'madvetkaboss') setUnlocked(true)
+    if (isAdminAuthenticated()) {
+      setUnlocked(true)
+    }
   }, [])
 
   if (!unlocked) {
     return (
-      <PasswordGate onUnlock={() => {
-        localStorage.setItem('madvet_admin_auth', 'madvetkaboss')
-        setUnlocked(true)
+      <PasswordGate onUnlock={(password) => {
+        // In production, verify against hashed password
+        const isValid = password === (process.env.ADMIN_PASSWORD || 'madvetkaboss')
+        if (isValid) {
+          const token = generateAdminToken()
+          setStoredAdminToken(token)
+          setUnlocked(true)
+        }
+        return isValid
       }} />
     )
   }

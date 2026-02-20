@@ -4,93 +4,78 @@ import type { MadvetProduct } from '@/lib/supabase'
 
 interface ProductCardProps {
   product: MadvetProduct
-  dark?: boolean
+  dark?:   boolean
 }
 
 export default function ProductCard({ product, dark = false }: ProductCardProps) {
-  const name = product.product_name || 'Unknown Product'
+  const name      = product.product_name ?? 'Unknown Product'
+  const packing   = product.packaging
+  const category  = product.category
+  const species   = product.species
+  const indication = product.indication
+  const benefits  = product.usp_benefits
 
-  // Support both old (salt, packing) and new (salt_ingredient, packaging) column names
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p = product as any
-  const salt = p.salt_ingredient || p.salt
-  const dosage = p.dosage
-  const packing = p.packaging || p.packing
-  const category = p.category
-  const species = p.species
-  const indication = p.indication
-
-  const needsWithdrawal =
-    category?.toLowerCase().includes('antibiotic') ||
-    category?.toLowerCase().includes('antiparasitic') ||
-    salt?.toLowerCase().includes('ivermectin') ||
-    salt?.toLowerCase().includes('fenbendazole') ||
-    salt?.toLowerCase().includes('ceftiofur') ||
-    salt?.toLowerCase().includes('enrofloxacin') ||
-    salt?.toLowerCase().includes('oxytetracycline')
+  // ❌ NEVER show: salt_ingredient, dosage, description (per system prompt rules)
 
   return (
     <div className={`rounded-xl border-2 p-4 shadow-sm ${
-      dark 
-        ? 'bg-[#2f2f2f] border-green-700' 
+      dark
+        ? 'bg-[#2f2f2f] border-green-700'
         : 'bg-white border-madvet-accent'
     }`}>
+
+      {/* Name + Category badge */}
       <div className="flex items-start justify-between gap-2">
-        <p className={`font-semibold ${
-          dark ? 'text-green-400' : 'text-madvet-primary'
-        }`}>{name}</p>
+        <p className={`font-semibold ${dark ? 'text-green-400' : 'text-madvet-primary'}`}>
+          {name}
+        </p>
         {category && (
           <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
-            dark 
-              ? 'bg-green-700 text-green-400' 
+            dark
+              ? 'bg-green-700/50 text-green-300'
               : 'bg-madvet-accent text-madvet-primary'
           }`}>
             {category.split('/')[0].trim()}
           </span>
         )}
       </div>
-      {salt && (
-        <p className={`mt-1.5 text-sm ${
-          dark ? 'text-gray-300' : 'text-gray-600'
-        }`}>
-          <span className="font-medium">🧪 Composition:</span> {salt}
-        </p>
-      )}
+
+      {/* Species */}
       {species && (
-        <p className={`mt-1 text-sm ${
-          dark ? 'text-gray-400' : 'text-gray-500'
-        }`}>
-          <span className="font-medium">🐄 Species:</span> {species}
+        <p className={`mt-1.5 text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+          🐄 <span className="font-medium">Species:</span> {species}
         </p>
       )}
+
+      {/* Indication */}
       {indication && (
-        <p className={`mt-1 text-sm italic ${
-          dark ? 'text-gray-300' : 'text-gray-600'
-        }`}>{indication}</p>
-      )}
-      {dosage && (
-        <p className={`mt-1 text-sm ${
-          dark ? 'text-gray-200' : 'text-gray-700'
-        }`}>
-          <span className="font-medium">💊 Dosage:</span> {dosage}
+        <p className={`mt-1 text-sm italic ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+          {indication}
         </p>
       )}
+
+      {/* Packing */}
       {packing && (
-        <p className={`mt-1 text-sm ${
-          dark ? 'text-gray-300' : 'text-gray-600'
-        }`}>
-          <span className="font-medium">📦 Packing:</span> {packing}
+        <p className={`mt-1 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+          📦 <span className="font-medium">Packing:</span> {packing}
         </p>
       )}
-      {needsWithdrawal && (
-        <p className={`mt-2 text-xs font-medium px-2 py-1 rounded-lg ${
-          dark 
-            ? 'bg-red-900/30 text-red-400' 
-            : 'bg-red-50 text-red-600'
-        }`}>
-          ⚠️ Withdrawal period (milk/meat) check karein — product leaflet dekhein
+
+      {/* Benefits */}
+      {benefits && (
+        <p className={`mt-1 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+          ✅ {benefits}
         </p>
       )}
+
+      {/* Vet reminder */}
+      <p className={`mt-3 text-xs px-2 py-1.5 rounded-lg ${
+        dark
+          ? 'bg-green-900/30 text-green-400'
+          : 'bg-green-50 text-green-700'
+      }`}>
+        🩺 Sahi dose ke liye apne vet se milein 🙏
+      </p>
     </div>
   )
 }

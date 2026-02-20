@@ -1,33 +1,24 @@
-/**
- * lib/tts.ts
- * Picks the best natural Hindi voice available in the browser.
- *
- * Priority:
- *   1. Microsoft Swara (hi-IN) — Edge, very natural female
- *   2. Microsoft Madhur (hi-IN) — Edge, natural male
- *   3. Google हिन्दी — Chrome, decent
- *   4. Any hi-IN voice
- *   5. Any hi-* locale
- */
+// ─────────────────────────────────────────────
+// TTS — picks best Hindi voice available
+// FIX: Handles Chrome async voice loading correctly
+// ─────────────────────────────────────────────
 
 let currentUtterance: SpeechSynthesisUtterance | null = null
 
+const VOICE_PRIORITY: Array<(v: SpeechSynthesisVoice) => boolean> = [
+  (v) => /swara/i.test(v.name),          // Microsoft Swara — best
+  (v) => /madhur/i.test(v.name),         // Microsoft Madhur
+  (v) => /google.*hindi/i.test(v.name),  // Google Hindi
+  (v) => /hindi/i.test(v.name),
+  (v) => v.lang === 'hi-IN',
+  (v) => v.lang.startsWith('hi'),
+]
+
 function getBestHindiVoice(): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !window.speechSynthesis) return null
-
   const voices = window.speechSynthesis.getVoices()
   if (!voices.length) return null
-
-  const priority: Array<(v: SpeechSynthesisVoice) => boolean> = [
-    (v) => /swara/i.test(v.name),
-    (v) => /madhur/i.test(v.name),
-    (v) => /google.*hindi/i.test(v.name),
-    (v) => /hindi/i.test(v.name),
-    (v) => v.lang === 'hi-IN',
-    (v) => v.lang.startsWith('hi'),
-  ]
-
-  for (const test of priority) {
+  for (const test of VOICE_PRIORITY) {
     const match = voices.find(test)
     if (match) return match
   }
@@ -43,28 +34,40 @@ export function speakText(text: string, onEnd?: () => void): void {
   const utter = new SpeechSynthesisUtterance(text)
   currentUtterance = utter
 
-  const voice = getBestHindiVoice()
-  if (voice) {
-    utter.voice = voice
-    utter.lang = voice.lang
-  } else {
-    utter.lang = 'hi-IN'
-    // Retry when voices load (Chrome loads voices async)
-    window.speechSynthesis.onvoiceschanged = () => {
-      const v = getBestHindiVoice()
-      if (v) { utter.voice = v; utter.lang = v.lang }
-      window.speechSynthesis.onvoiceschanged = null
-    }
-  }
+  utter.rate        = 0.92
+  utter.pitch       = 1.0
+  utter.volume      = 1.0
+  utter.lang        = 'hi-IN'
 
-  utter.rate = 0.92   // Slightly slower = more natural
-  utter.pitch = 1.0
-  utter.volume = 1.0
-
-  utter.onend = () => { currentUtterance = null; onEnd?.() }
+  utter.onend  = () => { currentUtterance = null; onEnd?.() }
   utter.onerror = () => { currentUtterance = null; onEnd?.() }
 
-  window.speechSynthesis.speak(utter)
+  // FIX: Chrome loads voices async — wait then assign
+  const trySpeak = () => {
+    const voice = getBestHindiVoice()
+    if (voice) {
+      utter.voice = voice
+      utter.lang  = voice.lang
+    }
+    window.speechSynthesis.speak(utter)
+  }
+
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length > 0) {
+    trySpeak()
+  } else {
+    // FIX: Chrome needs this event before voices are available
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.onvoiceschanged = null
+      trySpeak()
+    }
+    // Fallback: speak anyway after 300ms if event never fires
+    setTimeout(() => {
+      if (currentUtterance === utter && !window.speechSynthesis.speaking) {
+        trySpeak()
+      }
+    }, 300)
+  }
 }
 
 export function stopSpeaking(): void {

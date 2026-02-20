@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import VoiceButton from './VoiceButton'
 
 interface InputBarProps {
   onSend: (text: string) => void
@@ -60,6 +61,19 @@ export default function InputBar({ onSend, disabled, dark }: InputBarProps) {
           focus:outline-none focus:ring-2 disabled:opacity-60 
           max-h-[120px] overflow-y-auto ${inputClass}`}
       />
+      
+      {/* Voice Button */}
+      <VoiceButton
+        onTranscript={(transcript) => {
+          setValue(transcript)
+          if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto'
+          }
+        }}
+        disabled={disabled}
+        dark={dark}
+      />
+      
       <button
         onClick={handleSubmit}
         disabled={!value.trim() || disabled}

@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
-import { fetchAllProducts } from '@/lib/supabase'
+import { getCachedProducts } from '@/lib/productCache'
 
+// FIX: Use getCachedProducts — not fetchAllProducts directly
+// fetchAllProducts bypasses cache layer
 export async function GET() {
   try {
-    const products = await fetchAllProducts()
+    const products = await getCachedProducts()
     return NextResponse.json({ products })
   } catch (err) {
-    console.error('[Madvet] Products API error:', err)
+    console.error('[Products API]', err)
     return NextResponse.json({ products: [] }, { status: 200 })
   }
 }
