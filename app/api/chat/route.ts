@@ -161,7 +161,8 @@ export async function POST(req: NextRequest) {
     ])
 
     const effectivelyFollowUp = isFollowUp || expanded.isFollowUp
-    const matched = searchProducts(products, searchQuery, expanded, 3)
+    const isCategory = /konsa|kaunsa|kya (dein|use|lagayein)|which product/i.test(truncatedMessage)
+    const matched = searchProducts(products, searchQuery, expanded, isCategory ? 5 : 3)
     const context = formatProductContext(matched)
 
     const enrichedContent = effectivelyFollowUp

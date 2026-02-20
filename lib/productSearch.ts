@@ -275,7 +275,7 @@ export function searchProducts(
   const eligibleProducts = products
 
   // Step 3: Custom weighted scoring on eligible products only
-  const dynamicThreshold = expanded.clinicalTerms.length > 0 ? 8 : 15
+  const dynamicThreshold = expanded.clinicalTerms.length > 0 ? 4 : 8
   const scoredByCustom = eligibleProducts
     .map((p) => ({ p, score: scoreProduct(p, expandedWords, expanded.species, expanded.clinicalTerms) }))
     .filter(({ score }) => score >= dynamicThreshold)
