@@ -38,11 +38,11 @@ function formatProductContext(products: MadvetProduct[]): string {
     .map((p, i) => {
       const lines: string[] = [`[Product ${i + 1}]`]
       if (p.product_name)                    lines.push(`Name: ${p.product_name}`)
-      if (p.salt_ingredient || p.salt)       lines.push(`Composition: ${p.salt_ingredient || p.salt}`)
+      if (p.salt_ingredient)                   lines.push(`Composition: ${p.salt_ingredient}`)
       if (p.category)                        lines.push(`Category: ${p.category}`)
       if (p.species)                         lines.push(`For Species: ${p.species}`)
       if (p.indication)                      lines.push(`Used For: ${p.indication}`)
-      if (p.packaging || p.packing)         lines.push(`Packing: ${p.packaging || p.packing}`)
+      if (p.packaging)                        lines.push(`Packing: ${p.packaging}`)
       if (p.dosage)                          lines.push(`Dosage: ${p.dosage}`)
       if (p.description)                     lines.push(`Details: ${p.description}`)
       if (p.usp_benefits)                    lines.push(`Benefits: ${p.usp_benefits}`)
@@ -88,10 +88,10 @@ export async function POST(req: NextRequest) {
 
     // Matched products first, then remaining — AI always has full catalog
     const matchedKeys = new Set(
-      matched.map((p) => (p.product_name || '') + (p.salt_ingredient || p.salt || ''))
+      matched.map((p) => (p.product_name || '') + (p.salt_ingredient || ''))
     )
     const remaining = products.filter(
-      (p) => !matchedKeys.has((p.product_name || '') + (p.salt_ingredient || p.salt || ''))
+      (p) => !matchedKeys.has((p.product_name || '') + (p.salt_ingredient || ''))
     )
     const toInject = [...matched, ...remaining]
     const productBlock = formatProductContext(toInject)
