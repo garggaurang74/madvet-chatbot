@@ -90,13 +90,18 @@ export default function MessageBubble({
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
 
-            {products.length > 0 && (
-              <div className="space-y-3">
-                {products.map((p, i) => (
-                  <ProductCard key={i} product={p} dark={dark} />
-                ))}
-              </div>
-            )}
+            {products.length > 0 && (() => {
+  const mentioned = products.filter(p =>
+    p.product_name && content.toLowerCase().includes(p.product_name.toLowerCase())
+  )
+  return mentioned.length > 0 ? (
+    <div className="space-y-3">
+      {mentioned.map((p, i) => (
+        <ProductCard key={i} product={p} dark={dark} />
+      ))}
+    </div>
+  ) : null
+})()}
 
             {content && (
               <div className="flex items-center gap-1">
