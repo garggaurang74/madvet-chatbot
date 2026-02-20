@@ -2,9 +2,7 @@ import type { MadvetProduct } from './supabase'
 
 // ─────────────────────────────────────────────
 // Extracts products MENTIONED BY NAME in bot response text
-// Only shows card if bot actually recommended the product
-// FIX: Uses canonical salt_ingredient — not old p.salt
-// FIX: Stricter matching — avoids false positives
+// Shows cards for ALL products the bot recommended
 // ─────────────────────────────────────────────
 export function extractMentionedProducts(
   text:     string,
@@ -16,17 +14,24 @@ export function extractMentionedProducts(
   const seen   = new Set<string>()
   const result: MadvetProduct[] = []
 
-  for (const p of products) {
+  // Sort products by name length descending — longer/more specific names match first
+  // This prevents "Tikks" matching before "Tikks-Stop 6ml" etc.
+  const sorted = [...products].sort(
+    (a, b) => (b.product_name?.length ?? 0) - (a.product_name?.length ?? 0)
+  )
+
+  for (const p of sorted) {
     const name = (p.product_name ?? '').toLowerCase().trim()
     if (!name || name.length < 3) continue
 
-    // FIX: Only match by product name — not by salt
-    // Salt matching caused wrong products to appear
-    // Bot mentions product by name — that's the signal
-    const nameWords    = name.split(/\s+/).filter((w) => w.length >= 3)
-    const allWordsMatch = nameWords.length > 0 && nameWords.every((w) => lower.includes(w))
+    // Direct full name match (most reliable)
+    const nameMatch = lower.includes(name)
 
-    // Also check aliases
+    // All significant words match (for multi-word product names)
+    const nameWords     = name.split(/\s+/).filter((w) => w.length >= 3)
+    const allWordsMatch = nameWords.length > 1 && nameWords.every((w) => lower.includes(w))
+
+    // Alias match
     const aliases = (p.aliases ?? '')
       .toLowerCase()
       .split(/[,|]/)
@@ -34,12 +39,11 @@ export function extractMentionedProducts(
       .filter((a) => a.length >= 4)
     const aliasMatch = aliases.some((alias) => lower.includes(alias))
 
-    if ((allWordsMatch || aliasMatch) && !seen.has(name)) {
+    if ((nameMatch || allWordsMatch || aliasMatch) && !seen.has(name)) {
       seen.add(name)
       result.push(p)
     }
   }
 
-  // FIX: Max 1 product card — bot recommends one at a time
-  return result.slice(0, 1)
+  return result
 }

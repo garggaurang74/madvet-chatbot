@@ -97,7 +97,6 @@ function formatProduct(p: MadvetProduct, index: number): string {
   if (p.species)      parts.push(`For Species: ${p.species}`)
   if (p.indication)   parts.push(`Used For: ${p.indication}`)
   if (p.packaging)    parts.push(`Packing: ${p.packaging}`)
-  if (p.dosage)       parts.push(`Dosage Guidance: ${p.dosage}`)
   if (p.description)  parts.push(`Details: ${p.description}`)
   if (p.usp_benefits) parts.push(`Benefits: ${p.usp_benefits}`)
   if (p.aliases)      parts.push(`Also known as: ${p.aliases}`)

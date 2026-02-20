@@ -84,6 +84,18 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
   dawai:              ['medicine', 'treatment'],
   dawa:               ['medicine', 'treatment'],
   ilaj:               ['treatment', 'medicine'],
+
+  // Product-specific common misspellings / short queries
+  // These are real Madvet products — map to their clinical keywords for search
+  'pure flud':        ['fluid', 'electrolyte', 'oral rehydration', 'dehydration', 'diarrhea', 'pure flud'],
+  'pure fluid':       ['fluid', 'electrolyte', 'oral rehydration', 'dehydration'],
+  'projest':          ['progesterone', 'reproductive', 'hormone', 'repeat breeding'],
+  'projest np':       ['progesterone', 'reproductive', 'hormone'],
+  'd projest':        ['progesterone', 'reproductive', 'hormone'],
+  'd projest np':     ['progesterone', 'reproductive', 'hormone', 'injectable'],
+  tikks:              ['tick', 'ectoparasite', 'external parasite', 'permethrin', 'ectoparasiticide'],
+  tiks:               ['tick', 'ectoparasite', 'ectoparasiticide'],
+  flud:               ['fluid', 'electrolyte', 'oral rehydration', 'dehydration'],
 }
 
 // ─────────────────────────────────────────────
@@ -185,28 +197,92 @@ function isExcluded(p: MadvetProduct, excludeCategories: string[]): boolean {
   return excludeCategories.some(ex => cat.includes(ex) || ind.includes(ex))
 }
 
+// ─────────────────────────────────────────────
+// SMART PRODUCT NAME MATCHING
+// Handles: spaces ("pure flud"→"pureflud"), dots/dashes ("D. Progest-NP"),
+//          spelling variants ("projest"↔"progest"), apostrophes ("Tikk's")
+// ─────────────────────────────────────────────
+
+// Strip punctuation + spaces, lowercase — "D. Progest-NP" → "dprogestnp"
+function normalizeName(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[.\-'\u2019\s%]/g, '')
+    .replace(/[i1]/g, 'l')
+}
+
+// Phonetic normalize — collapses doubled letters and sound variants
+// "progest" and "projest" both → "projet"
+function normalizePhonetic(str: string): string {
+  return normalizeName(str)
+    .replace(/(.)\1+/g, '$1')   // tikkk → tik
+    .replace(/ph/g, 'f')
+    .replace(/gh/g, 'g')
+    .replace(/gest/g, 'jest')   // progest = projest
+}
+
 function findSpecificProductMatch(
   query:    string,
   products: MadvetProduct[]
 ): MadvetProduct | null {
-  const lower = query.toLowerCase().trim().replace(/[i1]/g, 'l')
+  const lq        = query.toLowerCase().trim()
+  const normLq    = normalizeName(lq)
+  const phonLq    = normalizePhonetic(lq)
 
-  for (const p of products) {
-    const name = (p.product_name ?? '').toLowerCase().replace(/[i1]/g, 'l')
-    if (!name || name.length < 3) continue
-    if (lower.includes(name)) return p
+  // Split query into meaningful words (normalized + phonetic)
+  const qWordsNorm = lq.split(/\s+/).map(normalizeName).filter(w => w.length >= 4)
+  const qWordsPhon = lq.split(/\s+/).map(normalizePhonetic).filter(w => w.length >= 4)
 
-    const aliases = (p.aliases ?? '')
-      .toLowerCase()
-      .replace(/[i1]/g, 'l')
-      .split(/[,|]/)
-      .map((a) => a.trim())
-      .filter((a) => a.length >= 3)
+  function matchesQuery(candidate: string): boolean {
+    if (!candidate || candidate.length < 3) return false
+    const lc       = candidate.toLowerCase()
+    const normC    = normalizeName(candidate)
+    const phonC    = normalizePhonetic(candidate)
 
+    // 1. Direct substring match
+    if (lq.includes(lc) || lc.includes(lq)) return true
+
+    // 2. Normalized match — handles spaces/punctuation ("pure flud" ↔ "Pureflud")
+    if (normC.length >= 4 && normLq.includes(normC)) return true
+
+    // 3. Phonetic match — handles spelling variants ("projest" ↔ "Progest-NP")
+    if (phonC.length >= 4 && phonLq.includes(phonC)) return true
+
+    // 4. Word-level match — each significant word of candidate vs query words
+    const candWords = candidate.split(/\s+/).map(normalizeName).filter(w => w.length >= 4)
+    const candWordsP = candidate.split(/\s+/).map(normalizePhonetic).filter(w => w.length >= 4)
+
+    for (const cw of candWords) {
+      // Exact word match
+      if (qWordsNorm.some(qw => qw === cw)) return true
+      // One contains the other (handles "tikks" ↔ "tikksstop")
+      if (qWordsNorm.some(qw => qw.includes(cw) || cw.includes(qw))) return true
+    }
+    for (const cw of candWordsP) {
+      if (qWordsPhon.some(qw => qw === cw || qw.includes(cw) || cw.includes(qw))) return true
+    }
+
+    return false
+  }
+
+  // Longer product names first — more specific wins
+  const sorted = [...products].sort(
+    (a, b) => (b.product_name?.length ?? 0) - (a.product_name?.length ?? 0)
+  )
+
+  // Pass 1: product name
+  for (const p of sorted) {
+    if (matchesQuery(p.product_name ?? '')) return p
+  }
+
+  // Pass 2: aliases (split on comma or pipe)
+  for (const p of sorted) {
+    const aliases = (p.aliases ?? '').split(/[,|،]/).map(a => a.trim()).filter(a => a.length >= 3)
     for (const alias of aliases) {
-      if (lower.includes(alias)) return p
+      if (matchesQuery(alias)) return p
     }
   }
+
   return null
 }
 
@@ -255,7 +331,17 @@ export function searchProducts(
 
   // Step 1: Exact product / alias name match — bypass exclusion for direct product queries
   const specificMatch = findSpecificProductMatch(query, products)
-  if (specificMatch) return [specificMatch]
+  if (specificMatch) {
+    // Also find all variants of the same product family (same base name)
+    const baseName = (specificMatch.product_name ?? '').split(/\s+\d/)[0].toLowerCase().trim()
+    const allVariants = baseName.length >= 4
+      ? products.filter(p => {
+          const pName = (p.product_name ?? '').toLowerCase()
+          return pName.startsWith(baseName)
+        })
+      : [specificMatch]
+    return allVariants.length > 1 ? allVariants.slice(0, topK) : [specificMatch]
+  }
 
   // Step 2: Build category exclusion list from LLM terms + raw query signals
   const excludeCategories = buildExcludeCategories(expanded.clinicalTerms, query)
