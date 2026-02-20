@@ -1,40 +1,12 @@
-import jwt from 'jsonwebtoken'
-import bcrypt from 'bcryptjs'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'madvetkaboss'
-
-export interface AdminToken {
-  authenticated: boolean
-  timestamp: number
-}
-
-export function hashPassword(password: string): string {
-  return bcrypt.hashSync(password, 10)
-}
-
-export function verifyPassword(password: string, hash: string): boolean {
-  return bcrypt.compareSync(password, hash)
-}
-
 export function generateAdminToken(): string {
-  const payload: AdminToken = {
-    authenticated: true,
-    timestamp: Date.now()
-  }
-  
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' })
+  return JSON.stringify({ authenticated: true, timestamp: Date.now() })
 }
 
 export function verifyAdminToken(token: string): boolean {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AdminToken
-    
-    // Check if token is not too old (24 hours)
-    const now = Date.now()
-    const tokenAge = now - decoded.timestamp
-    const maxAge = 24 * 60 * 60 * 1000 // 24 hours
-    
+    const decoded = JSON.parse(token)
+    const tokenAge = Date.now() - decoded.timestamp
+    const maxAge = 24 * 60 * 60 * 1000
     return decoded.authenticated && tokenAge < maxAge
   } catch {
     return false
