@@ -181,6 +181,7 @@ function getSearchableText(p: MadvetProduct): string {
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
+    .replace(/[i1]/g, 'l')
 }
 
 // Returns true if product should be excluded based on category exclusion rules
@@ -197,15 +198,17 @@ function findSpecificProductMatch(
   query:    string,
   products: MadvetProduct[]
 ): MadvetProduct | null {
-  const lower = query.toLowerCase().trim()
+  // Normalize l/I/1 confusion (common in Indian product names)
+  const lower = query.toLowerCase().trim().replace(/[i1]/g, 'l')
 
   for (const p of products) {
-    const name = (p.product_name ?? '').toLowerCase()
+    const name = (p.product_name ?? '').toLowerCase().replace(/[i1]/g, 'l')
     if (!name || name.length < 3) continue
     if (lower.includes(name)) return p
 
     const aliases = (p.aliases ?? '')
       .toLowerCase()
+      .replace(/[i1]/g, 'l')
       .split(/[,|]/)
       .map((a) => a.trim())
       .filter((a) => a.length >= 3)
