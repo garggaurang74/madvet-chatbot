@@ -46,13 +46,24 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
   'chaara nahi':      ['appetite loss', 'digestive', 'fever', 'stress'],
 
   // Wounds & Skin
-  zakhm:              ['wound', 'topical', 'antiseptic', 'wound care'],
-  ghav:               ['wound', 'topical', 'antiseptic'],
+  zakhm:              ['wound', 'topical', 'antiseptic', 'wound care', 'dermatological'],
+  ghav:               ['wound', 'topical', 'antiseptic', 'dermatological'],
   khujli:             ['itch', 'parasite', 'antifungal', 'skin', 'dermatitis'],
   khaj:               ['itch', 'parasite', 'skin', 'mange'],
   chamdi:             ['skin', 'dermatological', 'topical'],
   daane:              ['allergy', 'antihistamine', 'urticaria', 'skin'],
   safai:              ['antiseptic', 'wound', 'topical'],
+
+  // English wound/skin — these were missing, causing wrong products for English queries
+  wound:              ['wound', 'topical', 'antiseptic', 'dermatological', 'wound care'],
+  'wound treatment':  ['wound', 'topical', 'dermatological', 'antiseptic', 'wound care'],
+  'wound care':       ['wound', 'topical', 'dermatological', 'antiseptic'],
+  skin:               ['skin', 'dermatological', 'topical'],
+  'skin infection':   ['skin', 'dermatological', 'topical', 'antiseptic'],
+  ointment:           ['wound', 'dermatological', 'topical', 'ointment'],
+  maggot:             ['wound', 'dermatological', 'topical', 'maggot'],
+  ghao:               ['wound', 'topical', 'antiseptic', 'dermatological'],
+  zakhm:              ['wound', 'topical', 'antiseptic', 'dermatological'],
 
   // Respiratory
   sans:               ['respiratory', 'pneumonia', 'breathing'],
@@ -102,15 +113,21 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
 // CATEGORY EXCLUSION MAP
 // ─────────────────────────────────────────────
 const CATEGORY_EXCLUSION_MAP: Record<string, string[]> = {
-  parasite:     ['antidiarrheal', 'digestive', 'antipyretic', 'antibiotic'],
-  anthelmintic: ['antidiarrheal', 'digestive', 'antipyretic'],
-  worm:         ['antidiarrheal', 'digestive', 'antipyretic'],
-  dewormer:     ['antidiarrheal', 'digestive', 'antipyretic'],
-  diarrhea:     ['anthelmintic', 'antiparasitic', 'ectoparasiticide'],
-  topical:      ['anthelmintic', 'antiparasitic', 'antibiotic'],
-  fever:        ['anthelmintic', 'antiparasitic'],
-  tick:         ['antidiarrheal', 'digestive', 'antibiotic', 'anthelmintic'],
-  ectoparasiticide: ['antidiarrheal', 'digestive', 'antibiotic', 'anthelmintic'],
+  parasite:          ['antidiarrheal', 'digestive', 'antipyretic', 'antibiotic'],
+  anthelmintic:      ['antidiarrheal', 'digestive', 'antipyretic'],
+  worm:              ['antidiarrheal', 'digestive', 'antipyretic'],
+  dewormer:          ['antidiarrheal', 'digestive', 'antipyretic'],
+  diarrhea:          ['anthelmintic', 'antiparasitic', 'ectoparasiticide'],
+  fever:             ['anthelmintic', 'antiparasitic'],
+  tick:              ['antidiarrheal', 'digestive', 'antibiotic', 'anthelmintic'],
+  ectoparasiticide:  ['antidiarrheal', 'digestive', 'antibiotic', 'anthelmintic'],
+
+  // Wound/skin queries — exclude internal medicines; topical products should win
+  wound:             ['anti-inflammatory', 'analgesic', 'antipyretic', 'anthelmintic', 'antiparasitic', 'probiotic', 'vitamin', 'reproductive', 'antihistamine'],
+  topical:           ['anthelmintic', 'antiparasitic', 'antibiotic', 'anti-inflammatory', 'analgesic', 'probiotic', 'reproductive', 'vitamin'],
+  dermatological:    ['anthelmintic', 'antiparasitic', 'anti-inflammatory', 'analgesic', 'probiotic', 'reproductive', 'vitamin', 'antibiotic'],
+  antiseptic:        ['anthelmintic', 'antiparasitic', 'anti-inflammatory', 'analgesic', 'probiotic', 'vitamin'],
+  skin:              ['anthelmintic', 'antiparasitic', 'anti-inflammatory', 'analgesic', 'probiotic', 'vitamin', 'reproductive'],
 }
 
 // ─────────────────────────────────────────────
