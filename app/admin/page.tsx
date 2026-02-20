@@ -155,6 +155,10 @@ export default function AdminPage() {
   const handleProductImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic')) {
+      setError('HEIC format supported nahi hai. iPhone Settings > Camera > Formats > "Most Compatible" enable karein, phir try karein.')
+      return
+    }
     const b64 = await toBase64(file)
     setProductImage(b64)
     setProductMime(file.type)
