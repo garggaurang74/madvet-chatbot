@@ -88,24 +88,22 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
 
 // ─────────────────────────────────────────────
 // CATEGORY EXCLUSION MAP
-// Prevents wrong-category products from appearing
-// Key = query signal → exclude products in these categories
 // ─────────────────────────────────────────────
 const CATEGORY_EXCLUSION_MAP: Record<string, string[]> = {
-  // Parasite queries should never return antidiarrheal products
   parasite:     ['antidiarrheal', 'digestive', 'antipyretic', 'antibiotic'],
   anthelmintic: ['antidiarrheal', 'digestive', 'antipyretic'],
   worm:         ['antidiarrheal', 'digestive', 'antipyretic'],
   dewormer:     ['antidiarrheal', 'digestive', 'antipyretic'],
-  // Diarrhea queries should never return dewormers
   diarrhea:     ['anthelmintic', 'antiparasitic', 'ectoparasiticide'],
-  // Skin queries should never return internal products
   topical:      ['anthelmintic', 'antiparasitic', 'antibiotic'],
-  // Fever queries should never return dewormers
   fever:        ['anthelmintic', 'antiparasitic'],
+  tick:         ['antidiarrheal', 'digestive', 'antibiotic', 'anthelmintic'],
+  ectoparasiticide: ['antidiarrheal', 'digestive', 'antibiotic', 'anthelmintic'],
 }
 
-// Species map
+// ─────────────────────────────────────────────
+// SPECIES MAP
+// ─────────────────────────────────────────────
 const SPECIES_MAP: Record<string, string[]> = {
   gaay:    ['cattle', 'cow', 'bovine'],
   cow:     ['cattle', 'cow', 'bovine'],
@@ -132,41 +130,7 @@ const SPECIES_MAP: Record<string, string[]> = {
 // HELPERS
 // ─────────────────────────────────────────────
 
-function expandQuery(query: string): {
-  expanded:       string
-  speciesHints:   string[]
-  clinicalHints:  string[]
-  excludeCategories: string[]
-} {
-  const lower           = query.toLowerCase().trim()
-  const clinicalHints:  string[] = []
-  const speciesHints:   string[] = []
-  const excludeCategories: string[] = []
-
-  // Multi-word phrases first
-  const sortedKeys = Object.keys(HINDI_KEYWORD_MAP).sort((a, b) => b.length - a.length)
-  for (const key of sortedKeys) {
-    if (lower.includes(key)) clinicalHints.push(...HINDI_KEYWORD_MAP[key])
-  }
-  for (const [key, values] of Object.entries(SPECIES_MAP)) {
-    if (lower.includes(key)) speciesHints.push(...values)
-  }
-
-  // Build exclusion list from clinical hints
-  for (const hint of clinicalHints) {
-    const excluded = CATEGORY_EXCLUSION_MAP[hint]
-    if (excluded) excludeCategories.push(...excluded)
-  }
-
-  return {
-    expanded:          [lower, ...clinicalHints, ...speciesHints].join(' '),
-    speciesHints,
-    clinicalHints,
-    excludeCategories: [...new Set(excludeCategories)],
-  }
-}
-
-function getSearchableText(p: MadvetProduct): string {
+export function getSearchableText(p: MadvetProduct): string {
   return [
     p.product_name,
     p.salt_ingredient,
@@ -184,21 +148,47 @@ function getSearchableText(p: MadvetProduct): string {
     .replace(/[i1]/g, 'l')
 }
 
-// Returns true if product should be excluded based on category exclusion rules
+// ─────────────────────────────────────────────
+// BUILD EXCLUSION LIST FROM QUERY
+// ─────────────────────────────────────────────
+function buildExcludeCategories(clinicalTerms: string[], rawQuery: string): string[] {
+  const excludeSet = new Set<string>()
+  const lower = rawQuery.toLowerCase()
+
+  // From LLM-expanded clinical terms
+  for (const term of clinicalTerms) {
+    const t = term.toLowerCase()
+    const excluded = CATEGORY_EXCLUSION_MAP[t]
+    if (excluded) excluded.forEach(e => excludeSet.add(e))
+  }
+
+  // From raw query via Hindi keyword map
+  const sortedKeys = Object.keys(HINDI_KEYWORD_MAP).sort((a, b) => b.length - a.length)
+  for (const key of sortedKeys) {
+    if (lower.includes(key)) {
+      const hints = HINDI_KEYWORD_MAP[key]
+      for (const hint of hints) {
+        const excluded = CATEGORY_EXCLUSION_MAP[hint]
+        if (excluded) excluded.forEach(e => excludeSet.add(e))
+      }
+    }
+  }
+
+  return [...excludeSet]
+}
+
+// Returns true if product should be excluded
 function isExcluded(p: MadvetProduct, excludeCategories: string[]): boolean {
   if (excludeCategories.length === 0) return false
   const cat = (p.category ?? '').toLowerCase()
   const ind = (p.indication ?? '').toLowerCase()
-  return excludeCategories.some(
-    (ex) => cat.includes(ex) || ind.includes(ex)
-  )
+  return excludeCategories.some(ex => cat.includes(ex) || ind.includes(ex))
 }
 
 function findSpecificProductMatch(
   query:    string,
   products: MadvetProduct[]
 ): MadvetProduct | null {
-  // Normalize l/I/1 confusion (common in Indian product names)
   const lower = query.toLowerCase().trim().replace(/[i1]/g, 'l')
 
   for (const p of products) {
@@ -218,10 +208,6 @@ function findSpecificProductMatch(
     }
   }
   return null
-}
-
-function getDynamicThreshold(clinicalHints: string[]): number {
-  return clinicalHints.length > 0 ? 8 : 15
 }
 
 function scoreProduct(
@@ -249,35 +235,40 @@ function scoreProduct(
 
   for (const hint of speciesHints) {
     const sp = (p.species ?? '').toLowerCase()
-    if (sp.includes(hint))                                    score += 5
-    else if (sp.includes('all') || sp.includes('general'))   score += 1
+    if (sp.includes(hint))                                   score += 5
+    else if (sp.includes('all') || sp.includes('general'))  score += 1
   }
 
   return score
 }
 
 // ─────────────────────────────────────────────
-// MAIN EXPORT
+// MAIN EXPORT — searchProducts
 // ─────────────────────────────────────────────
 export function searchProducts(
   products: MadvetProduct[],
   query:    string,
-  expanded:  ExpandedQuery,
-  topK = 3  // Default 3 — fewer = more precise
+  expanded: ExpandedQuery,
+  topK = 3
 ): MadvetProduct[] {
   if (!query?.trim() || products.length === 0) return []
 
-  // Step 1: Exact product / alias name match
+  // Step 1: Exact product / alias name match — bypass exclusion for direct product queries
   const specificMatch = findSpecificProductMatch(query, products)
   if (specificMatch) return [specificMatch]
+
+  // Step 2: Build category exclusion list from LLM terms + raw query signals
+  const excludeCategories = buildExcludeCategories(expanded.clinicalTerms, query)
+
+  // Step 3: Filter out wrong-category products FIRST ✅ (this was the bug — now fixed)
+  const eligibleProducts = excludeCategories.length > 0
+    ? products.filter(p => !isExcluded(p, excludeCategories))
+    : products
 
   const expandedWords = [...expanded.clinicalTerms, ...expanded.species, ...expanded.formFactor]
     .filter((w: string) => w.length >= 3)
 
-  // Step 2: Filter out wrong-category products FIRST (simplified for LLM integration)
-  const eligibleProducts = products
-
-  // Step 3: Custom weighted scoring on eligible products only
+  // Step 4: Custom weighted scoring on eligible products only
   const dynamicThreshold = expanded.clinicalTerms.length > 0 ? 4 : 8
   const scoredByCustom = eligibleProducts
     .map((p) => ({ p, score: scoreProduct(p, expandedWords, expanded.species, expanded.clinicalTerms) }))
@@ -285,7 +276,7 @@ export function searchProducts(
     .sort((a, b) => b.score - a.score)
     .map(({ p }) => p)
 
-  // Step 4: Fuse.js fuzzy fallback on eligible products only
+  // Step 5: Fuse.js fuzzy fallback on eligible products only
   const fuse = new Fuse(eligibleProducts, {
     keys: [
       { name: 'product_name',    weight: 3.0 },
@@ -297,7 +288,7 @@ export function searchProducts(
       { name: 'description',     weight: 0.8 },
       { name: 'usp_benefits',    weight: 0.5 },
     ],
-    threshold:          0.30,  // stricter than before
+    threshold:          0.30,
     includeScore:       true,
     ignoreLocation:     true,
     minMatchCharLength: 3,
@@ -306,15 +297,15 @@ export function searchProducts(
 
   const fuseResults = fuse
     .search(expandedWords.join(' '))
-    .filter(r => (r.score ?? 1) < 0.22)  // strict — only high-confidence matches
+    .filter(r => (r.score ?? 1) < 0.22)
     .map(r => r.item)
 
-  // Step 5: Merge + deduplicate
+  // Step 6: Merge + deduplicate
   const seen     = new Set<string>()
   const combined: MadvetProduct[] = []
 
   for (const p of [...scoredByCustom, ...fuseResults]) {
-    const key = `${p.product_name ?? ''}||${p.salt_ingredient ?? ''}||${p.category ?? ''}` 
+    const key = `${p.product_name ?? ''}||${p.salt_ingredient ?? ''}||${p.category ?? ''}`
     if (!seen.has(key)) {
       seen.add(key)
       combined.push(p)
@@ -349,4 +340,76 @@ export function isFollowUpMessage(message: string): boolean {
   ]
 
   return followUpPatterns.some((p) => p.test(trimmed))
+}
+
+// ─────────────────────────────────────────────
+// COMPLEMENTARY PRODUCT SEARCH
+// ─────────────────────────────────────────────
+const COMPLEMENTARY_MAP: Record<string, string[]> = {
+  'anthelmintic':    ['probiotic', 'digestive', 'vitamin', 'liver', 'tonic', 'supplement'],
+  'antiparasitic':   ['probiotic', 'digestive', 'vitamin', 'liver', 'tonic', 'supplement'],
+  'ectoparasiticide':['vitamin', 'supplement', 'tonic'],
+  'antibiotic':      ['probiotic', 'digestive', 'vitamin', 'supplement', 'tonic'],
+  'antipyretic':     ['vitamin', 'supplement', 'liver', 'tonic'],
+  'analgesic':       ['vitamin', 'supplement', 'tonic'],
+  'dermatological':  ['vitamin', 'supplement', 'tonic'],
+  'wound':           ['vitamin', 'supplement', 'tonic'],
+  'topical':         ['vitamin', 'supplement'],
+  'galactagogue':    ['calcium', 'mineral', 'vitamin', 'supplement'],
+  'udder':           ['calcium', 'mineral', 'supplement'],
+  'mastitis':        ['probiotic', 'vitamin', 'supplement'],
+  'antidiarrheal':   ['probiotic', 'digestive', 'electrolyte', 'vitamin'],
+  'reproductive':    ['vitamin', 'calcium', 'mineral', 'supplement'],
+  'hormone':         ['vitamin', 'supplement', 'tonic'],
+}
+
+export function searchComplementary(
+  allProducts:     MadvetProduct[],
+  primaryProducts: MadvetProduct[],
+  expanded:        ExpandedQuery,
+  topK = 2
+): MadvetProduct[] {
+  if (primaryProducts.length === 0) return []
+
+  const primaryKeys = new Set(
+    primaryProducts.map(p => `${p.product_name ?? ''}||${p.category ?? ''}`)
+  )
+
+  const complementaryKeywords: string[] = []
+
+  for (const p of primaryProducts) {
+    const searchIn = ((p.category ?? '') + ' ' + (p.indication ?? '')).toLowerCase()
+    for (const [key, values] of Object.entries(COMPLEMENTARY_MAP)) {
+      if (searchIn.includes(key)) complementaryKeywords.push(...values)
+    }
+  }
+
+  for (const term of expanded.clinicalTerms) {
+    const t = term.toLowerCase()
+    for (const [key, values] of Object.entries(COMPLEMENTARY_MAP)) {
+      if (t.includes(key) || key.includes(t)) complementaryKeywords.push(...values)
+    }
+  }
+
+  if (complementaryKeywords.length === 0) return []
+
+  const uniqueKeywords = [...new Set(complementaryKeywords)]
+
+  const candidates = allProducts
+    .filter(p => !primaryKeys.has(`${p.product_name ?? ''}||${p.category ?? ''}`))
+    .map(p => {
+      const text = getSearchableText(p)
+      let score = 0
+      for (const kw of uniqueKeywords) {
+        if (text.includes(kw)) score += 3
+      }
+      const cat = (p.category ?? '').toLowerCase()
+      if (/probiotic|vitamin|supplement|tonic|mineral|calcium|digestive/.test(cat)) score += 5
+      return { p, score }
+    })
+    .filter(({ score }) => score >= 3)
+    .sort((a, b) => b.score - a.score)
+    .map(({ p }) => p)
+
+  return candidates.slice(0, topK)
 }

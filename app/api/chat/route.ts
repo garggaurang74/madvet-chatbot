@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { getCachedProducts } from '@/lib/productCache'
-import { searchProducts, isFollowUpMessage } from '@/lib/productSearch'
+import { searchProducts, searchComplementary, isFollowUpMessage } from '@/lib/productSearch'
+import { semanticSearchProducts } from '@/lib/semanticSearch'
 import { expandQuery } from '@/lib/queryExpander'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
 import type { MadvetProduct } from '@/lib/supabase'
@@ -14,10 +15,11 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 // ─────────────────────────────────────────────
 const redis = process.env.UPSTASH_REDIS_REST_URL
   ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
+      url:   process.env.UPSTASH_REDIS_REST_URL,
       token: process.env.UPSTASH_REDIS_REST_TOKEN ?? '',
     })
   : null
+
 const RATE_LIMIT  = 30
 const RATE_WINDOW = 60
 
@@ -29,15 +31,15 @@ export interface Message {
 const inMemoryMap = new Map<string, { count: number; resetAt: number }>()
 
 async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number }> {
-  const key = `rate-limit:${ip}` 
+  const key = `rate-limit:${ip}`
   const now = Math.floor(Date.now() / 1000)
 
   if (redis) {
     try {
-      const existing  = await redis.get(key)
-      const count     = existing ? parseInt(String(existing)) : 0
+      const existing = await redis.get(key)
+      const count    = existing ? parseInt(String(existing)) : 0
       if (count >= RATE_LIMIT) return { allowed: false, remaining: 0 }
-      const newCount  = count + 1
+      const newCount = count + 1
       await redis.setex(key, RATE_WINDOW, String(newCount))
       return { allowed: true, remaining: RATE_LIMIT - newCount }
     } catch {
@@ -56,33 +58,77 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
 }
 
 // ─────────────────────────────────────────────
-// PRODUCT CONTEXT BUILDER
-// Max 3 products — no salt/composition
+// SMART PRODUCT MERGING
+// Combines semantic + keyword results, deduplicates, preserves ranking
 // ─────────────────────────────────────────────
-function formatProductContext(matched: MadvetProduct[]): string {
-  if (matched.length === 0) {
-    return 'NO_MADVET_PRODUCTS_FOUND'
+function mergeProductResults(
+  semantic:  MadvetProduct[],
+  keyword:   MadvetProduct[],
+  topK:      number
+): MadvetProduct[] {
+  const seen     = new Set<string>()
+  const combined: MadvetProduct[] = []
+
+  const key = (p: MadvetProduct) =>
+    `${(p.product_name ?? '').toLowerCase()}||${(p.category ?? '').toLowerCase()}`
+
+  // Semantic results first (highest confidence) — give them priority
+  for (const p of semantic) {
+    const k = key(p)
+    if (!seen.has(k)) { seen.add(k); combined.push(p) }
+  }
+  // Then keyword results that weren't already found
+  for (const p of keyword) {
+    const k = key(p)
+    if (!seen.has(k)) { seen.add(k); combined.push(p) }
   }
 
-  const lines = matched.map((p, i) => {
-    const parts: string[] = [`[Product ${i + 1}]`]
-    if (p.product_name) parts.push(`Name: ${p.product_name}`)
-    if (p.category)     parts.push(`Category: ${p.category}`)
-    if (p.species)      parts.push(`For Species: ${p.species}`)
-    if (p.indication)   parts.push(`Used For: ${p.indication}`)
-    if (p.packaging)    parts.push(`Packing: ${p.packaging}`)
-    if (p.description)  parts.push(`Details: ${p.description}`)
-    if (p.usp_benefits) parts.push(`Benefits: ${p.usp_benefits}`)
-    if (p.aliases)      parts.push(`Also known as: ${p.aliases}`)
-    // NO salt_ingredient, NO dosage
-    return parts.join('\n')
-  })
+  return combined.slice(0, topK)
+}
 
-  return [
-    '## MADVET MATCHED PRODUCTS\n',
-    lines.join('\n\n---\n\n'),
-    '\n\nOnly recommend products listed above.',
-  ].join('')
+// ─────────────────────────────────────────────
+// PRODUCT CONTEXT BUILDER
+// Primary + Complementary sections — no salt/composition
+// ─────────────────────────────────────────────
+function formatProduct(p: MadvetProduct, index: number): string {
+  const parts: string[] = [`[Product ${index + 1}]`]
+  if (p.product_name) parts.push(`Name: ${p.product_name}`)
+  if (p.category)     parts.push(`Category: ${p.category}`)
+  if (p.species)      parts.push(`For Species: ${p.species}`)
+  if (p.indication)   parts.push(`Used For: ${p.indication}`)
+  if (p.packaging)    parts.push(`Packing: ${p.packaging}`)
+  if (p.dosage)       parts.push(`Dosage Guidance: ${p.dosage}`)
+  if (p.description)  parts.push(`Details: ${p.description}`)
+  if (p.usp_benefits) parts.push(`Benefits: ${p.usp_benefits}`)
+  if (p.aliases)      parts.push(`Also known as: ${p.aliases}`)
+  // NO salt_ingredient / composition — never exposed to bot
+  return parts.join('\n')
+}
+
+function formatProductContext(
+  primary:       MadvetProduct[],
+  complementary: MadvetProduct[]
+): string {
+  const sections: string[] = []
+
+  if (primary.length > 0) {
+    sections.push(
+      '## MADVET PRIMARY PRODUCTS\n',
+      primary.map((p, i) => formatProduct(p, i)).join('\n\n---\n\n')
+    )
+  } else {
+    sections.push('## MADVET PRIMARY PRODUCTS\nNO_PRODUCTS_FOUND')
+  }
+
+  if (complementary.length > 0) {
+    sections.push(
+      '\n\n## MADVET COMPLEMENTARY PRODUCTS\n(Suggest when clinically relevant for recovery, immunity, or enhanced results)\n',
+      complementary.map((p, i) => formatProduct(p, i)).join('\n\n---\n\n')
+    )
+  }
+
+  sections.push('\n\nOnly recommend products listed above.')
+  return sections.join('')
 }
 
 // ─────────────────────────────────────────────
@@ -114,7 +160,9 @@ function buildApiMessages(history: Message[], enrichedUserMessage: Message): Mes
 }
 
 function getPreviousQuery(messages: Message[]): string | null {
-  const userMessages = messages.filter((m): m is Message & { role: 'user' } => m.role === 'user').reverse()
+  const userMessages = messages
+    .filter((m): m is Message & { role: 'user' } => m.role === 'user')
+    .reverse()
   for (const m of userMessages) {
     const raw = m.content.replace(/Customer (?:says|asks): "(.+?)"[\s\S]*/, '$1').trim()
     if (raw && !isFollowUpMessage(raw) && raw.length > 3) return raw
@@ -127,7 +175,6 @@ function getPreviousQuery(messages: Message[]): string | null {
 // ─────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    // Rate limit
     const ip =
       req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
       req.headers.get('x-real-ip') ??
@@ -141,7 +188,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Parse body
     const body                = await req.json()
     const messages: Message[] = Array.isArray(body.messages) ? body.messages : []
     const latestMessage       = typeof body.latestMessage === 'string' ? body.latestMessage : ''
@@ -152,33 +198,58 @@ export async function POST(req: NextRequest) {
 
     const truncatedMessage = latestMessage.slice(0, 2000)
     const isFollowUp       = isFollowUpMessage(truncatedMessage)
-    const searchQuery      = isFollowUp ? (getPreviousQuery(messages) ?? truncatedMessage) : truncatedMessage
+    const searchQuery      = isFollowUp
+      ? (getPreviousQuery(messages) ?? truncatedMessage)
+      : truncatedMessage
 
-    // Run product fetch + LLM expansion in parallel
-    const [products, expanded] = await Promise.all([
+    // ── PARALLEL: products + LLM query expansion + semantic search ──
+    // All three fire at the same time — total latency = slowest of the three
+    const [products, expanded, semanticResults] = await Promise.all([
       getCachedProducts(),
       expandQuery(searchQuery),
+      // Semantic search on the raw user query — finds products by meaning, not keywords
+      // Falls back silently if pgvector not set up yet
+      semanticSearchProducts(searchQuery, 0.45, 5),
     ])
 
     const effectivelyFollowUp = isFollowUp || expanded.isFollowUp
     const isCategory = /konsa|kaunsa|kya (dein|use|lagayein)|which product/i.test(truncatedMessage)
-    const matched = searchProducts(products, searchQuery, expanded, isCategory ? 5 : 3)
-    const context = formatProductContext(matched)
+
+    // ── KEYWORD SEARCH (existing 3-layer system) ──
+    const keywordResults = searchProducts(
+      products,
+      searchQuery,
+      expanded,
+      isCategory ? 5 : 3
+    )
+
+    // ── SMART MERGE: Semantic + Keyword ──
+    // Semantic gets priority (it understands meaning)
+    // Keyword fills in what semantic might miss (exact name matches, new products without embeddings)
+    const primaryMatched = mergeProductResults(semanticResults, keywordResults, isCategory ? 5 : 3)
+
+    // ── COMPLEMENTARY SEARCH ──
+    const isSpecificProductQuery =
+      primaryMatched.length === 1 &&
+      truncatedMessage.toLowerCase().includes(
+        (primaryMatched[0].product_name ?? '').toLowerCase().split(' ')[0]
+      )
+
+    const complementaryMatched =
+      !effectivelyFollowUp && !isSpecificProductQuery
+        ? searchComplementary(products, primaryMatched, expanded)
+        : []
+
+    const context = formatProductContext(primaryMatched, complementaryMatched)
 
     const enrichedContent = effectivelyFollowUp
-      ? `Customer says: "${truncatedMessage}"
-
-[FOLLOW-UP — build on previous answer]
-${context}` 
-      : `Customer asks: "${truncatedMessage}"
-
-[NEW QUERY]
-${context}`
+      ? `Customer says: "${truncatedMessage}"\n\n[FOLLOW-UP — build on previous answer]\n${context}`
+      : `Customer asks: "${truncatedMessage}"\n\n[NEW QUERY]\n${context}`
 
     const enrichedUserMessage: Message = { role: 'user', content: enrichedContent }
     const apiMessages = buildApiMessages(messages, enrichedUserMessage)
 
-    // Stream from OpenAI
+    // ── STREAM FROM GPT-4o ──
     const stream = await openai.chat.completions.create({
       model:             process.env.OPENAI_MODEL ?? 'gpt-4o',
       messages: [
@@ -186,8 +257,8 @@ ${context}`
         ...apiMessages.map((m) => ({ role: m.role, content: m.content })),
       ],
       stream:            true,
-      temperature:       0.5,      // lower = more consistent, less hallucination
-      max_tokens:        1200,     // was 700 — allows complete answers
+      temperature:       0.5,
+      max_tokens:        1400,
       presence_penalty:  0.1,
       frequency_penalty: 0.2,
     })
