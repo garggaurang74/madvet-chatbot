@@ -1,5 +1,6 @@
 import Fuse from 'fuse.js'
 import type { MadvetProduct } from './supabase'
+import type { ExpandedQuery } from './queryExpander'
 
 // ─────────────────────────────────────────────
 // HINDI / HINGLISH → CLINICAL KEYWORD MAP
@@ -258,6 +259,7 @@ function scoreProduct(
 export function searchProducts(
   products: MadvetProduct[],
   query:    string,
+  expanded:  ExpandedQuery,
   topK = 3  // Default 3 — fewer = more precise
 ): MadvetProduct[] {
   if (!query?.trim() || products.length === 0) return []
@@ -266,16 +268,16 @@ export function searchProducts(
   const specificMatch = findSpecificProductMatch(query, products)
   if (specificMatch) return [specificMatch]
 
-  const { expanded, speciesHints, clinicalHints, excludeCategories } = expandQuery(query)
-  const expandedWords = expanded.split(/\s+/).filter((w) => w.length >= 3)
+  const expandedWords = [...expanded.clinicalTerms, ...expanded.species, ...expanded.formFactor]
+    .filter((w: string) => w.length >= 3)
 
-  // Step 2: Filter out wrong-category products FIRST
-  const eligibleProducts = products.filter((p) => !isExcluded(p, excludeCategories))
+  // Step 2: Filter out wrong-category products FIRST (simplified for LLM integration)
+  const eligibleProducts = products
 
   // Step 3: Custom weighted scoring on eligible products only
-  const dynamicThreshold = getDynamicThreshold(clinicalHints)
+  const dynamicThreshold = expanded.clinicalTerms.length > 0 ? 8 : 15
   const scoredByCustom = eligibleProducts
-    .map((p) => ({ p, score: scoreProduct(p, expandedWords, speciesHints, clinicalHints) }))
+    .map((p) => ({ p, score: scoreProduct(p, expandedWords, expanded.species, expanded.clinicalTerms) }))
     .filter(({ score }) => score >= dynamicThreshold)
     .sort((a, b) => b.score - a.score)
     .map(({ p }) => p)
@@ -300,7 +302,7 @@ export function searchProducts(
   })
 
   const fuseResults = fuse
-    .search(expanded)
+    .search(expandedWords.join(' '))
     .filter(r => (r.score ?? 1) < 0.22)  // strict — only high-confidence matches
     .map(r => r.item)
 

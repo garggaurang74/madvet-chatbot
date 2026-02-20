@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { getCachedProducts } from '@/lib/productCache'
 import { searchProducts, isFollowUpMessage } from '@/lib/productSearch'
+import { expandQuery } from '@/lib/queryExpander'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
 import type { MadvetProduct } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
@@ -112,29 +113,13 @@ function buildApiMessages(history: Message[], enrichedUserMessage: Message): Mes
   return [...trimmed, enrichedUserMessage]
 }
 
-// ─────────────────────────────────────────────
-// SMART SEARCH QUERY
-// For follow-ups, use last substantive query for product search
-// ─────────────────────────────────────────────
-function getSearchQuery(latestMessage: string, messages: Message[]): string {
-  if (!isFollowUpMessage(latestMessage)) return latestMessage
-
-  // Walk back through history to find last real query
-  const historyUserMessages = messages
-    .filter((m): m is Message & { role: 'user' } => m.role === 'user')
-    .reverse()
-
-  for (const m of historyUserMessages) {
-    // Strip injected context from stored messages to get raw query
-    const raw = m.content
-      .replace(/Customer (says|asks): "(.+?)"\n[\s\S]*/, '$2')
-      .trim()
-    if (raw && !isFollowUpMessage(raw) && raw.length > 3) {
-      return raw
-    }
+function getPreviousQuery(messages: Message[]): string | null {
+  const userMessages = messages.filter((m): m is Message & { role: 'user' } => m.role === 'user').reverse()
+  for (const m of userMessages) {
+    const raw = m.content.replace(/Customer (says|asks): "(.+?)"\n[\s\S]*/, '$2').trim()
+    if (raw && !isFollowUpMessage(raw) && raw.length > 3) return raw
   }
-
-  return latestMessage
+  return null
 }
 
 // ─────────────────────────────────────────────
@@ -166,21 +151,24 @@ export async function POST(req: NextRequest) {
     }
 
     const truncatedMessage = latestMessage.slice(0, 2000)
+    const isFollowUp       = isFollowUpMessage(truncatedMessage)
+    const searchQuery      = isFollowUp ? (getPreviousQuery(messages) ?? truncatedMessage) : truncatedMessage
 
-    // Smart product search — uses topic from history for follow-ups
-    const products      = await getCachedProducts()
-    const searchQuery   = getSearchQuery(truncatedMessage, messages)
-    const matched       = searchProducts(products, searchQuery, 3)
-    const context       = formatProductContext(matched)
+    // Run product fetch + LLM expansion in parallel
+    const [products, expanded] = await Promise.all([
+      getCachedProducts(),
+      expandQuery(searchQuery),
+    ])
 
-    // Detect follow-up
-    const isFollowUp    = isFollowUpMessage(truncatedMessage)
+    const effectivelyFollowUp = isFollowUp || expanded.isFollowUp
+    const matched = searchProducts(products, searchQuery, expanded, 3)
+    const context = formatProductContext(matched)
 
-    const enrichedContent = isFollowUp
+    const enrichedContent = effectivelyFollowUp
       ? `Customer says: "${truncatedMessage}"
 
-[FOLLOW-UP — build on previous answer, do not repeat full product info]
-${context}`
+[FOLLOW-UP — build on previous answer]
+${context}` 
       : `Customer asks: "${truncatedMessage}"
 
 [NEW QUERY]
