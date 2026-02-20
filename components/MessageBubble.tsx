@@ -91,9 +91,14 @@ export default function MessageBubble({
             </div>
 
             {products.length > 0 && (() => {
-  const mentioned = products.filter(p =>
-    p.product_name && content.toLowerCase().includes(p.product_name.toLowerCase())
-  )
+  const mentioned = products.filter(p => {
+  if (!p.product_name) return false
+  const name = p.product_name.toLowerCase().replace(/\s+/g, ' ').trim()
+  const text = content.toLowerCase()
+  // Check product name or first word of product name
+  const firstWord = name.split(' ')[0]
+  return text.includes(name) || (firstWord.length > 4 && text.includes(firstWord))
+})
   return mentioned.length > 0 ? (
     <div className="space-y-3">
       {mentioned.map((p, i) => (
