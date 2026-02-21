@@ -7,12 +7,12 @@ import { speakText, stopSpeaking } from '@/lib/tts'
 import type { MadvetProduct } from '@/lib/supabase'
 
 interface MessageBubbleProps {
-  messageId:    string
-  role:         'user' | 'assistant'
-  content:      string
-  products?:    MadvetProduct[]
+  messageId:     string
+  role:          'user' | 'assistant'
+  content:       string
+  products?:     MadvetProduct[]
   showFeedback?: boolean
-  dark?:        boolean
+  dark?:         boolean
 }
 
 function cleanForSpeech(text: string): string {
@@ -29,9 +29,30 @@ function cleanForSpeech(text: string): string {
     .trim()
 }
 
-// ── Product cards: 1 primary + collapsible dropdown for rest ─────────────────
-function ProductCards({ products, dark }: { products: MadvetProduct[], dark: boolean }) {
-  const [open, setOpen] = useState(false)
+function getFormBadge(p: MadvetProduct): { label: string; color: string } {
+  const pkg = (p.packaging ?? '').toLowerCase()
+  const cat = (p.category  ?? '').toLowerCase()
+  if (/injection|injectable|inj\b/.test(pkg) || /injection/.test(cat))
+    return { label: 'Injection', color: 'bg-blue-500/20 text-blue-300' }
+  if (/bolus|tablet/.test(pkg))
+    return { label: 'Bolus', color: 'bg-purple-500/20 text-purple-300' }
+  if (/spray/.test(pkg))
+    return { label: 'Spray', color: 'bg-cyan-500/20 text-cyan-300' }
+  if (/ointment|gel/.test(pkg))
+    return { label: 'Ointment', color: 'bg-orange-500/20 text-orange-300' }
+  if (/powder/.test(pkg))
+    return { label: 'Powder', color: 'bg-yellow-500/20 text-yellow-300' }
+  if (/soap/.test(pkg))
+    return { label: 'Soap', color: 'bg-pink-500/20 text-pink-300' }
+  if (/drench|liquid|syrup/.test(pkg))
+    return { label: 'Liquid', color: 'bg-teal-500/20 text-teal-300' }
+  return { label: pkg.split(' ')[0] || 'Product', color: 'bg-gray-500/20 text-gray-300' }
+}
+
+// ── 1 primary card + named dropdown pills for rest ────────────────────────────
+function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boolean }) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+
   if (products.length === 0) return null
 
   const primary = products[0]
@@ -42,34 +63,62 @@ function ProductCards({ products, dark }: { products: MadvetProduct[], dark: boo
       {/* Primary card — always visible */}
       <ProductCard product={primary} dark={dark} />
 
-      {/* More products dropdown */}
+      {/* Other products — named pill list, each expandable */}
       {rest.length > 0 && (
-        <div>
-          <button
-            onClick={() => setOpen(o => !o)}
-            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-              dark
-                ? 'text-green-400 hover:bg-white/10'
-                : 'text-madvet-primary hover:bg-green-50'
-            }`}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-            {open ? 'Kam dikhaen' : `${rest.length} aur product${rest.length > 1 ? 's' : ''} dekhen`}
-          </button>
+        <div className={`rounded-xl border px-3 py-2 ${
+          dark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'
+        }`}>
+          <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${
+            dark ? 'text-white/40' : 'text-gray-400'
+          }`}>
+            Aur options
+          </p>
 
-          {open && (
-            <div className="mt-2 space-y-2 pl-2 border-l-2 border-green-600/30">
-              {rest.map((p, i) => (
-                <ProductCard key={i} product={p} dark={dark} />
-              ))}
-            </div>
-          )}
+          <div className="space-y-1">
+            {rest.map((p, i) => {
+              const badge   = getFormBadge(p)
+              const isOpen  = expandedIdx === i
+
+              return (
+                <div key={i}>
+                  {/* Name row — always visible */}
+                  <button
+                    onClick={() => setExpandedIdx(isOpen ? null : i)}
+                    className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-left transition-colors ${
+                      dark
+                        ? 'hover:bg-white/10 text-white'
+                        : 'hover:bg-white text-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className={`w-3 h-3 flex-shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''} ${
+                          dark ? 'text-green-400' : 'text-madvet-primary'
+                        }`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      <span className="text-sm font-medium truncate">
+                        {p.product_name ?? 'Unknown'}
+                      </span>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${badge.color}`}>
+                      {badge.label}
+                    </span>
+                  </button>
+
+                  {/* Expanded card */}
+                  {isOpen && (
+                    <div className="mt-1 ml-5">
+                      <ProductCard product={p} dark={dark} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -131,7 +180,7 @@ export default function MessageBubble({
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
 
-            {/* Product cards — 1 primary + dropdown */}
+            {/* Cards */}
             {products.length > 0 && (
               <ProductCards products={products} dark={dark} />
             )}

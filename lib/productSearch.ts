@@ -450,6 +450,25 @@ export function searchProducts(
     }
   }
 
+  // ── Prefer non-injection over injection when both exist and quality won't drop ──
+  // Injections are last resort if spray/ointment/bolus/oral available for same condition
+  const INJECTABLE_PATTERN = /injection|injectable|parenteral|\binj\b/i
+  const ORAL_TOPICAL_PATTERN = /bolus|tablet|spray|ointment|powder|oral|topical|gel|liquid|drench|syrup|soap/i
+
+  const hasOralOrTopical = combined.some(p =>
+    ORAL_TOPICAL_PATTERN.test(p.packaging ?? '') || ORAL_TOPICAL_PATTERN.test(p.category ?? '')
+  )
+
+  if (hasOralOrTopical) {
+    combined.sort((a, b) => {
+      const aInj = INJECTABLE_PATTERN.test(a.packaging ?? '') || INJECTABLE_PATTERN.test(a.category ?? '')
+      const bInj = INJECTABLE_PATTERN.test(b.packaging ?? '') || INJECTABLE_PATTERN.test(b.category ?? '')
+      if (aInj && !bInj) return 1   // a is injection, push to back
+      if (!aInj && bInj) return -1  // b is injection, push to back
+      return 0
+    })
+  }
+
   return combined.slice(0, topK)
 }
 
