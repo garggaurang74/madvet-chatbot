@@ -72,6 +72,11 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
   haddi:              ['calcium', 'bone', 'mineral', 'phosphorus'],
   calcium:            ['calcium', 'mineral', 'hypocalcemia', 'milk fever'],
   'milk fever':       ['hypocalcemia', 'calcium', 'emergency', 'calving'],
+  mineral:            ['mineral', 'supplement', 'calcium', 'trace element'],
+  'mineral mixture':  ['mineral', 'supplement', 'calcium', 'minerals mixture', 'trace element'],
+  'khaniaj':          ['mineral', 'calcium', 'supplement'],
+  pashumin:           ['mineral', 'supplement', 'milk production', 'minerals mixture'],
+  'mineral mix':      ['mineral', 'supplement', 'calcium'],
 
   // Reproductive
   garbhpat:           ['abortion', 'reproductive', 'progesterone'],
@@ -106,6 +111,37 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
   tikks:              ['tick', 'ectoparasite', 'external parasite', 'permethrin', 'ectoparasiticide'],
   tiks:               ['tick', 'ectoparasite', 'ectoparasiticide'],
   flud:               ['fluid', 'electrolyte', 'oral rehydration', 'dehydration'],
+
+  // More clinical gaps
+  'khoon':            ['anemia', 'blood', 'vitamin', 'supplement', 'liver'],
+  'khoon ki kami':    ['anemia', 'iron deficiency', 'vitamin', 'liver tonic'],
+  anemia:             ['anemia', 'blood', 'liver tonic', 'vitamin'],
+  'naak se paani':    ['respiratory', 'nasal discharge', 'pneumonia'],
+  'nasal':            ['respiratory', 'pneumonia', 'nasal discharge'],
+  lameness:           ['foot rot', 'joint', 'anti-inflammatory', 'analgesic'],
+  'pair mein':        ['foot rot', 'joint infection', 'anti-inflammatory'],
+  'aankhein band':    ['eye', 'vitamin A', 'conjunctivitis'],
+  'aankh':            ['eye', 'vitamin A', 'conjunctivitis'],
+  pyometra:           ['uterine', 'reproductive', 'intrauterine', 'metritis'],
+  metritis:           ['uterine', 'reproductive', 'intrauterine', 'antibiotic'],
+  'garbhashay':       ['uterine', 'reproductive', 'intrauterine'],
+  doodh:              ['milk', 'mastitis', 'udder', 'galactagogue', 'production'],
+  'baal jhadna':      ['skin', 'coat', 'vitamin', 'supplement', 'dermatological'],
+  baal:               ['coat', 'skin', 'vitamin', 'supplement'],
+  energy:             ['energy', 'tonic', 'vitamin', 'supplement', 'weakness'],
+  'taakat':           ['energy', 'tonic', 'vitamin', 'supplement'],
+  recovery:           ['probiotic', 'vitamin', 'tonic', 'supplement', 'recovery'],
+  'theek karna':      ['treatment', 'antibiotic', 'vitamin'],
+  'wajan':            ['weight gain', 'supplement', 'tonic', 'appetite'],
+  weight:             ['weight gain', 'supplement', 'appetite', 'tonic'],
+  rumen:              ['rumen', 'probiotic', 'digestive', 'supplement'],
+  bloat:              ['bloat', 'tympany', 'gastro', 'emergency', 'anti-flatulent'],
+  tympany:            ['bloat', 'tympany', 'anti-flatulent', 'emergency'],
+  colic:              ['colic', 'analgesic', 'antispasmodic', 'pain'],
+  'dard':             ['pain', 'analgesic', 'anti-inflammatory'],
+  joint:              ['joint', 'anti-inflammatory', 'analgesic', 'arthritis'],
+  arthritis:          ['arthritis', 'joint', 'anti-inflammatory', 'analgesic'],
+  'gath':             ['joint', 'arthritis', 'anti-inflammatory'],
 }
 
 // ─────────────────────────────────────────────
@@ -341,7 +377,7 @@ export function searchProducts(
   products: MadvetProduct[],
   query:    string,
   expanded: ExpandedQuery,
-  topK = 3
+  topK = 5
 ): MadvetProduct[] {
   if (!query?.trim() || products.length === 0) return []
 
@@ -371,7 +407,7 @@ export function searchProducts(
     .filter((w: string) => w.length >= 3)
 
   // Step 4: Custom weighted scoring on eligible products only
-  const dynamicThreshold = expanded.clinicalTerms.length > 0 ? 4 : 8
+  const dynamicThreshold = 4  // fixed: was "8 when no terms" which killed all results
   const scoredByCustom = eligibleProducts
     .map((p) => ({ p, score: scoreProduct(p, expandedWords, expanded.species, expanded.clinicalTerms) }))
     .filter(({ score }) => score >= dynamicThreshold)
@@ -399,7 +435,7 @@ export function searchProducts(
 
   const fuseResults = fuse
     .search(expandedWords.join(' '))
-    .filter(r => (r.score ?? 1) < 0.22)
+    .filter(r => (r.score ?? 1) < 0.38)
     .map(r => r.item)
 
   // Step 6: Merge + deduplicate

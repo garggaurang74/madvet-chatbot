@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Madvet — Product Glossary</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --forest: #1a3a2a;
+    --forest-mid: #264d39;
+    --forest-light: #3d7a57;
+    --cream: #f5f0e8;
+    --cream-dark: #ede6d6;
+    --gold: #c8a96e;
+    --gold-light: #e8d5a8;
+    --text: #1c2b22;
+    --text-muted: #5a7060;
+    --white: #ffffff;
+    --card-border: #d4c9b0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--forest);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 60% at 70% 50%, rgba(200,169,110,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 80% at 10% 20%, rgba(61,122,87,0.3) 0%, transparent 60%);
+  }
+
+  .header-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 56px 48px 48px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 32px;
+  }
+
+  .header-left {}
+
+  .brand-tag {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .brand-tag::before {
+    content: '';
+    width: 28px;
+    height: 1px;
+    background: var(--gold);
+  }
+
+  .header-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(42px, 5vw, 68px);
+    line-height: 1.05;
+    color: var(--cream);
+    letter-spacing: -1px;
+  }
+  .header-title em {
+    font-style: italic;
+    color: var(--gold-light);
+  }
+
+  .header-subtitle {
+    margin-top: 16px;
+    font-size: 15px;
+    color: rgba(245,240,232,0.55);
+    font-weight: 300;
+    letter-spacing: 0.3px;
+    max-width: 420px;
+    line-height: 1.7;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 40px;
+    flex-shrink: 0;
+  }
+  .stat {
+    text-align: right;
+  }
+  .stat-number {
+    font-family: 'DM Serif Display', serif;
+    font-size: 38px;
+    color: var(--gold-light);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: rgba(245,240,232,0.45);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── CONTROLS ── */
+  .controls-bar {
+    background: var(--forest-mid);
+    border-bottom: 1px solid rgba(200,169,110,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.15);
+  }
+
+  .controls-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px 48px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gold);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+  #search {
+    width: 100%;
+    padding: 10px 16px 10px 42px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(200,169,110,0.25);
+    border-radius: 8px;
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  #search::placeholder { color: rgba(245,240,232,0.35); }
+  #search:focus {
+    border-color: var(--gold);
+    background: rgba(255,255,255,0.12);
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(200,169,110,0.6);
+    white-space: nowrap;
+  }
+
+  .pill-filter {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(200,169,110,0.25);
+    background: transparent;
+    color: rgba(245,240,232,0.6);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+  }
+  .pill-filter:hover {
+    border-color: var(--gold);
+    color: var(--gold-light);
+    background: rgba(200,169,110,0.1);
+  }
+  .pill-filter.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--forest);
+    font-weight: 600;
+  }
+
+  .results-count {
+    margin-left: auto;
+    font-size: 12px;
+    color: rgba(245,240,232,0.4);
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+  .results-count span {
+    color: var(--gold-light);
+    font-weight: 600;
+  }
+
+  /* ── CATEGORY DIVIDERS ── */
+  .main-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 48px 80px;
+  }
+
+  .category-section {
+    margin-bottom: 56px;
+  }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .category-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .category-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--forest);
+    letter-spacing: -0.3px;
+  }
+
+  .category-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--cream-dark);
+    padding: 3px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── PRODUCT GRID ── */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+
+  /* ── PRODUCT CARD ── */
+  .product-card {
+    background: var(--white);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    cursor: default;
+    align-self: start;
+  }
+  .product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 36px rgba(26,58,42,0.12);
+    border-color: var(--gold);
+  }
+
+  .card-accent {
+    height: 3px;
+    width: 100%;
+  }
+
+  .card-body {
+    padding: 20px 22px 18px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .product-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: var(--forest);
+    line-height: 1.2;
+    letter-spacing: -0.2px;
+  }
+
+  .pack-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    background: var(--cream-dark);
+    border-radius: 6px;
+    padding: 4px 9px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+
+  .card-indication {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin-bottom: 14px;
+    flex: 1;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--cream-dark);
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* expanded panel */
+  .card-expand-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .card-expand-btn:hover {
+    color: var(--forest);
+    background: var(--cream-dark);
+  }
+
+  .card-detail {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease, padding 0.25s ease;
+  }
+  .card-detail.open {
+    max-height: 600px;
+  }
+  .card-detail-inner {
+    padding: 16px 22px 20px;
+    border-top: 1px solid var(--cream-dark);
+    background: var(--cream);
+  }
+
+  .detail-row {
+    margin-bottom: 10px;
+  }
+  .detail-row:last-child { margin-bottom: 0; }
+  .detail-key {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 3px;
+  }
+  .detail-val {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ── NO RESULTS ── */
+  .no-results {
+    display: none;
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-muted);
+  }
+  .no-results.visible { display: block; }
+  .no-results-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+  .no-results h3 { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--forest); margin-bottom: 8px; }
+  .no-results p { font-size: 14px; }
+
+  /* ── CATEGORY COLOR MAP ── */
+  .c-antibiotic      { background: #3b82f6; }
+  .c-anti-inf        { background: #f59e0b; }
+  .c-vitamin         { background: #10b981; }
+  .c-anthelmintic    { background: #8b5cf6; }
+  .c-ectoparasiticide { background: #ef4444; }
+  .c-antiparasitic   { background: #ec4899; }
+  .c-reproductive    { background: #f472b6; }
+  .c-probiotic       { background: #14b8a6; }
+  .c-analgesic       { background: #f97316; }
+  .c-antidiarrheal   { background: #84cc16; }
+  .c-antihistamine   { background: #a78bfa; }
+  .c-dermatological  { background: #fb7185; }
+  .c-udder           { background: #2dd4bf; }
+  .c-default         { background: #94a3b8; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .header-inner { padding: 36px 24px 32px; flex-direction: column; align-items: flex-start; }
+    .header-stats { align-self: stretch; justify-content: flex-start; }
+    .controls-inner { padding: 12px 20px; }
+    .main-content { padding: 32px 20px 60px; }
+    .product-grid { grid-template-columns: 1fr; }
+    .header-title { font-size: 36px; }
+  }
+
+  /* ── ANIMATION ── */
+  .product-card {
+    animation: fadeUp 0.3s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hidden { display: none !important; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--forest);
+    padding: 28px 48px;
+    text-align: center;
+  }
+  footer p {
+    font-size: 12px;
+    color: rgba(245,240,232,0.3);
+    letter-spacing: 1px;
+  }
+  footer strong { color: var(--gold); }
+
+  /* ── COMPOSITION ROW ── */
+  .card-composition {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: rgba(61,122,87,0.06);
+    border-radius: 8px;
+    border-left: 3px solid var(--forest-light);
+  }
+  .card-composition svg { flex-shrink: 0; margin-top: 1px; color: var(--forest-light); }
+  .composition-text {
+    font-size: 12px;
+    color: var(--forest);
+    font-weight: 500;
+    line-height: 1.55;
+    letter-spacing: 0.1px;
+  }
+  .detail-row.composition-row .detail-val {
+    font-size: 13px;
+    color: var(--forest);
+    font-weight: 500;
+    line-height: 1.6;
+    background: rgba(61,122,87,0.07);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 3px solid var(--forest-light);
+  }
+  /* copy button */
+  .copy-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid rgba(61,122,87,0.25);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-family: 'DM Sans', sans-serif;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { background: rgba(61,122,87,0.1); color: var(--forest); border-color: var(--forest-light); }
+  .copy-btn.copied { background: var(--forest-light); color: white; border-color: var(--forest-light); }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-left">
+      <div class="brand-tag">Madvet Animal Healthcare</div>
+      <h1 class="header-title">Product<br><em>Glossary</em></h1>
+      <p class="header-subtitle">Complete reference of all Madvet veterinary products — for team and customer use.</p>
+    </div>
+    <div class="header-stats">
+      <div class="stat">
+        <div class="stat-number" id="totalCount">88</div>
+        <div class="stat-label">Products</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">13</div>
+        <div class="stat-label">Categories</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="controls-bar">
+  <div class="controls-inner">
+    <div class="search-wrap">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input type="text" id="search" placeholder="Search products, indications, composition, species…" autocomplete="off">
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Category</span>
+      <div id="catFilters" style="display:contents"><button class="pill-filter active" data-cat="all">All</button></div>
+      <button class="pill-filter" data-cat="Antibiotic">Antibiotic</button>
+      <button class="pill-filter" data-cat="Anti-inflammatory">Anti-inflam.</button>
+      <button class="pill-filter" data-cat="Vitamin Supplement">Vitamins</button>
+      <button class="pill-filter" data-cat="Anthelmintic">Anthelmintic</button>
+      <button class="pill-filter" data-cat="Antiparasitic">Antiparasitic</button>
+      <button class="pill-filter" data-cat="Ectoparasiticide">Ectoparasitic.</button>
+      <button class="pill-filter" data-cat="Reproductive Hormone">Reproductive</button>
+      <button class="pill-filter" data-cat="Probiotic">Probiotic</button>
+      <button class="pill-filter" data-cat="Analgesic">Analgesic</button>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Species</span>
+      <button class="pill-filter active" data-sp="all">All</button>
+      <button class="pill-filter" data-sp="Cattle">Cattle</button>
+      <button class="pill-filter" data-sp="Buffalo">Buffalo</button>
+      <button class="pill-filter" data-sp="Goat">Goat</button>
+      <button class="pill-filter" data-sp="Sheep">Sheep</button>
+      <button class="pill-filter" data-sp="Dog">Dog</button>
+      <button class="pill-filter" data-sp="Poultry">Poultry</button>
+    </div>
+    <div class="results-count"><span id="visibleCount">…</span> products <span id="searchScope" style="display:none;color:var(--gold);font-size:11px;font-weight:500;margin-left:6px;">· full catalog</span></div>
+  </div>
+</div>
+
+<!-- Loading bar -->
+<div id="loadingBar" style="
+  position:fixed; top:0; left:0; right:0; z-index:999;
+  height:3px; background:linear-gradient(90deg,var(--forest-light),var(--gold),var(--forest-light));
+  background-size:200% 100%; animation:loadSlide 1.4s linear infinite;
+"></div>
+
+<!-- Error state -->
+<div id="loadError" style="display:none; flex-direction:column; align-items:center; justify-content:center; padding:80px 20px; color:var(--text-muted); text-align:center;">
+  <div style="font-size:48px;margin-bottom:16px;opacity:0.4">⚠️</div>
+  <h3 style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--forest);margin-bottom:8px;">Could not load products</h3>
+  <p style="font-size:14px;">Check your internet connection or Supabase credentials.</p>
+  <button onclick="loadProducts()" style="margin-top:20px;padding:10px 24px;background:var(--forest);color:var(--cream);border:none;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;">Retry</button>
+</div>
+
+<style>
+@keyframes loadSlide {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+</style>
+
+<div class="main-content" id="mainContent">
+  <div class="no-results" id="noResults">
+    <div class="no-results-icon">🔍</div>
+    <h3>No products found</h3>
+    <p>Try a different search or filter.</p>
+  </div>
+</div>
+
+<footer>
+  <p><strong>Madvet Animal Healthcare</strong> &nbsp;·&nbsp; Internal Reference Document &nbsp;·&nbsp; All products for veterinary use only</p>
+</footer>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+const SUPABASE_URL = 'https://pzijwpqaadhdfcjjtobf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aWp3cHFhYWRoZGZjamp0b2JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTkzNzcsImV4cCI6MjA4NjgzNTM3N30.-fOTDwX8WlJyEToJ-LliGc3yOypal90zVBjPY2HRCDo';
+const TABLE        = 'products_enriched';
+
+// ── STATE ────────────────────────────────────────────────
+let PRODUCTS   = [];
+let activeCat  = 'all';
+let activeSp   = 'all';
+let searchText = '';
+
+// ── CATEGORY COLORS ──────────────────────────────────────
+const CAT_COLORS = {
+  'Antibiotic':              '#3b82f6',
+  'Anti-inflammatory':       '#f59e0b',
+  'Vitamin Supplement':      '#10b981',
+  'Anthelmintic':            '#8b5cf6',
+  'Anthelmintic / Antiparasitic': '#7c3aed',
+  'Ectoparasiticide':        '#ef4444',
+  'Antiparasitic':           '#ec4899',
+  'Reproductive Hormone':    '#f472b6',
+  'Probiotic':               '#14b8a6',
+  'Analgesic':               '#f97316',
+  'Antidiarrheal':           '#84cc16',
+  'Antidiarrheal / Gastrointestinal': '#65a30d',
+  'Antihistamine':           '#a78bfa',
+  'Dermatological':          '#fb7185',
+  'Udder Care':              '#2dd4bf',
+};
+const getColor = c => CAT_COLORS[c] || '#94a3b8';
+
+// ── FETCH FROM SUPABASE ───────────────────────────────────
+async function loadProducts() {
+  const loadingEl = document.getElementById('loadingBar');
+  const errorEl   = document.getElementById('loadError');
+
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/${TABLE}?select=id,product_name,salt_ingredient,packaging,category,species,indication,description,usp_benefits,aliases&order=id.asc&limit=500`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey':        SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type':  'application/json',
+      }
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    PRODUCTS = data.map(row => ({
+      id:          row.id,
+      name:        (row.product_name        || '').trim(),
+      salt:        (row.salt_ingredient     || '').trim(),
+      packaging:   (row.packaging           || '').trim(),
+      category:    (row.category            || '').trim(),
+      species:     (row.species             || '').trim(),
+      indication:  (row.indication          || '').trim(),
+      description: (row.description         || '').trim(),
+      benefits:    (row.usp_benefits        || '').trim(),
+      aliases:     (row.aliases             || '').trim(),
+    }));
+
+    // Update header counts
+    document.getElementById('totalCount').textContent  = PRODUCTS.length;
+
+    // Build dynamic category filter pills
+    buildCategoryFilters();
+
+    if (loadingEl) loadingEl.style.display = 'none';
+    render();
+
+  } catch (err) {
+    console.error('[Glossary] Failed to load products:', err);
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (errorEl)   errorEl.style.display   = 'flex';
+  }
+}
+
+// ── DYNAMIC CATEGORY PILLS ────────────────────────────────
+function buildCategoryFilters() {
+  const catOrder = ['Antibiotic','Anti-inflammatory','Vitamin Supplement','Anthelmintic','Anthelmintic / Antiparasitic','Antiparasitic','Ectoparasiticide','Reproductive Hormone','Probiotic','Analgesic','Antidiarrheal','Antidiarrheal / Gastrointestinal','Antihistamine','Dermatological','Udder Care'];
+  const usedCats = [...new Set(PRODUCTS.map(p => p.category))].filter(Boolean);
+  const ordered  = [...catOrder.filter(c => usedCats.includes(c)), ...usedCats.filter(c => !catOrder.includes(c))];
+
+  const container = document.getElementById('catFilters');
+  if (!container) return;
+
+  // Keep "All" button, rebuild the rest
+  const allBtn = container.querySelector('[data-cat="all"]');
+  container.innerHTML = '';
+  if (allBtn) container.appendChild(allBtn);
+
+  ordered.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className    = 'pill-filter';
+    btn.dataset.cat  = cat;
+    btn.textContent  = cat.replace(' / ', '/').replace('Anti-inflammatory','Anti-inflam.').replace('Reproductive Hormone','Reproductive').replace('Ectoparasiticide','Ectoparasitic.');
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.pill-filter[data-cat]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeCat = cat;
+      render();
+    });
+    container.appendChild(btn);
+  });
+
+  // Re-wire All button
+  const rewiredAll = container.querySelector('[data-cat="all"]');
+  if (rewiredAll) {
+    rewiredAll.addEventListener('click', () => {
+      document.querySelectorAll('.pill-filter[data-cat]').forEach(b => b.classList.remove('active'));
+      rewiredAll.classList.add('active');
+      activeCat = 'all';
+      render();
+    });
+  }
+}
+
+// ── FILTERING ─────────────────────────────────────────────
+function getFiltered() {
+  return PRODUCTS.filter(p => {
+    // When searching: scan ENTIRE catalog — ignore category & species filters
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      return (
+        p.name.toLowerCase().includes(q)        ||
+        p.indication.toLowerCase().includes(q)  ||
+        p.description.toLowerCase().includes(q) ||
+        p.benefits.toLowerCase().includes(q)    ||
+        p.category.toLowerCase().includes(q)    ||
+        p.species.toLowerCase().includes(q)     ||
+        p.packaging.toLowerCase().includes(q)   ||
+        p.aliases.toLowerCase().includes(q)     ||
+        p.salt.toLowerCase().includes(q)
+      );
+    }
+    // No search: apply filters
+    const catOk = activeCat === 'all' || p.category === activeCat;
+    const spOk  = activeSp  === 'all' || p.species.toLowerCase().includes(activeSp.toLowerCase());
+    return catOk && spOk;
+  });
+}
+
+function groupByCategory(products) {
+  const groups = {};
+  products.forEach(p => {
+    if (!groups[p.category]) groups[p.category] = [];
+    groups[p.category].push(p);
+  });
+  return groups;
+}
+
+// ── CARD RENDER ───────────────────────────────────────────
+function renderCard(p) {
+  const color     = getColor(p.category);
+  const shortDesc = p.description || p.indication.split(',').slice(0,4).map(s => s.trim()).join(', ');
+  const saltBar   = p.salt ? `
+    <div class="card-composition">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+      <span class="composition-text">${p.salt}</span>
+    </div>` : '';
+
+  return `
+    <div class="product-card" data-id="${p.id}">
+      <div class="card-accent" style="background:${color}"></div>
+      <div class="card-body">
+        <div class="card-top">
+          <div class="product-name">${p.name}</div>
+          <span class="pack-badge">${p.packaging}</span>
+        </div>
+        ${saltBar}
+        <p class="card-indication">${shortDesc}</p>
+        <div class="card-footer">
+          <button class="card-expand-btn" onclick="toggleCard(${p.id}, this)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            Details
+          </button>
+        </div>
+      </div>
+      <div class="card-detail" id="detail-${p.id}">
+        <div class="card-detail-inner">
+          ${p.description ? `<div class="detail-row"><div class="detail-key">Description</div><div class="detail-val">${p.description}</div></div>` : ''}
+          ${p.salt ? `<div class="detail-row composition-row"><div class="detail-key">Composition / Salts</div><div class="detail-val" style="display:flex;align-items:flex-start;gap:8px;">${p.salt}<button class="copy-btn" onclick="copyText(event,'${p.salt.replace(/'/g, "\'")}')" >Copy</button></div></div>` : ''}
+          ${p.benefits && p.benefits !== 'N/A' ? `<div class="detail-row"><div class="detail-key">Key Benefits</div><div class="detail-val">${p.benefits}</div></div>` : ''}
+          <div class="detail-row"><div class="detail-key">Full Indications</div><div class="detail-val">${p.indication}</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function render() {
+  const filtered     = getFiltered();
+  const content      = document.getElementById('mainContent');
+  const noResults    = document.getElementById('noResults');
+  const visibleCount = document.getElementById('visibleCount');
+  const scope        = document.getElementById('searchScope');
+
+  visibleCount.textContent   = filtered.length;
+  if (scope) scope.style.display = searchText ? 'inline' : 'none';
+
+  content.querySelectorAll('.category-section').forEach(el => el.remove());
+  noResults.classList.remove('visible');
+
+  if (filtered.length === 0) { noResults.classList.add('visible'); return; }
+
+  const catOrder = ['Antibiotic','Anti-inflammatory','Vitamin Supplement','Anthelmintic','Anthelmintic / Antiparasitic','Antiparasitic','Ectoparasiticide','Reproductive Hormone','Probiotic','Analgesic','Antidiarrheal','Antidiarrheal / Gastrointestinal','Antihistamine','Dermatological','Udder Care'];
+  const groups   = groupByCategory(filtered);
+  const ordered  = [...catOrder.filter(c => groups[c]), ...Object.keys(groups).filter(c => !catOrder.includes(c))];
+
+  ordered.forEach(cat => {
+    const products = groups[cat];
+    const section  = document.createElement('div');
+    section.className = 'category-section';
+    const color = getColor(cat);
+    section.innerHTML = `
+      <div class="category-header">
+        <div class="category-dot" style="background:${color}"></div>
+        <h2 class="category-title">${cat}</h2>
+        <span class="category-count">${products.length} product${products.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="product-grid">${products.map(renderCard).join('')}</div>
+    `;
+    content.appendChild(section);
+  });
+}
+
+// ── CARD EXPAND ───────────────────────────────────────────
+function toggleCard(id, btn) {
+  const detail = document.getElementById('detail-' + id);
+  const isOpen = detail.classList.contains('open');
+  document.querySelectorAll('.card-detail.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.card-expand-btn').forEach(b => {
+    b.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Details`;
+  });
+  if (!isOpen) {
+    detail.classList.add('open');
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg> Less`;
+  }
+}
+
+// ── COPY ─────────────────────────────────────────────────
+function copyText(e, text) {
+  e.stopPropagation();
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  });
+  const btn = e.target;
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+}
+
+// ── SEARCH ────────────────────────────────────────────────
+document.getElementById('search').addEventListener('input', e => {
+  searchText = e.target.value;
+  render();
+});
+
+// ── SPECIES FILTERS ───────────────────────────────────────
+document.querySelectorAll('.pill-filter[data-sp]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pill-filter[data-sp]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeSp = btn.dataset.sp;
+    render();
+  });
+});
+
+// ── INIT ─────────────────────────────────────────────────
+loadProducts();
+</script>
+</body>
+</html>

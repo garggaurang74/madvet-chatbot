@@ -208,24 +208,24 @@ export async function POST(req: NextRequest) {
       expandQuery(searchQuery),
       // Semantic search on the raw user query — finds products by meaning, not keywords
       // Falls back silently if pgvector not set up yet
-      semanticSearchProducts(searchQuery, 0.45, 5),
+      semanticSearchProducts(searchQuery, 0.40, 5),
     ])
 
     const effectivelyFollowUp = isFollowUp || expanded.isFollowUp
-    const isCategory = /konsa|kaunsa|kya (dein|use|lagayein)|which product/i.test(truncatedMessage)
+    const isCategory = /konsa|kaunsa|kya (dein|use|lagayein|dete|deta|doon)|which product|koi dawa|koi dawai|batao|suggest|recommend|best|sahi|kaun si|kaun sa|kya karein|kya karun|kya lagaun/i.test(truncatedMessage)
 
     // ── KEYWORD SEARCH (existing 3-layer system) ──
     const keywordResults = searchProducts(
       products,
       searchQuery,
       expanded,
-      isCategory ? 5 : 3
+      isCategory ? 6 : 5
     )
 
     // ── SMART MERGE: Semantic + Keyword ──
     // Semantic gets priority (it understands meaning)
     // Keyword fills in what semantic might miss (exact name matches, new products without embeddings)
-    const primaryMatched = mergeProductResults(semanticResults, keywordResults, isCategory ? 5 : 3)
+    const primaryMatched = mergeProductResults(semanticResults, keywordResults, isCategory ? 6 : 5)
 
     // ── COMPLEMENTARY SEARCH ──
     const isSpecificProductQuery =
