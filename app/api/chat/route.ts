@@ -242,8 +242,8 @@ export async function POST(req: NextRequest) {
     const context = formatProductContext(primaryMatched, complementaryMatched)
 
     const enrichedContent = effectivelyFollowUp
-      ? `Customer says: "${truncatedMessage}"\n\n[FOLLOW-UP — build on previous answer]\n${context}`
-      : `Customer asks: "${truncatedMessage}"\n\n[NEW QUERY]\n${context}`
+      ? `Customer says: "${truncatedMessage}"\n\n${context}`
+      : `Customer asks: "${truncatedMessage}"\n\n${context}`
 
     const enrichedUserMessage: Message = { role: 'user', content: enrichedContent }
     const apiMessages = buildApiMessages(messages, enrichedUserMessage)

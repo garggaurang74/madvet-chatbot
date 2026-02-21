@@ -68,7 +68,7 @@ export default function ChatWindow() {
       id: m.id,
       role: m.role as 'user' | 'assistant',
       content: m.content,
-      products: m.role === 'assistant' ? extractMentionedProducts(m.content, products).slice(0, 1) : undefined
+      products: m.role === 'assistant' ? extractMentionedProducts(m.content, products) : undefined
     }))
     setMessages(chatMessages)
     setActiveConversationId(id)
@@ -144,7 +144,7 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
           if (done) break
           full += decoder.decode(value, { stream: true })
           setMessages(prev => prev.map(m => m.id === assistantId
-            ? { ...m, content: full, products: extractMentionedProducts(full, products).slice(0, 1) }
+            ? { ...m, content: full, products: extractMentionedProducts(full, products) }
             : m
           ))
         }
@@ -211,7 +211,7 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
           <div className="flex items-center gap-1">
             {/* Glossary button */}
             <a
-              href="/glossary.html"
+              href="/madvet-product-glossary-dynamic.html"
               target="_blank"
               rel="noopener noreferrer"
               title="Product Glossary"

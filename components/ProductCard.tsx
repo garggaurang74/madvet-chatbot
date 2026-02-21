@@ -8,14 +8,18 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, dark = false }: ProductCardProps) {
-  const name      = product.product_name ?? 'Unknown Product'
-  const packing   = product.packaging
-  const category  = product.category
-  const species   = product.species
-  const indication = product.indication
-  const benefits  = product.usp_benefits
+  const name     = product.product_name ?? 'Unknown Product'
+  const packing  = product.packaging
+  const category = product.category
+  const species  = product.species
+  const benefits = product.usp_benefits
+  const description = product.description
 
-  // ❌ NEVER show: salt_ingredient, dosage, description (per system prompt rules)
+  // Trim indication to first sentence / first comma-chunk — avoid keyword dumps
+  const rawIndication = product.indication ?? ''
+  const indication = rawIndication.length > 120
+    ? rawIndication.split(/[,،]/)[0].trim()   // first comma-chunk only
+    : rawIndication
 
   return (
     <div className={`rounded-xl border-2 p-4 shadow-sm ${
@@ -40,29 +44,22 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
         )}
       </div>
 
-      {/* Species */}
-      {species && (
-        <p className={`mt-1.5 text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-          🐄 <span className="font-medium">Species:</span> {species}
-        </p>
-      )}
-
-      {/* Indication */}
-      {indication && (
-        <p className={`mt-1 text-sm italic ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-          {indication}
+      {/* Description (preferred) or trimmed indication */}
+      {(description || indication) && (
+        <p className={`mt-2 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+          {description || indication}
         </p>
       )}
 
       {/* Packing */}
       {packing && (
-        <p className={`mt-1 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`mt-1.5 text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
           📦 <span className="font-medium">Packing:</span> {packing}
         </p>
       )}
 
-      {/* Benefits */}
-      {benefits && (
+      {/* Benefits — only if short */}
+      {benefits && benefits.length < 120 && (
         <p className={`mt-1 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
           ✅ {benefits}
         </p>
