@@ -1,6 +1,9 @@
 import { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import ProductsClient from './ProductsClient'
+import type { Product } from './types'
+
+export type { Product }
 
 export const metadata: Metadata = {
   title: 'Products | Madvet Animal Healthcare',
@@ -9,20 +12,6 @@ export const metadata: Metadata = {
 
 // Revalidate every 60 seconds so SQL edits show up quickly
 export const revalidate = 60
-
-export interface Product {
-  id: number
-  name: string
-  salt: string
-  packaging: string
-  formulation: string
-  category: string
-  species: string
-  indication: string
-  description: string
-  benefits: string
-  aliases: string
-}
 
 const CAT_NORMALIZE: Record<string, string> = {
   'Anti-inflammatory':                               'Anti-inflammatory / Analgesic',
@@ -63,8 +52,8 @@ function getFormulationFallback(packaging: string): string {
 }
 
 async function fetchProducts(): Promise<Product[]> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const url   = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const table = process.env.NEXT_PUBLIC_SUPABASE_TABLE || 'products_enriched'
 
   if (!url || !key) return []
@@ -84,8 +73,7 @@ async function fetchProducts(): Promise<Product[]> {
 
   return data.map((row: any): Product => {
     const rawPackaging = (row.packaging || '').trim()
-    // ✅ FIX: Use formulation column directly from DB — fallback to auto-detect only if blank
-    const formulation = (row.formulation || '').trim() || getFormulationFallback(rawPackaging)
+    const formulation  = (row.formulation || '').trim() || getFormulationFallback(rawPackaging)
 
     return {
       id:          Number(row.id),

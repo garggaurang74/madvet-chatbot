@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import type { Product } from './page'
+import type { Product } from './types'
 
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 
