@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Madvet — 1 Day Training</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --forest:#1a3a2a; --forest-mid:#264d39; --forest-light:#3d7a57;
+  --cream:#f5f0e8; --cream-dark:#ede6d6; --gold:#c8a96e; --gold-light:#e8d5a8;
+  --text:#1c2b22; --muted:#5a7060; --white:#fff;
+  --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+
+/* HEADER */
+header{background:var(--forest);padding:16px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.25);}
+.logo{width:36px;height:36px;border-radius:50%;background:var(--forest-light);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+header h1{font-family:'DM Serif Display',serif;color:var(--cream);font-size:18px;}
+header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.day-badge{background:rgba(200,169,110,.15);border:1px solid rgba(200,169,110,.3);border-radius:16px;padding:5px 12px;color:var(--gold-light);font-size:12px;font-weight:600;}
+
+/* OVERALL PROGRESS */
+.top-progress{background:var(--forest-mid);padding:12px 24px;border-bottom:1px solid rgba(200,169,110,.15);}
+.tp-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:12px;}
+.tp-label{font-size:12px;color:rgba(245,240,232,.5);white-space:nowrap;}
+.tp-bar{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;}
+.tp-fill{height:100%;background:linear-gradient(90deg,var(--forest-light),var(--gold));border-radius:3px;transition:width .5s ease;}
+.tp-pct{font-size:12px;font-weight:700;color:var(--gold-light);white-space:nowrap;}
+
+/* SESSION OVERVIEW (home screen) */
+.home{max-width:720px;margin:0 auto;padding:24px 20px 80px;}
+.home-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--forest);margin-bottom:4px;}
+.home-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+
+.session-card{background:var(--white);border:1px solid var(--cream-dark);border-radius:16px;padding:18px 20px;margin-bottom:12px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.session-card:hover{border-color:var(--gold);box-shadow:0 4px 20px rgba(26,58,42,.1);transform:translateY(-1px);}
+.session-card.done{opacity:.7;}
+.session-card.locked{opacity:.5;cursor:not-allowed;}
+.session-card.active-now{border-color:var(--forest-light);box-shadow:0 0 0 2px rgba(61,122,87,.2);}
+.session-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--cream-dark);}
+.session-card.done::before{background:var(--green);}
+.session-card.active-now::before{background:var(--gold);}
+
+.sess-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.sess-info{flex:1;}
+.sess-time{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+.sess-name{font-size:15px;font-weight:600;color:var(--forest);margin-bottom:2px;}
+.sess-desc{font-size:12px;color:var(--muted);}
+.sess-right{text-align:right;flex-shrink:0;}
+.sess-count{font-size:13px;font-weight:600;color:var(--forest);}
+.sess-status{font-size:11px;color:var(--muted);margin-top:2px;}
+.start-btn{padding:7px 16px;border-radius:20px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s;}
+.start-btn.go{background:var(--forest);color:var(--cream);}
+.start-btn.go:hover{background:var(--forest-light);}
+.start-btn.redo{background:var(--cream-dark);color:var(--muted);}
+
+/* STUDY SCREEN */
+.study-screen{display:none;max-width:680px;margin:0 auto;padding:20px 20px 80px;}
+.study-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.back-btn{width:36px;height:36px;border-radius:10px;border:1.5px solid var(--cream-dark);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0;}
+.back-btn:hover{border-color:var(--forest);}
+.study-title{flex:1;}
+.study-title h2{font-size:16px;font-weight:700;color:var(--forest);}
+.study-title p{font-size:12px;color:var(--muted);}
+.study-prog{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.study-dots{display:flex;gap:4px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--cream-dark);transition:background .2s;}
+.dot.done-dot{background:var(--green);}
+.dot.curr-dot{background:var(--gold);}
+
+/* LEARN CARD (study) */
+.learn-card{background:var(--white);border:2px solid var(--cream-dark);border-radius:20px;padding:28px;margin-bottom:16px;box-shadow:0 4px 20px rgba(26,58,42,.07);}
+.lc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.lc-cat{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+.lc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.form-badge{padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:var(--cream-dark);color:var(--muted);}
+.lc-name{font-family:'DM Serif Display',serif;font-size:32px;color:var(--forest);line-height:1.1;margin-bottom:10px;}
+.lc-salt{font-size:13px;color:var(--muted);background:var(--cream-dark);border-radius:8px;padding:8px 12px;margin-bottom:14px;line-height:1.5;}
+.lc-salt span{font-weight:600;color:var(--forest);}
+.lc-section{margin-bottom:12px;}
+.lc-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.use-tags{display:flex;flex-wrap:wrap;gap:5px;}
+.use-tag{background:rgba(61,122,87,.08);border:1px solid rgba(61,122,87,.2);border-radius:8px;padding:3px 10px;font-size:12px;color:var(--forest-mid);}
+.species-row{font-size:13px;color:var(--muted);}
+.tip-box{background:rgba(200,169,110,.08);border:1px solid rgba(200,169,110,.25);border-radius:10px;padding:10px 14px;font-size:12px;color:#7a5c2a;line-height:1.5;margin-top:12px;}
+.tip-box strong{color:var(--forest);}
+
+/* NAV BUTTONS */
+.card-nav{display:flex;gap:10px;}
+.nav-btn{flex:1;padding:13px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
+.nav-prev{background:var(--cream-dark);color:var(--muted);}
+.nav-prev:hover{background:#ddd6c4;}
+.nav-next{background:var(--forest);color:var(--cream);}
+.nav-next:hover{background:var(--forest-light);}
+.nav-next.finish{background:var(--amber);color:var(--forest);}
+
+/* QUIZ SCREEN */
+.quiz-wrap{background:var(--white);border:2px solid var(--cream-dark);border-radius:20px;padding:24px;margin-bottom:16px;box-shadow:0 4px 20px rgba(26,58,42,.07);}
+.quiz-q-num{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.quiz-question{font-size:18px;font-weight:600;color:var(--forest);line-height:1.4;margin-bottom:6px;}
+.quiz-hint{font-size:13px;color:var(--muted);margin-bottom:18px;}
+.options{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.opt{padding:12px 16px;border-radius:11px;border:2px solid var(--cream-dark);background:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;text-align:left;color:var(--text);transition:all .15s;}
+.opt:hover:not(:disabled){border-color:var(--forest-light);background:rgba(61,122,87,.04);}
+.opt.correct{background:#f0fdf4;border-color:#22c55e;color:#15803d;}
+.opt.wrong{background:#fef2f2;border-color:#ef4444;color:#b91c1c;}
+.opt.reveal{background:#fefce8;border-color:#eab308;color:#854d0e;}
+.opt:disabled{cursor:default;}
+.quiz-score-bar{display:flex;gap:10px;margin-bottom:16px;}
+.score-pill{flex:1;background:var(--cream-dark);border-radius:10px;padding:10px;text-align:center;}
+.score-n{font-family:'DM Serif Display',serif;font-size:24px;color:var(--forest);}
+.score-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.quiz-next-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--forest);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:none;}
+.quiz-next-btn:hover{background:var(--forest-light);}
+
+/* SESSION COMPLETE */
+.sess-complete{text-align:center;padding:40px 20px;}
+.big-icon{font-size:60px;margin-bottom:12px;}
+.sc-title{font-family:'DM Serif Display',serif;font-size:28px;color:var(--forest);margin-bottom:6px;}
+.sc-sub{font-size:14px;color:var(--muted);margin-bottom:24px;}
+.sc-stats{display:flex;gap:12px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;}
+.sc-stat{background:var(--white);border:1px solid var(--cream-dark);border-radius:14px;padding:16px 20px;text-align:center;}
+.sc-n{font-family:'DM Serif Display',serif;font-size:32px;color:var(--forest);}
+.sc-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.sc-btn{padding:13px 28px;border-radius:12px;border:none;background:var(--forest);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin:0 6px;}
+.sc-btn:hover{background:var(--forest-light);}
+.sc-btn.sec{background:var(--cream-dark);color:var(--muted);}
+
+/* FINAL COMPLETE */
+.final-complete{text-align:center;padding:48px 20px;}
+.trophy{font-size:80px;margin-bottom:16px;}
+.fc-title{font-family:'DM Serif Display',serif;font-size:32px;color:var(--forest);margin-bottom:8px;}
+.fc-sub{font-size:15px;color:var(--muted);margin-bottom:32px;max-width:400px;margin-left:auto;margin-right:auto;}
+.fc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:360px;margin:0 auto 28px;}
+.fc-box{background:var(--white);border:1px solid var(--cream-dark);border-radius:14px;padding:16px;text-align:center;}
+.fc-n{font-family:'DM Serif Display',serif;font-size:30px;color:var(--forest);}
+.fc-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+
+@media(max-width:480px){
+  .lc-name{font-size:26px;}
+  .home,.study-screen{padding:16px 14px 80px;}
+  header{padding:14px 16px;}
+}
+</style>
+</head>
+<body>
+
+<script>
+const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+const SUPABASE_KEY = 'YOUR_ANON_KEY';
+</script>
+
+<header>
+  <div class="logo">🐄</div>
+  <div>
+    <h1>Madvet Training</h1>
+    <p>Complete 1-Day Program</p>
+  </div>
+  <div class="hdr-right">
+    <div class="day-badge">📅 Day 1</div>
+  </div>
+</header>
+
+<div class="top-progress">
+  <div class="tp-inner">
+    <span class="tp-label">Overall Progress</span>
+    <div class="tp-bar"><div class="tp-fill" id="topFill" style="width:0%"></div></div>
+    <span class="tp-pct" id="topPct">0%</span>
+  </div>
+</div>
+
+<!-- HOME SCREEN -->
+<div class="home" id="homeScreen">
+  <div class="home-title">Your 1-Day Training Plan</div>
+  <div class="home-sub">89 products · 6 sessions · Learn → Quiz → Done ✓</div>
+  <div id="sessionList"></div>
+</div>
+
+<!-- STUDY SCREEN -->
+<div class="study-screen" id="studyScreen">
+  <div class="study-header">
+    <div class="back-btn" onclick="goHome()">←</div>
+    <div class="study-title">
+      <h2 id="studyTitle"></h2>
+      <p id="studySubtitle"></p>
+    </div>
+    <div class="study-prog">
+      <div class="study-dots" id="studyDots"></div>
+    </div>
+  </div>
+  <div id="studyContent"></div>
+</div>
+
+<script>
+// ── PRODUCT DATA (embedded — no Supabase needed for learning) ──────────────
+// Will be overridden if Supabase loads. Fallback keeps app working offline.
+
+const CAT_COLORS = {
+  'Antibiotic':                   '#f59e0b',
+  'Anti-inflammatory / Analgesic':'#f97316',
+  'Vitamin Supplement':           '#8b5cf6',
+  'Anthelmintic / Antiparasitic': '#10b981',
+  'Ectoparasiticide':             '#06b6d4',
+  'Reproductive Hormone':         '#ec4899',
+  'Probiotic':                    '#84cc16',
+  'Antidiarrheal':                '#14b8a6',
+  'Antihistamine':                '#a855f7',
+  'Dermatological':               '#f43f5e',
+  'Udder Care':                   '#2dd4bf',
+};
+
+const CAT_NORMALIZE = {
+  'Anti-inflammatory':'Anti-inflammatory / Analgesic',
+  'Anti-inflammatory, Analgesic, Antipyretic':'Anti-inflammatory / Analgesic',
+  'Anti-inflammatory / Analgesic / Antipyretic':'Anti-inflammatory / Analgesic',
+  'Analgesic / Antipyretic':'Anti-inflammatory / Analgesic',
+  'Analgesic, Antipyretic':'Anti-inflammatory / Analgesic',
+  'Analgesic':'Anti-inflammatory / Analgesic',
+  'Anthelmintic':'Anthelmintic / Antiparasitic',
+  'Antiparasitic':'Anthelmintic / Antiparasitic',
+  'Antibiotic (Cephalosporin)':'Antibiotic',
+  'Antibiotic (Fluoroquinolone)':'Antibiotic',
+  'Antihistamine / Anti-allergic':'Antihistamine',
+  'Dermatological / Topical':'Dermatological',
+  'Probiotic / Immunomodulator / Vitamin Supplement':'Probiotic',
+  'Antidiarrheal / Gastrointestinal':'Antidiarrheal',
+  'Udder Care / Herbal Antimicrobial':'Udder Care',
+};
+
+// ── TRAINING PLAN ──────────────────────────────────────────────────────────
+// Each session: learn cards first, then a mini quiz
+const PLAN = [
+  {
+    id: 0,
+    icon: '💊', color: '#f59e0b',
+    time: 'Session 1 · 15 min',
+    name: 'Antibiotics',
+    desc: '17 products · Bolus vs Injection vs Powder',
+    cats: ['Antibiotic'],
+    quizCount: 5,
+  },
+  {
+    id: 1,
+    icon: '🔥', color: '#f97316',
+    time: 'Session 2 · 12 min',
+    name: 'Pain & Fever',
+    desc: '14 products · Megluforce, 3D, Spasgo, Meloforce',
+    cats: ['Anti-inflammatory / Analgesic'],
+    quizCount: 5,
+  },
+  {
+    id: 2,
+    icon: '🌿', color: '#8b5cf6',
+    time: 'Session 3 · 20 min',
+    name: 'Vitamins & Supplements',
+    desc: '25 products · Biggest category — Doodh Double, Calciforce, Butacin…',
+    cats: ['Vitamin Supplement'],
+    quizCount: 6,
+  },
+  {
+    id: 3,
+    icon: '🪱', color: '#10b981',
+    time: 'Session 4 · 10 min',
+    name: 'Dewormers & Ectoparasiticides',
+    desc: '13 products · Wormi Stop, Fluck Stop, Ivo Force, Tikk\'s Stop',
+    cats: ['Anthelmintic / Antiparasitic', 'Ectoparasiticide'],
+    quizCount: 5,
+  },
+  {
+    id: 4,
+    icon: '🧬', color: '#ec4899',
+    time: 'Session 5 · 8 min',
+    name: 'Reproductive & Probiotics',
+    desc: '11 products · Heat Pregna, Utro OK, BHUK OK, TRT Bolus',
+    cats: ['Reproductive Hormone', 'Probiotic'],
+    quizCount: 4,
+  },
+  {
+    id: 5,
+    icon: '✨', color: '#f43f5e',
+    time: 'Session 6 · 5 min',
+    name: 'Skin, Allergy & Udder',
+    desc: '9 products · SKIN TOP, Mastiout, ALLSTOP, HEAL-5X',
+    cats: ['Dermatological', 'Antihistamine', 'Antidiarrheal', 'Udder Care'],
+    quizCount: 4,
+  },
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let ALL_PRODUCTS = [];
+let sessProgress = JSON.parse(localStorage.getItem('mdv_progress') || '{}');
+// sessProgress[id] = 'done' | 'learn' | 'quiz'
+
+let currentSess = null;
+let currentStep = 'learn'; // 'learn' | 'quiz'
+let learnIdx = 0;
+let quizIdx = 0;
+let quizQ = [];
+let quizCorrect = 0;
+let quizAnswered = false;
+
+// ── FETCH PRODUCTS ─────────────────────────────────────────────────────────
+async function loadProducts() {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits&order=id.asc&limit=500`;
+    const res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ALL_PRODUCTS = data.map(r => ({
+      id: r.id,
+      name: (r.product_name || '').trim(),
+      salt: (r.salt_ingredient || '').trim(),
+      category: (CAT_NORMALIZE[r.category] || r.category || '').trim(),
+      formulation: (r.formulation || guessForm(r.packaging || '')).trim(),
+      species: (r.species || '').trim(),
+      packaging: (r.packaging || '').trim(),
+      uses: (r.indication || '').split(',').map(s => s.trim()).filter(s => s.length > 3 && !/[\u0900-\u097F]/.test(s)).slice(0, 4),
+      description: (r.description || '').trim(),
+    }));
+  } catch(e) {
+    console.warn('Supabase not configured — using demo mode');
+  }
+  renderHome();
+}
+
+function guessForm(pkg) {
+  const p = pkg.toLowerCase();
+  if (p.includes('bolus')) return 'Bolus';
+  if (p.includes('inj') || p.includes('syringe')) return 'Injection';
+  if (p.includes('tablet') || p.includes(' tab')) return 'Tablet';
+  if (p.includes('spray')) return 'Spray';
+  if (p.includes('gel')) return 'Gel';
+  if (p.includes('soap')) return 'Soap';
+  if (p.includes('powder') || p.includes('sachet') || /\d+(gm|kg)/.test(p)) return 'Powder';
+  if (p.includes('pour-on') || p.includes('pour on')) return 'Pour-On';
+  if (p.includes('suspension')) return 'Suspension';
+  if (/\d+\s*ml|litre|liter|syrup|liquid|solution/.test(p)) return 'Liquid';
+  return '';
+}
+
+function getSessionProducts(sess) {
+  return ALL_PRODUCTS.filter(p => sess.cats.includes(p.category));
+}
+
+// ── HOME ───────────────────────────────────────────────────────────────────
+function renderHome() {
+  updateTopProgress();
+  const list = document.getElementById('sessionList');
+  list.innerHTML = '';
+
+  // Check if all done
+  const allDone = PLAN.every(s => sessProgress[s.id] === 'done');
+  if (allDone && ALL_PRODUCTS.length > 0) {
+    renderFinalComplete();
+    return;
+  }
+
+  let foundActive = false;
+  PLAN.forEach((sess, i) => {
+    const isDone   = sessProgress[sess.id] === 'done';
+    const prevDone = i === 0 || sessProgress[PLAN[i-1].id] === 'done';
+    const isActive = !isDone && prevDone;
+    if (isActive && !foundActive) foundActive = true;
+
+    const card = document.createElement('div');
+    card.className = 'session-card' + (isDone ? ' done' : '') + (!prevDone ? ' locked' : '') + (isActive ? ' active-now' : '');
+
+    const prods = getSessionProducts(sess);
+    const statusText = isDone ? '✓ Complete' : !prevDone ? '🔒 Locked' : 'Ready';
+
+    card.innerHTML = `
+      <div class="sess-icon" style="background:${sess.color}20">${sess.icon}</div>
+      <div class="sess-info">
+        <div class="sess-time">${sess.time}</div>
+        <div class="sess-name">${sess.name}</div>
+        <div class="sess-desc">${sess.desc}</div>
+      </div>
+      <div class="sess-right">
+        <div class="sess-count">${prods.length || '—'} products</div>
+        <div class="sess-status" style="color:${isDone?'var(--green)':isActive?'var(--amber)':'var(--muted)'}">${statusText}</div>
+        ${(isActive || isDone) ? `<button class="start-btn ${isDone?'redo':'go'}" onclick="startSession(${sess.id})" style="margin-top:6px">${isDone?'Redo':'Start →'}</button>` : ''}
+      </div>
+    `;
+    if ((isActive || isDone) && !card.querySelector('.locked')) {
+      card.onclick = (e) => { if (!e.target.classList.contains('start-btn')) startSession(sess.id); };
+    }
+    list.appendChild(card);
+  });
+}
+
+function renderFinalComplete() {
+  const totalQuiz = PLAN.reduce((a,s) => a + s.quizCount, 0);
+  document.getElementById('homeScreen').innerHTML = `
+    <div class="final-complete">
+      <div class="trophy">🏆</div>
+      <div class="fc-title">Training Complete!</div>
+      <div class="fc-sub">You've studied all 89 Madvet products and passed every quiz. You're ready to sell and recommend with confidence.</div>
+      <div class="fc-grid">
+        <div class="fc-box"><div class="fc-n">89</div><div class="fc-l">Products learned</div></div>
+        <div class="fc-box"><div class="fc-n">6</div><div class="fc-l">Sessions done</div></div>
+        <div class="fc-box"><div class="fc-n">${totalQuiz}</div><div class="fc-l">Quiz questions</div></div>
+        <div class="fc-box"><div class="fc-n">1</div><div class="fc-l">Day</div></div>
+      </div>
+      <button class="sc-btn sec" onclick="resetAll()">Start Over</button>
+    </div>
+  `;
+}
+
+function updateTopProgress() {
+  const done = Object.values(sessProgress).filter(v => v === 'done').length;
+  const pct  = Math.round((done / PLAN.length) * 100);
+  document.getElementById('topFill').style.width = pct + '%';
+  document.getElementById('topPct').textContent  = pct + '%';
+}
+
+// ── SESSION START ──────────────────────────────────────────────────────────
+function startSession(sessId) {
+  currentSess  = PLAN.find(s => s.id === sessId);
+  currentStep  = 'learn';
+  learnIdx     = 0;
+  quizIdx      = 0;
+  quizCorrect  = 0;
+  quizAnswered = false;
+
+  document.getElementById('homeScreen').style.display  = 'none';
+  document.getElementById('studyScreen').style.display = 'block';
+
+  renderLearn();
+}
+
+function goHome() {
+  document.getElementById('homeScreen').style.display  = '';
+  document.getElementById('studyScreen').style.display = 'none';
+  currentSess = null;
+  renderHome();
+}
+
+// ── LEARN PHASE ────────────────────────────────────────────────────────────
+function renderLearn() {
+  const sess  = currentSess;
+  const prods = getSessionProducts(sess);
+
+  document.getElementById('studyTitle').textContent    = sess.name + ' — Study';
+  document.getElementById('studySubtitle').textContent = `Card ${learnIdx + 1} of ${prods.length}`;
+
+  // Dots
+  const dots = document.getElementById('studyDots');
+  dots.innerHTML = prods.map((_, i) =>
+    `<div class="dot ${i < learnIdx ? 'done-dot' : i === learnIdx ? 'curr-dot' : ''}"></div>`
+  ).slice(0, Math.min(prods.length, 12)).join('');
+
+  const p = prods[learnIdx];
+  const color = CAT_COLORS[p.category] || '#94a3b8';
+
+  // Smart tip per category
+  const tips = {
+    'Antibiotic': `💡 <strong>Tip:</strong> Know the salt class — Ceftriaxone (broad spectrum), Levofloxacin (respiratory), Amoxycillin (general). Bolus = mild, Injection = serious infection.`,
+    'Anti-inflammatory / Analgesic': `💡 <strong>Tip:</strong> Flunixin (Megluforce) = strongest fever + colic. Meloxicam (Ezy Flam, Meloforce) = joints + post-surgery. Piroxicam (3D, Spasgo) = general pain.`,
+    'Vitamin Supplement': `💡 <strong>Tip:</strong> Doodh Double = milk production. Calciforce = calcium deficiency. Butacin = weakness/recovery. Livorite = liver + anemia. V.H-5 = general health.`,
+    'Anthelmintic / Antiparasitic': `💡 <strong>Tip:</strong> Wormi Stop = gut worms (bolus). Fluck Stop = liver flukes + worms (liquid/bolus). Ivo Force = ivermectin injection (internal + external). Albo-l = oral liquid dewormer.`,
+    'Ectoparasiticide': `💡 <strong>Tip:</strong> Tikk's Stop soap = ticks + lice (5% mild, 8% severe). Flunill Pour-On = pour on back for ticks. Tikks stop 6ml = amitraz concentrate (mix in water, spray).`,
+    'Reproductive Hormone': `💡 <strong>Tip:</strong> D. Progest-NP = progesterone injection (repeat breeding). Heat Pregna Bolus = heat induction (herbal). Utro OK = post-calving uterine tonic. Milk Double = milk drop (galactogogue).`,
+    'Probiotic': `💡 <strong>Tip:</strong> Give probiotics AFTER antibiotics to restore gut bacteria. BHUK OK = appetite + digestion. FAT-EX = liver + rumen. Pashu Boost Gold = milk fat increase.`,
+    'Antidiarrheal': `💡 <strong>Tip:</strong> Stop Stop bolus = diarrhea/dysentery (bacterial + protozoal). Gumbloat suspension = flatulence/bloat (simethicone — anti-gas, not antidiarrheal).`,
+    'Antihistamine': `💡 <strong>Tip:</strong> ALLSTOP = chlorpheniramine injection. For allergy reactions, urticaria, hives. 100ml for large animals, 30ml for smaller. Always injection — fast action needed.`,
+    'Dermatological': `💡 <strong>Tip:</strong> SKIN TOP Spray = general skin conditions (all large animals). HEAL-5X powder = wounds + maggots (herbal). EZY DERM = skin tonic for pets (oral). 5-in-1 Shampoo = pets tick/flea.`,
+    'Udder Care': `💡 <strong>Tip:</strong> Mastiout Spray = herbal mastitis spray for udder. Spray directly on teat/udder after milking. Works with systemic antibiotic for full mastitis treatment.`,
+  };
+  const tip = tips[p.category] || '';
+
+  document.getElementById('studyContent').innerHTML = `
+    <div class="learn-card">
+      <div class="lc-header">
+        <div class="lc-cat">
+          <div class="lc-dot" style="background:${color}"></div>
+          <span style="color:${color}">${p.category}</span>
+        </div>
+        <div class="form-badge">${p.formulation || p.packaging}</div>
+      </div>
+      <div class="lc-name">${p.name}</div>
+      <div class="lc-salt"><span>Salt:</span> ${p.salt || '—'}</div>
+      ${p.uses.length ? `
+        <div class="lc-section">
+          <div class="lc-label">Used For</div>
+          <div class="use-tags">${p.uses.map(u => `<span class="use-tag">${u}</span>`).join('')}</div>
+        </div>` : ''}
+      <div class="lc-section">
+        <div class="lc-label">Species</div>
+        <div class="species-row">🐄 ${p.species}</div>
+      </div>
+      ${tip ? `<div class="tip-box">${tip}</div>` : ''}
+    </div>
+    <div class="card-nav">
+      ${learnIdx > 0 ? `<button class="nav-btn nav-prev" onclick="learnNav(-1)">← Prev</button>` : '<div></div>'}
+      <button class="nav-btn nav-next ${learnIdx === prods.length - 1 ? 'finish' : ''}"
+        onclick="${learnIdx === prods.length - 1 ? 'startQuiz()' : 'learnNav(1)'}">
+        ${learnIdx === prods.length - 1 ? '📝 Take Quiz →' : 'Next →'}
+      </button>
+    </div>
+  `;
+}
+
+function learnNav(dir) {
+  const prods = getSessionProducts(currentSess);
+  learnIdx = Math.max(0, Math.min(prods.length - 1, learnIdx + dir));
+  renderLearn();
+}
+
+// ── QUIZ PHASE ─────────────────────────────────────────────────────────────
+function startQuiz() {
+  currentStep  = 'quiz';
+  quizIdx      = 0;
+  quizCorrect  = 0;
+  quizAnswered = false;
+
+  const sess      = currentSess;
+  const sessProd  = getSessionProducts(sess);
+  const shuffled  = [...sessProd].sort(() => Math.random() - .5);
+  const count     = Math.min(sess.quizCount, shuffled.length);
+  quizQ = buildQuizQuestions(shuffled.slice(0, count));
+
+  document.getElementById('studyTitle').textContent    = sess.name + ' — Quiz';
+  document.getElementById('studySubtitle').textContent = `${count} questions`;
+  renderQuiz();
+}
+
+function buildQuizQuestions(products) {
+  // Mix of question types: name→use, use→name, salt→name
+  return products.map((p, i) => {
+    const types = ['use2name', 'name2form', 'salt2name'];
+    const type  = types[i % types.length];
+    return { p, type };
+  });
+}
+
+function renderQuiz() {
+  if (quizIdx >= quizQ.length) { renderSessionComplete(); return; }
+  quizAnswered = false;
+
+  const { p, type } = quizQ[quizIdx];
+  const sess  = currentSess;
+  const prods = ALL_PRODUCTS.length > 0 ? ALL_PRODUCTS : getSessionProducts(sess);
+
+  // Wrong options from same category first, then all products
+  const sameCat = prods.filter(x => x.name !== p.name && sess.cats.includes(x.category));
+  const others  = [...sameCat, ...prods.filter(x => x.name !== p.name && !sess.cats.includes(x.category))];
+  const wrongs  = others.sort(() => Math.random() - .5).slice(0, 3);
+  const options = [p, ...wrongs].sort(() => Math.random() - .5);
+
+  let question = '', hint = '';
+  if (type === 'use2name') {
+    const use = p.uses[0] || p.description.split('.')[0] || p.category;
+    question  = `Which product treats: "${use}"?`;
+    hint      = `Category: ${p.category} · ${p.formulation || p.packaging}`;
+  } else if (type === 'name2form') {
+    question = `What formulation is ${p.name}?`;
+    hint     = `Category: ${p.category}`;
+    // For this type, options are forms not names
+    const forms = ['Bolus', 'Injection', 'Liquid', 'Tablet', 'Powder', 'Spray', 'Gel', 'Soap'];
+    const correctForm = p.formulation || guessForm(p.packaging);
+    const wrongForms  = forms.filter(f => f !== correctForm).sort(() => Math.random() - .5).slice(0, 3);
+    const formOpts    = [correctForm, ...wrongForms].sort(() => Math.random() - .5);
+    renderFormQuiz(question, hint, formOpts, correctForm);
+    return;
+  } else {
+    // salt2name
+    const saltShort = (p.salt || '').split(',')[0].trim() || p.category;
+    question = `Which product contains: "${saltShort}"?`;
+    hint     = `${p.category} · ${p.formulation || p.packaging}`;
+  }
+
+  const dots = document.getElementById('studyDots');
+  dots.innerHTML = quizQ.map((_, i) =>
+    `<div class="dot ${i < quizIdx ? 'done-dot' : i === quizIdx ? 'curr-dot' : ''}"></div>`
+  ).join('');
+
+  document.getElementById('studyContent').innerHTML = `
+    <div class="quiz-score-bar">
+      <div class="score-pill"><div class="score-n" style="color:var(--green)">${quizCorrect}</div><div class="score-l">Correct</div></div>
+      <div class="score-pill"><div class="score-n">${quizIdx + 1}/${quizQ.length}</div><div class="score-l">Question</div></div>
+      <div class="score-pill"><div class="score-n">${quizQ.length - quizIdx - 1}</div><div class="score-l">Left</div></div>
+    </div>
+    <div class="quiz-wrap">
+      <div class="quiz-q-num">Question ${quizIdx + 1} of ${quizQ.length}</div>
+      <div class="quiz-question">${question}</div>
+      <div class="quiz-hint">${hint}</div>
+      <div class="options">
+        ${options.map(o => `<button class="opt" onclick="checkOpt(this,'${escQ(o.name)}','${escQ(p.name)}')">${o.name}</button>`).join('')}
+      </div>
+      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">Next →</button>
+    </div>
+  `;
+}
+
+function renderFormQuiz(question, hint, formOpts, correctForm) {
+  const dots = document.getElementById('studyDots');
+  dots.innerHTML = quizQ.map((_, i) =>
+    `<div class="dot ${i < quizIdx ? 'done-dot' : i === quizIdx ? 'curr-dot' : ''}"></div>`
+  ).join('');
+
+  document.getElementById('studyContent').innerHTML = `
+    <div class="quiz-score-bar">
+      <div class="score-pill"><div class="score-n" style="color:var(--green)">${quizCorrect}</div><div class="score-l">Correct</div></div>
+      <div class="score-pill"><div class="score-n">${quizIdx + 1}/${quizQ.length}</div><div class="score-l">Question</div></div>
+      <div class="score-pill"><div class="score-n">${quizQ.length - quizIdx - 1}</div><div class="score-l">Left</div></div>
+    </div>
+    <div class="quiz-wrap">
+      <div class="quiz-q-num">Question ${quizIdx + 1} of ${quizQ.length}</div>
+      <div class="quiz-question">${question}</div>
+      <div class="quiz-hint">${hint}</div>
+      <div class="options">
+        ${formOpts.map(f => `<button class="opt" onclick="checkOpt(this,'${f}','${correctForm}')">${f}</button>`).join('')}
+      </div>
+      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">Next →</button>
+    </div>
+  `;
+}
+
+function escQ(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function checkOpt(btn, chosen, correct) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  document.querySelectorAll('.opt').forEach(b => {
+    b.disabled = true;
+    if (b.textContent.trim() === correct) b.classList.add(chosen === correct ? 'correct' : 'reveal');
+  });
+  if (chosen === correct) { btn.classList.add('correct'); quizCorrect++; }
+  else btn.classList.add('wrong');
+  const nb = document.getElementById('qNext');
+  if (nb) { nb.style.display = 'block'; nb.textContent = quizIdx < quizQ.length - 1 ? 'Next →' : 'Finish Session ✓'; }
+}
+
+function nextQuiz() {
+  quizIdx++;
+  renderQuiz();
+}
+
+// ── SESSION COMPLETE ───────────────────────────────────────────────────────
+function renderSessionComplete() {
+  const sess  = currentSess;
+  const pct   = Math.round((quizCorrect / quizQ.length) * 100);
+  const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '💪' : '📚';
+  const msg   = pct >= 80 ? 'Great job! Move to the next session.' : pct >= 60 ? 'Good — redo this session to strengthen memory.' : 'Review these products again before moving on.';
+
+  if (pct >= 60) {
+    sessProgress[sess.id] = 'done';
+    localStorage.setItem('mdv_progress', JSON.stringify(sessProgress));
+  }
+
+  document.getElementById('studyDots').innerHTML = '';
+  document.getElementById('studyTitle').textContent    = sess.name;
+  document.getElementById('studySubtitle').textContent = 'Session complete';
+
+  document.getElementById('studyContent').innerHTML = `
+    <div class="sess-complete">
+      <div class="big-icon">${emoji}</div>
+      <div class="sc-title">${pct >= 80 ? 'Excellent!' : pct >= 60 ? 'Session Passed' : 'Keep Practicing'}</div>
+      <div class="sc-sub">${msg}</div>
+      <div class="sc-stats">
+        <div class="sc-stat">
+          <div class="sc-n" style="color:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}">${quizCorrect}/${quizQ.length}</div>
+          <div class="sc-l">Quiz Score</div>
+        </div>
+        <div class="sc-stat"><div class="sc-n">${pct}%</div><div class="sc-l">Accuracy</div></div>
+      </div>
+      <button class="sc-btn" onclick="goHome()">${pct >= 60 ? 'Next Session →' : 'Back to Plan'}</button>
+      <button class="sc-btn sec" onclick="startSession(${sess.id})">Redo Session</button>
+    </div>
+  `;
+}
+
+function resetAll() {
+  sessProgress = {};
+  localStorage.removeItem('mdv_progress');
+  renderHome();
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+loadProducts();
+</script>
+</body>
+</html>
