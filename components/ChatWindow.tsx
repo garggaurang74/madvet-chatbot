@@ -160,7 +160,7 @@ export default function ChatWindow() {
           for (const line of lines) {
             if (line.startsWith('t:')) {
               // Text chunk
-              const chunk = line.slice(2)
+              const chunk = line.slice(2).replace(/\\n/g, '\n')
               fullText += chunk
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, content: fullText } : m

@@ -186,7 +186,8 @@ export async function POST(req: NextRequest) {
             if (delta) {
               fullText += delta
               // Stream text chunks prefixed with 't:' so frontend can parse
-              controller.enqueue(encoder.encode(`t:${delta}`))
+              const safeChunk = delta.replace(/\n/g, '\\n')
+              controller.enqueue(encoder.encode(`t:${safeChunk}\n`))
             }
           }
 
