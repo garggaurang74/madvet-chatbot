@@ -24,10 +24,17 @@ const EMPTY_PRODUCT: ProductData = {
 }
 
 const CATEGORIES = [
-  'Antibiotic', 'Anthelmintic', 'Antiparasitic', 'Ectoparasiticide',
-  'Anti-inflammatory', 'Antihistamine', 'Reproductive Hormone',
-  'Probiotic', 'Vitamin Supplement', 'Udder Care', 'Antidiarrheal',
-  'Dermatological', 'Analgesic / Antipyretic'
+  'Antibiotic',
+  'Anthelmintic / Antiparasitic',
+  'Ectoparasiticide',
+  'Anti-inflammatory / Analgesic',
+  'Antihistamine',
+  'Reproductive Hormone',
+  'Probiotic',
+  'Vitamin Supplement',
+  'Udder Care',
+  'Antidiarrheal',
+  'Dermatological',
 ]
 
 const SPECIES_OPTIONS = ['Cattle', 'Buffalo', 'Sheep', 'Goat', 'Dog', 'Cat', 'Horse', 'Poultry']

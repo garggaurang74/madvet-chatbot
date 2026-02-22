@@ -549,6 +549,8 @@
     </div>
     <div class="filter-group" id="spFilters">
     </div>
+    <div class="filter-group" id="formFilters">
+    </div>
     <div class="results-count"><span id="visibleCount">…</span> products <span id="searchScope" style="display:none;color:var(--gold);font-size:11px;font-weight:500;margin-left:6px;">· full catalog</span></div>
   </div>
 </div>
@@ -596,6 +598,7 @@ const TABLE        = 'products_enriched';
 let PRODUCTS   = [];
 let activeCat  = 'all';
 let activeSp   = 'all';
+let activeForm = 'all';
 let searchText = '';
 
 const CAT_COLORS = {
@@ -618,23 +621,61 @@ const CAT_COLORS = {
 };
 const getColor = c => CAT_COLORS[c] || '#94a3b8';
 
+// ── CATEGORY NORMALIZATION MAP ────────────────────────────
+const CATEGORY_NORMALIZE = {
+  'Anti-inflammatory':                               'Anti-inflammatory / Analgesic',
+  'Anti-inflammatory, Analgesic, Antipyretic':       'Anti-inflammatory / Analgesic',
+  'Anti-inflammatory / Analgesic / Antipyretic':     'Anti-inflammatory / Analgesic',
+  'Analgesic / Antipyretic':                         'Anti-inflammatory / Analgesic',
+  'Analgesic, Antipyretic':                          'Anti-inflammatory / Analgesic',
+  'Analgesic':                                       'Anti-inflammatory / Analgesic',
+  'Anthelmintic':                                    'Anthelmintic / Antiparasitic',
+  'Antiparasitic':                                   'Anthelmintic / Antiparasitic',
+  'Antibiotic (Cephalosporin)':                      'Antibiotic',
+  'Antibiotic (Fluoroquinolone)':                    'Antibiotic',
+  'Antihistamine / Anti-allergic':                   'Antihistamine',
+  'Dermatological / Topical':                        'Dermatological',
+  'Probiotic / Immunomodulator / Vitamin Supplement':'Probiotic',
+  'Antidiarrheal / Gastrointestinal':                'Antidiarrheal',
+};
+const normalizeCategory = c => CATEGORY_NORMALIZE[c] || c;
+
 const CAT_ORDER = [
-  'Antibiotic','Anti-inflammatory','Vitamin Supplement',
-  'Anthelmintic','Anthelmintic / Antiparasitic','Antiparasitic',
-  'Ectoparasiticide','Reproductive Hormone',
-  'Probiotic','Probiotic / Immunomodulator / Vitamin Supplement',
-  'Analgesic','Antidiarrheal','Antidiarrheal / Gastrointestinal',
-  'Antihistamine','Dermatological','Udder Care'
+  'Antibiotic',
+  'Anti-inflammatory / Analgesic',
+  'Vitamin Supplement',
+  'Anthelmintic / Antiparasitic',
+  'Ectoparasiticide',
+  'Reproductive Hormone',
+  'Probiotic',
+  'Antidiarrheal',
+  'Antihistamine',
+  'Dermatological',
+  'Udder Care',
 ];
 const CAT_LABELS = {
-  'Anti-inflammatory':                               'Anti-inflam.',
-  'Anthelmintic / Antiparasitic':                    'Anthelmintic',
-  'Ectoparasiticide':                                'Ectoparasitic.',
-  'Reproductive Hormone':                            'Reproductive',
-  'Antidiarrheal / Gastrointestinal':                'Antidiarrheal',
-  'Probiotic / Immunomodulator / Vitamin Supplement':'Probiotic',
+  'Anti-inflammatory / Analgesic': 'Anti-inflam.',
+  'Anthelmintic / Antiparasitic':  'Anthelmintic',
+  'Ectoparasiticide':              'Ectoparasitic.',
+  'Reproductive Hormone':          'Reproductive',
 };
 const catLabel = c => CAT_LABELS[c] || c;
+
+// ── FORMULATION DETECTION ─────────────────────────────────
+function getFormulation(packaging) {
+  const p = (packaging || '').toLowerCase();
+  if (p.includes('bolus'))                                         return 'Bolus';
+  if (p.includes('inj') || p.includes('syringe'))                 return 'Injection';
+  if (p.includes('tablet') || p.includes(' tab'))                 return 'Tablet';
+  if (p.includes('spray'))                                         return 'Spray';
+  if (p.includes('gel') || p.includes('ointment') || p.includes('cream')) return 'Gel / Ointment';
+  if (p.includes('soap'))                                          return 'Soap';
+  if (p.includes('powder') || p.includes('sachet') || p.includes(' gm') || p.includes(' kg')) return 'Powder';
+  if (p.includes('pour-on') || p.includes('pour on'))             return 'Pour-On';
+  if (p.includes('suspension'))                                    return 'Suspension';
+  if (p.includes('syrup') || p.includes('liq') || p.includes('liquid') || p.includes('solution') || p.includes(' ml') || p.includes(' litre') || p.includes(' liter')) return 'Liquid';
+  return 'Other';
+}
 
 // ── FETCH ─────────────────────────────────────────────────
 async function loadProducts() {
@@ -647,18 +688,22 @@ async function loadProducts() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    PRODUCTS = data.map(row => ({
-      id:          row.id,
-      name:        (row.product_name    || '').trim(),
-      salt:        (row.salt_ingredient || '').trim(),
-      packaging:   (row.packaging       || '').trim(),
-      category:    (row.category        || '').trim(),
-      species:     (row.species         || '').trim(),
-      indication:  (row.indication      || '').trim(),
-      description: (row.description     || '').trim(),
-      benefits:    (row.usp_benefits    || '').trim(),
-      aliases:     (row.aliases         || '').trim(),
-    }));
+    PRODUCTS = data.map(row => {
+      const rawCat = (row.category || '').trim();
+      return {
+        id:          row.id,
+        name:        (row.product_name    || '').trim(),
+        salt:        (row.salt_ingredient || '').trim(),
+        packaging:   (row.packaging       || '').trim(),
+        category:    normalizeCategory(rawCat),
+        formulation: getFormulation((row.packaging || '').trim()),
+        species:     (row.species         || '').trim(),
+        indication:  (row.indication      || '').trim(),
+        description: (row.description     || '').trim(),
+        benefits:    (row.usp_benefits    || '').trim(),
+        aliases:     (row.aliases         || '').trim(),
+      };
+    });
     document.getElementById('totalCount').textContent = PRODUCTS.length;
     buildFilters();
     if (loadingEl) loadingEl.style.display = 'none';
@@ -708,14 +753,34 @@ function buildFilters() {
     activeSp = btn.dataset.sp;
     render();
   });
+
+  // Formulation — from packaging field
+  const usedForms = [...new Set(PRODUCTS.map(p => p.formulation))].filter(Boolean);
+  const formOrder = ['Bolus','Injection','Liquid','Tablet','Powder','Spray','Gel / Ointment','Soap','Suspension','Pour-On','Other'];
+  const ordForms  = [...formOrder.filter(f => usedForms.includes(f)),
+                     ...usedForms.filter(f => !formOrder.includes(f))];
+  const formBox = document.getElementById('formFilters');
+  formBox.innerHTML = '<span class="filter-label">Form</span>';
+  const allFormBtn = makeBtn('All', 'form', 'all', true);
+  formBox.appendChild(allFormBtn);
+  ordForms.forEach(f => formBox.appendChild(makeBtn(f, 'form', f, false)));
+  formBox.addEventListener('click', e => {
+    const btn = e.target.closest('[data-form]');
+    if (!btn) return;
+    document.querySelectorAll('[data-form]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeForm = btn.dataset.form;
+    render();
+  });
 }
 
 function makeBtn(label, type, value, active) {
   const btn = document.createElement('button');
   btn.className = 'pill-filter' + (active ? ' active' : '');
   btn.textContent = label;
-  if (type === 'cat') btn.dataset.cat = value;
-  else                btn.dataset.sp  = value;
+  if (type === 'cat')       btn.dataset.cat  = value;
+  else if (type === 'sp')   btn.dataset.sp   = value;
+  else if (type === 'form') btn.dataset.form = value;
   return btn;
 }
 
@@ -745,18 +810,19 @@ function scoreProduct(p, q) {
 // ── FILTERING ─────────────────────────────────────────────
 function getFiltered() {
   const q = searchText.toLowerCase().trim();
+  let base = PRODUCTS;
+  // Species + formulation filters apply always (even during search)
+  if (activeSp   !== 'all') base = base.filter(p => p.species.toLowerCase().includes(activeSp.toLowerCase()));
+  if (activeForm !== 'all') base = base.filter(p => p.formulation === activeForm);
   if (q) {
-    return PRODUCTS
+    return base
       .map(p => ({ p, score: scoreProduct(p, q) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .map(({ p }) => p);
   }
-  return PRODUCTS.filter(p => {
-    const catOk = activeCat === 'all' || p.category === activeCat;
-    const spOk  = activeSp  === 'all' || p.species.toLowerCase().includes(activeSp.toLowerCase());
-    return catOk && spOk;
-  });
+  if (activeCat !== 'all') base = base.filter(p => p.category === activeCat);
+  return base;
 }
 
 // ── HIGHLIGHT ────────────────────────────────────────────
@@ -903,8 +969,10 @@ function copyText(e, text) {
 document.getElementById('search').addEventListener('input', e => {
   searchText = e.target.value;
   if (searchText) {
+    // Reset category filter only (species + form stay active during search)
     document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
-    document.querySelector('[data-cat="all"]') && document.querySelector('[data-cat="all"]').classList.add('active');
+    const allCatEl = document.querySelector('[data-cat="all"]');
+    if (allCatEl) allCatEl.classList.add('active');
     activeCat = 'all';
   }
   render();
