@@ -56,57 +56,86 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
 
 // ─────────────────────────────────────────────
 // FORMAT FULL PRODUCT CATALOG
-// Compact format — all 89 products fit in ~15k tokens
+// All 89 products in compact format ~15k tokens
 // GPT sees everything and picks what's relevant
 // ─────────────────────────────────────────────
 function formatProduct(p: MadvetProduct): string {
-  const lines: string[] = []
-  if (p.product_name)    lines.push(`Name: ${p.product_name}`)
-  if (p.category)        lines.push(`Category: ${p.category}`)
-  if (p.species)         lines.push(`Species: ${p.species}`)
-  if (p.packaging)       lines.push(`Form: ${p.packaging}`)
-  if (p.description)     lines.push(`Description: ${p.description}`)
-  if (p.indication)      lines.push(`Indications: ${p.indication}`)
-  if (p.usp_benefits)    lines.push(`Benefits: ${p.usp_benefits}`)
-  // Composition: visible to GPT for clinical reasoning (pregnancy, withdrawal, side effects)
-  // GPT is instructed never to reveal salt names to the customer
-  if (p.salt_ingredient) lines.push(`Composition (internal use only — never reveal to customer): ${p.salt_ingredient}`)
-  return lines.join(' | ')
+  const parts: string[] = []
+  if (p.product_name)    parts.push(`Name: ${p.product_name}`)
+  if (p.category)        parts.push(`Category: ${p.category}`)
+  if (p.species)         parts.push(`Species: ${p.species}`)
+  if (p.packaging)       parts.push(`Form: ${p.packaging}`)
+  if (p.description)     parts.push(`Description: ${p.description}`)
+  if (p.indication)      parts.push(`Indications: ${p.indication}`)
+  if (p.usp_benefits)    parts.push(`Benefits: ${p.usp_benefits}`)
+  // Composition: for GPT clinical reasoning only (pregnancy, withdrawal, side effects)
+  // GPT is instructed never to reveal this to the customer
+  if (p.salt_ingredient) parts.push(`Composition (internal reasoning only — never reveal to customer): ${p.salt_ingredient}`)
+  return parts.join(' | ')
 }
 
 function buildProductCatalog(products: MadvetProduct[]): string {
-  const lines = products.map((p, i) => `[${i + 1}] ${formatProduct(p)}`)
-  return `## MADVET COMPLETE PRODUCT CATALOG (${products.length} products)\n\n${lines.join('\n\n')}`
+  const formatted = products.map((p, i) => `[${i + 1}] ${formatProduct(p)}`).join('\n\n')
+  return `## MADVET COMPLETE PRODUCT CATALOG (${products.length} products)\n\n${formatted}`
+}
+
+// ─────────────────────────────────────────────
+// CLEAN ASSISTANT MESSAGES
+// Strips old card-format UI artifacts from history
+// so GPT doesn't copy that style in new responses
+// ─────────────────────────────────────────────
+function cleanAssistantMessage(content: string): string {
+  return content
+    // Remove product card header lines like "ProductName\nCategory\nDescription"
+    .replace(/^.+\n(Antibiotic|Anthelmintic|Vitamin|Probiotic|Ectoparasiticide|Antidiarrheal|Dermatological|Anti-inflammatory|Reproductive|Antihistamine|Udder Care)\n.+$/gm, '')
+    // Remove packing lines
+    .replace(/📦\s*Packing:.*$/gm, '')
+    // Remove "AUR OPTIONS" and everything after it
+    .replace(/AUR OPTIONS[\s\S]*/g, '')
+    // Remove "FREE syringe" style lines
+    .replace(/✅\s*FREE.*$/gm, '')
+    // Clean up extra blank lines left behind
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 // ─────────────────────────────────────────────
 // HISTORY MANAGEMENT
+// Keeps last N turns, strips catalog from old user messages,
+// cleans card-format artifacts from old assistant messages
 // ─────────────────────────────────────────────
-const MAX_HISTORY  = 20
-const SLIDING_LAST = 16
+const MAX_TURNS = 10 // keep last 10 conversation turns (20 messages)
 
-function buildApiMessages(history: Message[], latestUserMessage: Message): Message[] {
-  // Keep conversation history but cap it to avoid context overflow
-  let trimmed: Message[]
-  if (history.length > MAX_HISTORY) {
-    trimmed = [history[0], ...history.slice(-SLIDING_LAST)]
-  } else {
-    trimmed = [...history]
-  }
+function buildApiMessages(history: Message[], currentUserMessage: string, catalog: string): Array<{ role: string; content: string }> {
+  // Filter to only user/assistant messages (no system)
+  const conversational = history.filter(m => m.role === 'user' || m.role === 'assistant')
 
-  // Replace the last user message with our enriched version
-  let lastUserIdx = -1
-  for (let i = trimmed.length - 1; i >= 0; i--) {
-    if (trimmed[i].role === 'user') { lastUserIdx = i; break }
-  }
+  // Keep last MAX_TURNS turns
+  const recent = conversational.slice(-(MAX_TURNS * 2))
 
-  if (lastUserIdx !== -1) {
-    const result        = [...trimmed]
-    result[lastUserIdx] = latestUserMessage
-    return result
-  }
+  const cleaned = recent.map(m => {
+    if (m.role === 'assistant') {
+      // Clean old card-format artifacts from assistant history
+      return { role: 'assistant', content: cleanAssistantMessage(m.content) }
+    }
+    if (m.role === 'user') {
+      // Strip old catalog from previous user messages — only current message needs it
+      // Old format was: Customer asks: "..." \n\n## MADVET...
+      const stripped = m.content
+        .replace(/Customer (?:asks|says):\s*"(.+?)"[\s\S]*/s, '$1')
+        .trim()
+      return { role: 'user', content: stripped || m.content }
+    }
+    return m
+  })
 
-  return [...trimmed, latestUserMessage]
+  // Add current user message WITH catalog attached
+  cleaned.push({
+    role: 'user',
+    content: `Customer: "${currentUserMessage}"\n\n${catalog}`
+  })
+
+  return cleaned
 }
 
 // ─────────────────────────────────────────────
@@ -137,26 +166,23 @@ export async function POST(req: NextRequest) {
 
     const truncatedMessage = latestMessage.slice(0, 2000)
 
-    // Fetch all products (cached — no DB hit after first request)
+    // Fetch all products — cached after first DB call
     const products = await getCachedProducts()
     const catalog  = buildProductCatalog(products)
 
-    // Enrich the user message with the full catalog
-    // GPT reads the query + entire catalog and decides what's relevant
-    const enrichedContent = `Customer: "${truncatedMessage}"\n\n${catalog}`
-    const enrichedUserMessage: Message = { role: 'user', content: enrichedContent }
-    const apiMessages = buildApiMessages(messages, enrichedUserMessage)
+    // Build clean message history + attach catalog to current message only
+    const apiMessages = buildApiMessages(messages, truncatedMessage, catalog)
 
-    // Stream from GPT-4o
+    // Stream from GPT
     const stream = await openai.chat.completions.create({
-      model:             process.env.OPENAI_MODEL ?? 'gpt-4o',
+      model:             process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
       messages: [
         { role: 'system', content: MADVET_SYSTEM_PROMPT },
-        ...apiMessages.map((m) => ({ role: m.role, content: m.content })),
+        ...apiMessages as any,
       ],
       stream:            true,
-      temperature:       0.4,
-      max_tokens:        1400,
+      temperature:       0.3,  // lower = more consistent, less hallucination
+      max_tokens:        800,  // keep responses concise and mobile-friendly
       presence_penalty:  0.1,
       frequency_penalty: 0.2,
     })
