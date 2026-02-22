@@ -30,38 +30,48 @@ function cleanForSpeech(text: string): string {
 }
 
 function getFormBadge(p: MadvetProduct): { label: string; color: string } {
-  const pkg = (p.packaging   ?? '').toLowerCase()
-  const cat = (p.category    ?? '').toLowerCase()
-  const ind = (p.indication  ?? '').toLowerCase()
-  const desc= (p.description ?? '').toLowerCase()
-  const all = pkg + ' ' + cat + ' ' + ind + ' ' + desc
+  const pkg  = (p.packaging   ?? '').toLowerCase()
+  const cat  = (p.category    ?? '').toLowerCase()
+  const ind  = (p.indication  ?? '').toLowerCase()
+  const desc = (p.description ?? '').toLowerCase()
+  const all  = pkg + ' ' + cat + ' ' + ind + ' ' + desc
 
   if (/\binjection\b|injectable|parenteral|\binj\b/.test(pkg) || /injection/.test(cat))
     return { label: 'Injection', color: 'bg-blue-500/20 text-blue-300' }
-  if (/\bbolus\b|\btablet\b/.test(pkg))
-    return { label: 'Bolus / Tablet', color: 'bg-purple-500/20 text-purple-300' }
+  if (/\bbolus\b/.test(pkg))
+    return { label: 'Bolus', color: 'bg-purple-500/20 text-purple-300' }
+  if (/\btablet\b|\btab\b/.test(pkg))
+    return { label: 'Tablet', color: 'bg-purple-400/20 text-purple-200' }
   if (/\bspray\b/.test(pkg))
     return { label: 'Spray', color: 'bg-cyan-500/20 text-cyan-300' }
-  // Gel — distinguish oral from topical
   if (/\bgel\b/.test(pkg)) {
-    const isOral = /oral|consume|drench|drink|swallow|lick|feed|intake/.test(all)
+    const isOral = /oral|consume|drink|swallow|lick|feed|intake/.test(all)
     return isOral
       ? { label: 'Oral Gel',    color: 'bg-lime-500/20 text-lime-300'   }
       : { label: 'Topical Gel', color: 'bg-orange-500/20 text-orange-300' }
   }
   if (/ointment/.test(pkg))
     return { label: 'Ointment', color: 'bg-orange-500/20 text-orange-300' }
-  if (/powder/.test(pkg))
-    return { label: 'Powder', color: 'bg-yellow-500/20 text-yellow-300' }
-  if (/soap/.test(pkg))
+  if (/\bsoap\b/.test(pkg))
     return { label: 'Soap', color: 'bg-pink-500/20 text-pink-300' }
-  if (/drench|liquid|syrup/.test(pkg))
+  if (/\bpowder\b/.test(pkg))
+    return { label: 'Powder', color: 'bg-yellow-500/20 text-yellow-300' }
+  // Liquid forms
+  if (/drench|syrup|solution|\bliquid\b/.test(pkg))
+    return { label: 'Drench / Liquid', color: 'bg-teal-500/20 text-teal-300' }
+  if (/\d+\s*m\s*l\b|\d+\s*litre|\d+\s*liter|\d+\s*lt\b/.test(pkg))
     return { label: 'Liquid', color: 'bg-teal-500/20 text-teal-300' }
+  // Weight-based packing (powder/supplement) — e.g. "1 Kg", "500g"
+  if (/\d+\s*kg\b|\d+\s*g\b/.test(pkg))
+    return { label: 'Powder / Supplement', color: 'bg-yellow-500/20 text-yellow-300' }
   if (/\boral\b/.test(pkg))
     return { label: 'Oral', color: 'bg-lime-500/20 text-lime-300' }
-  // fallback: first word of packaging
-  const first = pkg.split(' ')[0]
-  return { label: first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Product', color: 'bg-gray-500/20 text-gray-300' }
+  // Quantity-only packs like "1*3", "1x4", "1 x 1" — likely bolus/tablet
+  if (/^\d+\s*[x*]\s*\d+$/.test(pkg.trim()))
+    return { label: 'Bolus / Tablet', color: 'bg-purple-500/20 text-purple-300' }
+  // Final fallback — category name (never packaging first-word which could be a number)
+  const catFirst = cat.split(/[\/,\s]/)[0].trim()
+  return { label: catFirst ? catFirst.charAt(0).toUpperCase() + catFirst.slice(1) : 'Product', color: 'bg-gray-500/20 text-gray-300' }
 }
 
 // ── 1 primary card + named list for rest, each expandable ────────────────────
