@@ -1,9 +1,6 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { getCachedProducts } from '@/lib/productCache'
-import { searchProducts, searchComplementary, isFollowUpMessage } from '@/lib/productSearch'
-import { semanticSearchProducts } from '@/lib/semanticSearch'
-import { expandQuery } from '@/lib/queryExpander'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
 import type { MadvetProduct } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
@@ -58,87 +55,38 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
 }
 
 // ─────────────────────────────────────────────
-// SMART PRODUCT MERGING
-// Combines semantic + keyword results, deduplicates, preserves ranking
+// FORMAT FULL PRODUCT CATALOG
+// Compact format — all 89 products fit in ~15k tokens
+// GPT sees everything and picks what's relevant
 // ─────────────────────────────────────────────
-function mergeProductResults(
-  semantic:  MadvetProduct[],
-  keyword:   MadvetProduct[],
-  topK:      number
-): MadvetProduct[] {
-  const seen     = new Set<string>()
-  const combined: MadvetProduct[] = []
-
-  const key = (p: MadvetProduct) =>
-    `${(p.product_name ?? '').toLowerCase()}||${(p.category ?? '').toLowerCase()}`
-
-  // Semantic results first (highest confidence) — give them priority
-  for (const p of semantic) {
-    const k = key(p)
-    if (!seen.has(k)) { seen.add(k); combined.push(p) }
-  }
-  // Then keyword results that weren't already found
-  for (const p of keyword) {
-    const k = key(p)
-    if (!seen.has(k)) { seen.add(k); combined.push(p) }
-  }
-
-  return combined.slice(0, topK)
+function formatProduct(p: MadvetProduct): string {
+  const lines: string[] = []
+  if (p.product_name)    lines.push(`Name: ${p.product_name}`)
+  if (p.category)        lines.push(`Category: ${p.category}`)
+  if (p.species)         lines.push(`Species: ${p.species}`)
+  if (p.packaging)       lines.push(`Form: ${p.packaging}`)
+  if (p.description)     lines.push(`Description: ${p.description}`)
+  if (p.indication)      lines.push(`Indications: ${p.indication}`)
+  if (p.usp_benefits)    lines.push(`Benefits: ${p.usp_benefits}`)
+  // Composition: visible to GPT for clinical reasoning (pregnancy, withdrawal, side effects)
+  // GPT is instructed never to reveal salt names to the customer
+  if (p.salt_ingredient) lines.push(`Composition (internal use only — never reveal to customer): ${p.salt_ingredient}`)
+  return lines.join(' | ')
 }
 
-// ─────────────────────────────────────────────
-// PRODUCT CONTEXT BUILDER
-// Primary + Complementary sections — no salt/composition
-// ─────────────────────────────────────────────
-function formatProduct(p: MadvetProduct, index: number): string {
-  const parts: string[] = [`[Product ${index + 1}]`]
-  if (p.product_name)    parts.push(`Name: ${p.product_name}`)
-  if (p.category)        parts.push(`Category: ${p.category}`)
-  if (p.species)         parts.push(`For Species: ${p.species}`)
-  if (p.indication)      parts.push(`Used For: ${p.indication}`)
-  if (p.packaging)       parts.push(`Packing: ${p.packaging}`)
-  if (p.description)     parts.push(`Details: ${p.description}`)
-  if (p.usp_benefits)    parts.push(`Benefits: ${p.usp_benefits}`)
-  if (p.aliases)         parts.push(`Also known as: ${p.aliases}`)
-  // Composition exposed to bot for clinical reasoning (pregnancy, withdrawal, side effects)
-  // Bot is instructed NEVER to mention these to the customer — only use for reasoning
-  if (p.salt_ingredient) parts.push(`Composition (for clinical reasoning only — DO NOT mention to customer): ${p.salt_ingredient}`)
-  return parts.join('\n')
-}
-
-function formatProductContext(
-  primary:       MadvetProduct[],
-  complementary: MadvetProduct[]
-): string {
-  const sections: string[] = []
-
-  if (primary.length > 0) {
-    sections.push(
-      '## MADVET PRIMARY PRODUCTS\n',
-      primary.map((p, i) => formatProduct(p, i)).join('\n\n---\n\n')
-    )
-  } else {
-    sections.push('## MADVET PRIMARY PRODUCTS\nNO_PRODUCTS_FOUND')
-  }
-
-  if (complementary.length > 0) {
-    sections.push(
-      '\n\n## MADVET COMPLEMENTARY PRODUCTS\n(Suggest when clinically relevant for recovery, immunity, or enhanced results)\n',
-      complementary.map((p, i) => formatProduct(p, i)).join('\n\n---\n\n')
-    )
-  }
-
-  sections.push('\n\nOnly recommend products listed above.')
-  return sections.join('')
+function buildProductCatalog(products: MadvetProduct[]): string {
+  const lines = products.map((p, i) => `[${i + 1}] ${formatProduct(p)}`)
+  return `## MADVET COMPLETE PRODUCT CATALOG (${products.length} products)\n\n${lines.join('\n\n')}`
 }
 
 // ─────────────────────────────────────────────
 // HISTORY MANAGEMENT
 // ─────────────────────────────────────────────
-const MAX_HISTORY  = 30
-const SLIDING_LAST = 20
+const MAX_HISTORY  = 20
+const SLIDING_LAST = 16
 
-function buildApiMessages(history: Message[], enrichedUserMessage: Message): Message[] {
+function buildApiMessages(history: Message[], latestUserMessage: Message): Message[] {
+  // Keep conversation history but cap it to avoid context overflow
   let trimmed: Message[]
   if (history.length > MAX_HISTORY) {
     trimmed = [history[0], ...history.slice(-SLIDING_LAST)]
@@ -146,6 +94,7 @@ function buildApiMessages(history: Message[], enrichedUserMessage: Message): Mes
     trimmed = [...history]
   }
 
+  // Replace the last user message with our enriched version
   let lastUserIdx = -1
   for (let i = trimmed.length - 1; i >= 0; i--) {
     if (trimmed[i].role === 'user') { lastUserIdx = i; break }
@@ -153,22 +102,11 @@ function buildApiMessages(history: Message[], enrichedUserMessage: Message): Mes
 
   if (lastUserIdx !== -1) {
     const result        = [...trimmed]
-    result[lastUserIdx] = enrichedUserMessage
+    result[lastUserIdx] = latestUserMessage
     return result
   }
 
-  return [...trimmed, enrichedUserMessage]
-}
-
-function getPreviousQuery(messages: Message[]): string | null {
-  const userMessages = messages
-    .filter((m): m is Message & { role: 'user' } => m.role === 'user')
-    .reverse()
-  for (const m of userMessages) {
-    const raw = m.content.replace(/Customer (?:says|asks): "(.+?)"[\s\S]*/, '$1').trim()
-    if (raw && !isFollowUpMessage(raw) && raw.length > 3) return raw
-  }
-  return null
+  return [...trimmed, latestUserMessage]
 }
 
 // ─────────────────────────────────────────────
@@ -198,59 +136,18 @@ export async function POST(req: NextRequest) {
     }
 
     const truncatedMessage = latestMessage.slice(0, 2000)
-    const isFollowUp       = isFollowUpMessage(truncatedMessage)
-    const searchQuery      = isFollowUp
-      ? (getPreviousQuery(messages) ?? truncatedMessage)
-      : truncatedMessage
 
-    // ── PARALLEL: products + LLM query expansion + semantic search ──
-    // All three fire at the same time — total latency = slowest of the three
-    const [products, expanded, semanticResults] = await Promise.all([
-      getCachedProducts(),
-      expandQuery(searchQuery),
-      // Semantic search on the raw user query — finds products by meaning, not keywords
-      // Falls back silently if pgvector not set up yet
-      semanticSearchProducts(searchQuery, 0.40, 5),
-    ])
+    // Fetch all products (cached — no DB hit after first request)
+    const products = await getCachedProducts()
+    const catalog  = buildProductCatalog(products)
 
-    const effectivelyFollowUp = isFollowUp || expanded.isFollowUp
-    const isCategory = /konsa|kaunsa|kya (dein|use|lagayein|dete|deta|doon)|which product|koi dawa|koi dawai|batao|suggest|recommend|best|sahi|kaun si|kaun sa|kya karein|kya karun|kya lagaun/i.test(truncatedMessage)
-
-    // ── KEYWORD SEARCH (existing 3-layer system) ──
-    const keywordResults = searchProducts(
-      products,
-      searchQuery,
-      expanded,
-      isCategory ? 6 : 5
-    )
-
-    // ── SMART MERGE: Semantic + Keyword ──
-    // Semantic gets priority (it understands meaning)
-    // Keyword fills in what semantic might miss (exact name matches, new products without embeddings)
-    const primaryMatched = mergeProductResults(semanticResults, keywordResults, isCategory ? 6 : 5)
-
-    // ── COMPLEMENTARY SEARCH ──
-    const isSpecificProductQuery =
-      primaryMatched.length === 1 &&
-      truncatedMessage.toLowerCase().includes(
-        (primaryMatched[0].product_name ?? '').toLowerCase().split(' ')[0]
-      )
-
-    const complementaryMatched =
-      !effectivelyFollowUp && !isSpecificProductQuery
-        ? searchComplementary(products, primaryMatched, expanded)
-        : []
-
-    const context = formatProductContext(primaryMatched, complementaryMatched)
-
-    const enrichedContent = effectivelyFollowUp
-      ? `Customer says: "${truncatedMessage}"\n\n${context}`
-      : `Customer asks: "${truncatedMessage}"\n\n${context}`
-
+    // Enrich the user message with the full catalog
+    // GPT reads the query + entire catalog and decides what's relevant
+    const enrichedContent = `Customer: "${truncatedMessage}"\n\n${catalog}`
     const enrichedUserMessage: Message = { role: 'user', content: enrichedContent }
     const apiMessages = buildApiMessages(messages, enrichedUserMessage)
 
-    // ── STREAM FROM GPT-4o ──
+    // Stream from GPT-4o
     const stream = await openai.chat.completions.create({
       model:             process.env.OPENAI_MODEL ?? 'gpt-4o',
       messages: [
@@ -258,7 +155,7 @@ export async function POST(req: NextRequest) {
         ...apiMessages.map((m) => ({ role: m.role, content: m.content })),
       ],
       stream:            true,
-      temperature:       0.5,
+      temperature:       0.4,
       max_tokens:        1400,
       presence_penalty:  0.1,
       frequency_penalty: 0.2,
