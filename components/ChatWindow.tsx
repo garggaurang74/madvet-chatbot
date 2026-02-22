@@ -19,6 +19,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   products?: MadvetProduct[]
+  isError?: boolean
+  retryText?: string
 }
 
 async function fetchProducts(): Promise<MadvetProduct[]> {
@@ -82,16 +84,16 @@ export default function ChatWindow() {
     if (activeConversationId === id) startNewChat()
   }, [activeConversationId, startNewChat])
 
-const handleDeleteClick = (e: React.MouseEvent, id: string) => {
-  e.stopPropagation()
-  if (confirmDeleteId === id) {
-    handleDelete(id)
-    setConfirmDeleteId(null)
-  } else {
-    setConfirmDeleteId(id)
-    setTimeout(() => setConfirmDeleteId(null), 3000)
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (confirmDeleteId === id) {
+      handleDelete(id)
+      setConfirmDeleteId(null)
+    } else {
+      setConfirmDeleteId(id)
+      setTimeout(() => setConfirmDeleteId(null), 3000)
+    }
   }
-}
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || sending) return
@@ -115,21 +117,41 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     // Save user message
     if (convId) await saveMessage(convId, 'user', text.trim())
 
-    // FIX: CRITICAL - Send clean history WITHOUT current user message
-    // route.ts will add enriched version, so we don't include latest message twice
     const cleanHistory = messages.map(m => ({ role: m.role, content: m.content }))
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          messages: cleanHistory, 
-          latestMessage: text.trim() 
+        body: JSON.stringify({
+          messages: cleanHistory,
+          latestMessage: text.trim()
         }),
       })
 
-      if (!res.ok) throw new Error('Request failed')
+      // Handle rate limit specifically
+      if (res.status === 429) {
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(), role: 'assistant',
+          content: 'Aap bahut tezi se sawaal pooch rahe hain 🙏 Ek minute rukein aur phir try karein.',
+          isError: true, retryText: text.trim()
+        }])
+        return
+      }
+
+      if (!res.ok) {
+        // Try to get the actual error from API
+        let errMsg = 'Thoda technical issue aa gaya, please dobara try karein 🙏'
+        try {
+          const errData = await res.json()
+          if (errData?.error) errMsg = errData.error
+        } catch {}
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(), role: 'assistant',
+          content: errMsg, isError: true, retryText: text.trim()
+        }])
+        return
+      }
 
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
@@ -150,13 +172,22 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
         }
       }
 
-      // Save assistant message
+      // If stream returned empty (e.g. OpenAI error mid-stream)
+      if (!full.trim()) {
+        setMessages(prev => prev.map(m => m.id === assistantId
+          ? { ...m, content: 'Jawab aane mein problem hui 🙏 Dobara try karein.', isError: true, retryText: text.trim() }
+          : m
+        ))
+        return
+      }
+
       if (convId && full) await saveMessage(convId, 'assistant', full)
     } catch (error) {
-      console.error('[ChatWindow] Error sending message:', error)
+      console.error('[ChatWindow] Network or stream error:', error)
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(), role: 'assistant',
-        content: 'Thoda technical issue aa gaya, please dobara try karein 🙏'
+        content: 'Internet connection check karein aur dobara try karein 🙏',
+        isError: true, retryText: text.trim()
       }])
     } finally {
       setSending(false)
@@ -180,7 +211,7 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
 
   return (
     <div className="flex h-screen bg-[#212121] text-white overflow-hidden">
-      
+
       {/* Sidebar */}
       <Sidebar
         conversations={conversations}
@@ -194,7 +225,7 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
 
       {/* Main Chat Area */}
       <div className="flex flex-col flex-1 min-w-0 relative">
-        
+
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -209,18 +240,28 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
             <span className="font-semibold text-sm">Dr. Madvet Assistant</span>
           </div>
           <div className="flex items-center gap-1">
-            {/* Glossary button */}
+            {/* Products link — now points to Next.js /products page */}
             <a
-              href="/madvet-product-glossary-dynamic.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Product Glossary"
+              href="/products"
+              title="All Products"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              <span>All Products</span>
+              <span>Products</span>
+            </a>
+            {/* Training link */}
+            <a
+              href="/madvet-training.html"
+              title="Training"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+              </svg>
+              <span>Training</span>
             </a>
             {/* New Chat button */}
             <button
@@ -237,8 +278,8 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          
-          {/* Empty state — like ChatGPT welcome screen */}
+
+          {/* Empty state */}
           {isEmpty && (
             <div className="flex flex-col items-center justify-center h-full px-4 text-center">
               <div className="w-16 h-16 rounded-full bg-green-600 flex items-center justify-center mb-4 text-2xl">
@@ -256,15 +297,28 @@ const handleDeleteClick = (e: React.MouseEvent, id: string) => {
           {!isEmpty && (
             <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
               {messages.map(m => (
-                <MessageBubble
-                  key={m.id}
-                  messageId={m.id}
-                  role={m.role}
-                  content={m.content}
-                  products={m.products}
-                  showFeedback={m.role === 'assistant' && m.content.length > 0}
-                  dark={true}
-                />
+                <div key={m.id}>
+                  <MessageBubble
+                    messageId={m.id}
+                    role={m.role}
+                    content={m.content}
+                    products={m.products}
+                    showFeedback={m.role === 'assistant' && m.content.length > 0 && !m.isError}
+                    dark={true}
+                  />
+                  {/* Retry button on error messages */}
+                  {m.isError && m.retryText && (
+                    <div className="flex justify-start mt-2 ml-12">
+                      <button
+                        onClick={() => sendMessage(m.retryText!)}
+                        disabled={sending}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors disabled:opacity-40"
+                      >
+                        🔄 Dobara try karein
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
               {sending && messages[messages.length - 1]?.role === 'user' && (
                 <div className="flex gap-4">
