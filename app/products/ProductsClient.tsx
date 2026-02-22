@@ -296,40 +296,39 @@ export default function ProductsClient({ products }: { products: Product[] }) {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
-        body { margin: 0; }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; overflow-x: hidden; max-width: 100%; }
         :root {
-          --forest: #1a3a2a;
-          --forest-mid: #264d39;
-          --forest-light: #3d7a57;
-          --cream: #f5f0e8;
-          --cream-dark: #ede6d6;
-          --gold: #c8a96e;
-          --gold-light: #e8d5a8;
+          --forest: #1a3a2a; --forest-mid: #264d39; --forest-light: #3d7a57;
+          --cream: #f5f0e8; --cream-dark: #ede6d6; --gold: #c8a96e; --gold-light: #e8d5a8;
         }
-        .products-page { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height: 100vh; color: #1c2b22; }
+        .products-page { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height: 100vh; color: #1c2b22; width: 100%; overflow-x: hidden; }
         .filter-scroll { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
         @media (max-width: 900px) {
           .header-inner { padding: 32px 20px 28px !important; flex-direction: column !important; align-items: flex-start !important; }
           .header-stats { align-self: stretch; justify-content: flex-start !important; flex-wrap: wrap; gap: 20px !important; }
-          .controls-inner { padding: 12px 16px !important; }
+          .controls-inner { padding: 12px 16px !important; flex-wrap: wrap !important; }
           .main-content { padding: 24px 16px 60px !important; }
           .product-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 640px) {
-          .top-nav { padding: 0 16px !important; }
-          .header-inner { padding: 18px 16px 16px !important; }
-          .controls-inner { flex-direction: column !important; align-items: stretch !important; padding: 8px 12px !important; }
-          .filter-scroll { flex-wrap: nowrap !important; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+          .top-nav { padding: 0 14px !important; height: 48px !important; }
+          .header-inner { padding: 16px 14px 14px !important; }
+          .header-subtitle { display: none; }
+          .header-stats { gap: 16px !important; }
+          .stat-number { font-size: 22px !important; }
+          .header-title { font-size: 20px !important; }
+          .controls-inner { flex-direction: column !important; align-items: stretch !important; padding: 8px 12px !important; gap: 6px !important; width: 100% !important; }
+          .search-wrap { width: 100% !important; min-width: unset !important; flex: unset !important; }
+          .filter-scroll { flex-wrap: nowrap !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 6px !important; width: 100%; max-width: 100%; padding-bottom: 2px; }
           .filter-scroll::-webkit-scrollbar { display: none; }
-          .main-content { padding: 14px 12px 60px !important; }
-          .product-grid { grid-template-columns: 1fr !important; }
-          .header-title { font-size: 22px !important; }
-          .stat-number { font-size: 24px !important; }
-          .nav-links { gap: 2px !important; }
-          .nav-link-item { padding: 5px 10px !important; font-size: 12px !important; }
-          .training-btn { padding: 6px 12px !important; font-size: 12px !important; margin-left: 6px !important; }
+          .filter-label { display: none !important; }
+          .main-content { padding: 12px 10px 60px !important; }
+          .product-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+          .nav-link-item { padding: 4px 8px !important; font-size: 11px !important; }
+          .training-btn { margin-left: 4px !important; padding: 5px 10px !important; font-size: 11px !important; }
+          .results-count { display: none !important; }
         }
       `}</style>
 
@@ -417,7 +416,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
             display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
           }}>
             {/* Search */}
-            <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+            <div className="search-wrap" className="search-wrap" style={{ position: 'relative', flex: 1, minWidth: 220 }}>
               <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', opacity: 0.7, pointerEvents: 'none' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
               </svg>
@@ -463,7 +462,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
             </div>
 
             {/* Count */}
-            <div style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(245,240,232,0.4)', whiteSpace: 'nowrap' }}>
+            <div className="results-count" className="results-count" style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(245,240,232,0.4)', whiteSpace: 'nowrap' }}>
               <span style={{ color: 'var(--gold-light)', fontWeight: 600 }}>{filtered.length}</span> products
             </div>
           </div>

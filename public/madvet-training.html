@@ -322,6 +322,7 @@ async function loadProducts() {
       packaging: (r.packaging || '').trim(),
       uses: (r.indication || '').split(',').map(s => s.trim()).filter(s => s.length > 3 && !/[\u0900-\u097F]/.test(s)).slice(0, 4),
       description: (r.description || '').trim(),
+      benefits: (r.usp_benefits || '').trim(),
     }));
   } catch(e) {
     console.warn('Supabase not configured — using demo mode');
@@ -485,10 +486,20 @@ function renderLearn() {
       </div>
       <div class="lc-name">${p.name}</div>
       <div class="lc-salt"><span>Salt:</span> ${p.salt || '—'}</div>
+      ${p.description ? `
+        <div class="lc-section">
+          <div class="lc-label">About This Product</div>
+          <div style="font-size:13px;color:#1c2b22;line-height:1.6;background:#fff;border:1px solid #e8dfc8;border-radius:10px;padding:10px 14px;">${p.description}</div>
+        </div>` : ''}
       ${p.uses.length ? `
         <div class="lc-section">
           <div class="lc-label">Used For</div>
           <div class="use-tags">${p.uses.map(u => `<span class="use-tag">${u}</span>`).join('')}</div>
+        </div>` : ''}
+      ${p.benefits ? `
+        <div class="lc-section">
+          <div class="lc-label">Key Benefits</div>
+          <div style="font-size:12px;color:#3d7a57;line-height:1.6;">${p.benefits}</div>
         </div>` : ''}
       <div class="lc-section">
         <div class="lc-label">Species</div>
