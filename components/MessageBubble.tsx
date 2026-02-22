@@ -30,15 +30,26 @@ function cleanForSpeech(text: string): string {
 }
 
 function getFormBadge(p: MadvetProduct): { label: string; color: string } {
-  const pkg = (p.packaging ?? '').toLowerCase()
-  const cat = (p.category  ?? '').toLowerCase()
-  if (/injection|injectable|inj\b/.test(pkg) || /injection/.test(cat))
+  const pkg = (p.packaging   ?? '').toLowerCase()
+  const cat = (p.category    ?? '').toLowerCase()
+  const ind = (p.indication  ?? '').toLowerCase()
+  const desc= (p.description ?? '').toLowerCase()
+  const all = pkg + ' ' + cat + ' ' + ind + ' ' + desc
+
+  if (/\binjection\b|injectable|parenteral|\binj\b/.test(pkg) || /injection/.test(cat))
     return { label: 'Injection', color: 'bg-blue-500/20 text-blue-300' }
-  if (/bolus|tablet/.test(pkg))
-    return { label: 'Bolus', color: 'bg-purple-500/20 text-purple-300' }
-  if (/spray/.test(pkg))
+  if (/\bbolus\b|\btablet\b/.test(pkg))
+    return { label: 'Bolus / Tablet', color: 'bg-purple-500/20 text-purple-300' }
+  if (/\bspray\b/.test(pkg))
     return { label: 'Spray', color: 'bg-cyan-500/20 text-cyan-300' }
-  if (/ointment|gel/.test(pkg))
+  // Gel — distinguish oral from topical
+  if (/\bgel\b/.test(pkg)) {
+    const isOral = /oral|consume|drench|drink|swallow|lick|feed|intake/.test(all)
+    return isOral
+      ? { label: 'Oral Gel',    color: 'bg-lime-500/20 text-lime-300'   }
+      : { label: 'Topical Gel', color: 'bg-orange-500/20 text-orange-300' }
+  }
+  if (/ointment/.test(pkg))
     return { label: 'Ointment', color: 'bg-orange-500/20 text-orange-300' }
   if (/powder/.test(pkg))
     return { label: 'Powder', color: 'bg-yellow-500/20 text-yellow-300' }
@@ -46,13 +57,16 @@ function getFormBadge(p: MadvetProduct): { label: string; color: string } {
     return { label: 'Soap', color: 'bg-pink-500/20 text-pink-300' }
   if (/drench|liquid|syrup/.test(pkg))
     return { label: 'Liquid', color: 'bg-teal-500/20 text-teal-300' }
-  return { label: pkg.split(' ')[0] || 'Product', color: 'bg-gray-500/20 text-gray-300' }
+  if (/\boral\b/.test(pkg))
+    return { label: 'Oral', color: 'bg-lime-500/20 text-lime-300' }
+  // fallback: first word of packaging
+  const first = pkg.split(' ')[0]
+  return { label: first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Product', color: 'bg-gray-500/20 text-gray-300' }
 }
 
-// ── 1 primary card + named dropdown pills for rest ────────────────────────────
+// ── 1 primary card + named list for rest, each expandable ────────────────────
 function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boolean }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
-
   if (products.length === 0) return null
 
   const primary = products[0]
@@ -63,7 +77,7 @@ function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boo
       {/* Primary card — always visible */}
       <ProductCard product={primary} dark={dark} />
 
-      {/* Other products — named pill list, each expandable */}
+      {/* Other products — named rows, each expandable */}
       {rest.length > 0 && (
         <div className={`rounded-xl border px-3 py-2 ${
           dark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'
@@ -73,21 +87,16 @@ function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boo
           }`}>
             Aur options
           </p>
-
           <div className="space-y-1">
             {rest.map((p, i) => {
-              const badge   = getFormBadge(p)
-              const isOpen  = expandedIdx === i
-
+              const badge  = getFormBadge(p)
+              const isOpen = expandedIdx === i
               return (
                 <div key={i}>
-                  {/* Name row — always visible */}
                   <button
                     onClick={() => setExpandedIdx(isOpen ? null : i)}
                     className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-left transition-colors ${
-                      dark
-                        ? 'hover:bg-white/10 text-white'
-                        : 'hover:bg-white text-gray-800'
+                      dark ? 'hover:bg-white/10 text-white' : 'hover:bg-white text-gray-800'
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -100,16 +109,12 @@ function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boo
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
-                      <span className="text-sm font-medium truncate">
-                        {p.product_name ?? 'Unknown'}
-                      </span>
+                      <span className="text-sm font-medium truncate">{p.product_name ?? 'Unknown'}</span>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${badge.color}`}>
                       {badge.label}
                     </span>
                   </button>
-
-                  {/* Expanded card */}
                   {isOpen && (
                     <div className="mt-1 ml-5">
                       <ProductCard product={p} dark={dark} />
@@ -163,7 +168,6 @@ export default function MessageBubble({
           M
         </div>
       )}
-
       <div className={`flex-1 ${isUser ? 'max-w-[85%]' : ''}`}>
         {isUser ? (
           <div className={`rounded-2xl px-4 py-3 ${
@@ -173,19 +177,14 @@ export default function MessageBubble({
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Bot text */}
             <div className={`prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 ${
               dark ? 'prose-invert' : ''
             }`}>
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
 
-            {/* Cards */}
-            {products.length > 0 && (
-              <ProductCards products={products} dark={dark} />
-            )}
+            {products.length > 0 && <ProductCards products={products} dark={dark} />}
 
-            {/* Footer: speak + feedback */}
             {content && (
               <div className="flex items-center gap-1">
                 <button
@@ -194,12 +193,8 @@ export default function MessageBubble({
                   aria-label={playing ? 'Stop audio' : 'Play audio'}
                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors
                     ${playing
-                      ? dark
-                        ? 'bg-white/20 text-white font-medium'
-                        : 'bg-madvet-primary/10 text-madvet-primary font-medium'
-                      : dark
-                        ? 'text-white/50 hover:text-white hover:bg-white/10'
-                        : 'text-gray-400 hover:text-madvet-primary hover:bg-madvet-primary/10'
+                      ? dark ? 'bg-white/20 text-white font-medium' : 'bg-madvet-primary/10 text-madvet-primary font-medium'
+                      : dark ? 'text-white/50 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-madvet-primary hover:bg-madvet-primary/10'
                     }`}
                 >
                   {playing ? (
@@ -216,9 +211,7 @@ export default function MessageBubble({
                   )}
                   <span>{playing ? 'Rok' : 'Sun'}</span>
                 </button>
-
                 <span className="flex-1" />
-
                 {showFeedback && (
                   <>
                     <button

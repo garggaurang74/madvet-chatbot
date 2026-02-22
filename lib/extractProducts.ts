@@ -67,5 +67,46 @@ export function extractMentionedProducts(
     }
   }
 
-  return result
+  // ── Resolve same-family duplicates ──────────────────────────────────────────
+  // e.g. both "Fluck Stop-DS 500ml" and "Fluck Stop-DS Bolus" matched because
+  // they share significant words. Pick the variant whose packaging appears in text.
+  // If neither or both match packing, keep the first (longer name wins from sort).
+  const baseNameGroups = new Map<string, MadvetProduct[]>()
+  for (const p of result) {
+    // base = everything before a trailing size/form token (500ml, bolus, 1x4 etc.)
+    const base = (p.product_name ?? '')
+      .toLowerCase()
+      .replace(/\s+(500ml|100ml|30ml|1\s*kg|\d+\s*ml|\d+\s*g|bolus|injection|inj|tablet|spray|powder|gel|ointment|soap|drench|ds\s*bolus|ds\s*\d).*$/, '')
+      .trim()
+    if (!baseNameGroups.has(base)) baseNameGroups.set(base, [])
+    baseNameGroups.get(base)!.push(p)
+  }
+
+  const resolved: MadvetProduct[] = []
+  const resolvedNames = new Set<string>()
+  for (const p of result) {
+    const base = (p.product_name ?? '')
+      .toLowerCase()
+      .replace(/\s+(500ml|100ml|30ml|1\s*kg|\d+\s*ml|\d+\s*g|bolus|injection|inj|tablet|spray|powder|gel|ointment|soap|drench|ds\s*bolus|ds\s*\d).*$/, '')
+      .trim()
+    const group = baseNameGroups.get(base) ?? [p]
+
+    if (group.length === 1) {
+      // Only one variant — keep it
+      if (!resolvedNames.has(base)) { resolvedNames.add(base); resolved.push(p) }
+    } else {
+      if (resolvedNames.has(base)) continue // already resolved this family
+      resolvedNames.add(base)
+      // Multiple variants — pick the one whose packaging token appears in bot text
+      const packMatch = group.find(v => {
+        const pkg = (v.packaging ?? '').toLowerCase()
+        // extract meaningful tokens from packaging (e.g. "500ml", "bolus", "1x4")
+        const tokens = pkg.match(/\d+\s*ml|\d+\s*g|\d+\s*kg|bolus|injection|spray|tablet|powder|gel|soap|drench/g) ?? []
+        return tokens.some(t => lower.includes(t.replace(/\s/g, '')))
+      })
+      resolved.push(packMatch ?? group[0])
+    }
+  }
+
+  return resolved
 }
