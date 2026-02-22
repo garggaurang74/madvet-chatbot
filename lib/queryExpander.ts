@@ -82,6 +82,18 @@ const QUICK_MAP: Array<{ pattern: RegExp; result: Partial<ExpandedQuery> }> = [
   { pattern: /joint|arthritis|gath|lameness|foot rot/i,
     result: { clinicalTerms: ['joint', 'anti-inflammatory', 'analgesic', 'arthritis'] } },
 
+  // Safety / Pregnancy / Withdrawal / Duration — CRITICAL: these must NOT be treated as follow-ups
+  { pattern: /pregnancy|pregnant|garbh|garbhavast|garbhawastha|byaane wali|gabhit|गर्ࢗ|गर्भावस्था/i,
+    result: { clinicalTerms: ['pregnancy', 'safety', 'contraindication'] } },
+  { pattern: /safe|safety|nuksan|side.?effect|reaction|harmful|haanikaarak/i,
+    result: { clinicalTerms: ['safety', 'side effects', 'contraindication'] } },
+  { pattern: /withdrawal|dudh phenke|milk withdrawal|doodh band|milk safe/i,
+    result: { clinicalTerms: ['withdrawal', 'lactation', 'milk safety'] } },
+  { pattern: /kitne din|how long|course kab tak|duration|kab tak dein/i,
+    result: { clinicalTerms: ['duration', 'course'] } },
+  { pattern: /combine|saath mein de sakte|ke saath|interaction|dono dawa/i,
+    result: { clinicalTerms: ['drug interaction', 'combination'] } },
+
   // Allergy
   { pattern: /allergy|histamine|urticaria|hives/i,
     result: { clinicalTerms: ['antihistamine', 'anti-allergic', 'urticaria'] } },
@@ -126,7 +138,7 @@ const FOLLOW_UP_PATTERNS = [
   /^(aur|dose|kitna|kab|kaise|theek|haan|nahi|ok|acha|samajh|batao)/i,
   /^(aur koi|aur kuch|doosra|alternative|other option)/i,
   /^(और|खुराक|कितना|कब|कैसे|ठीक|हाँ|नहीं|ओके|अच्छा|बताओ)/u,
-  /^(how much|how long|where|when|is it safe|withdrawal)/i,
+  /^(how much|how long|where|when)/i,  // NOTE: 'is it safe' and 'withdrawal' removed — these are new queries not follow-ups
   /^\?+$/,
   /^(yes|no|ok|okay|thanks|got it|understood|shukriya|dhanyawad)$/i,
   /^(aur kuch|kuch aur|bas|thik hai|bilkul)$/i,

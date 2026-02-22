@@ -92,15 +92,17 @@ function mergeProductResults(
 // ─────────────────────────────────────────────
 function formatProduct(p: MadvetProduct, index: number): string {
   const parts: string[] = [`[Product ${index + 1}]`]
-  if (p.product_name) parts.push(`Name: ${p.product_name}`)
-  if (p.category)     parts.push(`Category: ${p.category}`)
-  if (p.species)      parts.push(`For Species: ${p.species}`)
-  if (p.indication)   parts.push(`Used For: ${p.indication}`)
-  if (p.packaging)    parts.push(`Packing: ${p.packaging}`)
-  if (p.description)  parts.push(`Details: ${p.description}`)
-  if (p.usp_benefits) parts.push(`Benefits: ${p.usp_benefits}`)
-  if (p.aliases)      parts.push(`Also known as: ${p.aliases}`)
-  // NO salt_ingredient / composition — never exposed to bot
+  if (p.product_name)    parts.push(`Name: ${p.product_name}`)
+  if (p.category)        parts.push(`Category: ${p.category}`)
+  if (p.species)         parts.push(`For Species: ${p.species}`)
+  if (p.indication)      parts.push(`Used For: ${p.indication}`)
+  if (p.packaging)       parts.push(`Packing: ${p.packaging}`)
+  if (p.description)     parts.push(`Details: ${p.description}`)
+  if (p.usp_benefits)    parts.push(`Benefits: ${p.usp_benefits}`)
+  if (p.aliases)         parts.push(`Also known as: ${p.aliases}`)
+  // Composition exposed to bot for clinical reasoning (pregnancy, withdrawal, side effects)
+  // Bot is instructed NEVER to mention these to the customer — only use for reasoning
+  if (p.salt_ingredient) parts.push(`Composition (for clinical reasoning only — DO NOT mention to customer): ${p.salt_ingredient}`)
   return parts.join('\n')
 }
 

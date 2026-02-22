@@ -92,6 +92,21 @@ const HINDI_KEYWORD_MAP: Record<string, string[]> = {
   liver:              ['liver', 'hepato', 'tonic', 'hepatoprotective'],
   allergy:            ['antihistamine', 'anti-allergic', 'urticaria'],
 
+  // Safety / Pregnancy / Withdrawal queries — map to relevant clinical context
+  'pregnancy':        ['pregnancy', 'safety', 'contraindication', 'antibiotic'],
+  'pregnant':         ['pregnancy', 'safety', 'contraindication'],
+  'garbh':            ['pregnancy', 'safety', 'contraindication', 'reproductive'],
+  'garbhawastha':     ['pregnancy', 'safety', 'reproductive'],
+  'gabhit':           ['pregnancy', 'safety', 'reproductive'],
+  'safe':             ['safety', 'contraindication'],
+  'safety':           ['safety', 'contraindication'],
+  'nuksan':           ['side effects', 'safety', 'contraindication'],
+  'side effect':      ['side effects', 'safety'],
+  'withdrawal':       ['withdrawal', 'lactation', 'milk'],
+  'dudh phenke':      ['withdrawal', 'lactation', 'milk'],
+  'kitne din':        ['duration', 'course'],
+  'how long':         ['duration', 'course'],
+
   // Form factors
   bolus:              ['bolus', 'tablet', 'oral'],
   injection:          ['injection', 'injectable', 'parenteral'],
