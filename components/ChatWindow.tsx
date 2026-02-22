@@ -6,7 +6,6 @@ import InputBar from './InputBar'
 import TypingIndicator from './TypingIndicator'
 import QuickReplies from './QuickReplies'
 import Sidebar from './Sidebar'
-import { extractMentionedProducts } from '@/lib/extractProducts'
 import {
   createConversation, saveMessage, loadConversations,
   loadMessages, deleteConversation
@@ -18,38 +17,29 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  products?: MadvetProduct[]
+  primaryProducts?:       MadvetProduct[]
+  complementaryProducts?: MadvetProduct[]
   isError?: boolean
   retryText?: string
 }
 
-async function fetchProducts(): Promise<MadvetProduct[]> {
-  const res = await fetch('/api/products')
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.products ?? []
-}
-
 export default function ChatWindow() {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [products, setProducts] = useState<MadvetProduct[]>([])
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
+  const [messages, setMessages]             = useState<ChatMessage[]>([])
+  const [loading, setLoading]               = useState(true)
+  const [sending, setSending]               = useState(false)
   const [showQuickReplies, setShowQuickReplies] = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [sidebarOpen, setSidebarOpen]       = useState(false)
+  const [conversations, setConversations]   = useState<Conversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeConvIdRef = useRef<string | null>(null)
 
-  useEffect(() => {
-    activeConvIdRef.current = activeConversationId
-  }, [activeConversationId])
+  useEffect(() => { activeConvIdRef.current = activeConversationId }, [activeConversationId])
 
   useEffect(() => {
-    Promise.all([fetchProducts(), loadConversations()])
-      .then(([p, c]) => { setProducts(p); setConversations(c) })
+    loadConversations()
+      .then(c => setConversations(c))
       .finally(() => setLoading(false))
   }, [])
 
@@ -67,16 +57,15 @@ export default function ChatWindow() {
   const selectConversation = useCallback(async (id: string) => {
     const stored = await loadMessages(id)
     const chatMessages: ChatMessage[] = stored.map(m => ({
-      id: m.id,
-      role: m.role as 'user' | 'assistant',
+      id:      m.id,
+      role:    m.role as 'user' | 'assistant',
       content: m.content,
-      products: m.role === 'assistant' ? extractMentionedProducts(m.content, products) : undefined
     }))
     setMessages(chatMessages)
     setActiveConversationId(id)
     setShowQuickReplies(false)
     setSidebarOpen(false)
-  }, [products])
+  }, [])
 
   const handleDelete = useCallback(async (id: string) => {
     await deleteConversation(id)
@@ -99,7 +88,11 @@ export default function ChatWindow() {
     if (!text.trim() || sending) return
     setShowQuickReplies(false)
 
-    const userMsg: ChatMessage = { id: Math.random().toString(36).substring(2, 15), role: 'user', content: text.trim() }
+    const userMsg: ChatMessage = {
+      id:      Math.random().toString(36).substring(2, 15),
+      role:    'user',
+      content: text.trim(),
+    }
     setMessages(prev => [...prev, userMsg])
     setSending(true)
 
@@ -113,95 +106,127 @@ export default function ChatWindow() {
         setConversations(updated)
       }
     }
-
-    // Save user message
     if (convId) await saveMessage(convId, 'user', text.trim())
 
+    // Build clean history for API (content only, no product objects)
     const cleanHistory = messages.map(m => ({ role: m.role, content: m.content }))
 
     try {
       const res = await fetch('/api/chat', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: cleanHistory,
-          latestMessage: text.trim()
-        }),
+        body:    JSON.stringify({ messages: cleanHistory, latestMessage: text.trim() }),
       })
 
-      // Handle rate limit specifically
       if (res.status === 429) {
         setMessages(prev => [...prev, {
           id: crypto.randomUUID(), role: 'assistant',
           content: 'Aap bahut tezi se sawaal pooch rahe hain 🙏 Ek minute rukein aur phir try karein.',
-          isError: true, retryText: text.trim()
+          isError: true, retryText: text.trim(),
         }])
         return
       }
 
       if (!res.ok) {
-        // Try to get the actual error from API
         let errMsg = 'Thoda technical issue aa gaya, please dobara try karein 🙏'
-        try {
-          const errData = await res.json()
-          if (errData?.error) errMsg = errData.error
-        } catch {}
+        try { const d = await res.json(); if (d?.error) errMsg = d.error } catch {}
         setMessages(prev => [...prev, {
           id: crypto.randomUUID(), role: 'assistant',
-          content: errMsg, isError: true, retryText: text.trim()
+          content: errMsg, isError: true, retryText: text.trim(),
         }])
         return
       }
 
-      const reader = res.body?.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
+      const reader     = res.body?.getReader()
+      const decoder    = new TextDecoder()
       const assistantId = Math.random().toString(36).substring(2, 15)
+      let   fullText   = ''
+      let   buffer     = ''
 
-      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', products: [] }])
+      setMessages(prev => [...prev, {
+        id: assistantId, role: 'assistant', content: '',
+        primaryProducts: [], complementaryProducts: [],
+      }])
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          full += decoder.decode(value, { stream: true })
-          setMessages(prev => prev.map(m => m.id === assistantId
-            ? { ...m, content: full, products: extractMentionedProducts(full, products) }
-            : m
-          ))
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? '' // keep incomplete last line
+
+          for (const line of lines) {
+            if (line.startsWith('t:')) {
+              // Text chunk
+              const chunk = line.slice(2)
+              fullText += chunk
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId ? { ...m, content: fullText } : m
+              ))
+            } else if (line.startsWith('m:')) {
+              // Product metadata
+              try {
+                const meta = JSON.parse(line.slice(2))
+                if (meta.type === 'products') {
+                  setMessages(prev => prev.map(m =>
+                    m.id === assistantId
+                      ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [] }
+                      : m
+                  ))
+                }
+              } catch { /* ignore parse errors */ }
+            }
+          }
+        }
+
+        // Process any remaining buffer
+        if (buffer.startsWith('m:')) {
+          try {
+            const meta = JSON.parse(buffer.slice(2))
+            if (meta.type === 'products') {
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId
+                  ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [] }
+                  : m
+              ))
+            }
+          } catch {}
         }
       }
 
-      // If stream returned empty (e.g. OpenAI error mid-stream)
-      if (!full.trim()) {
-        setMessages(prev => prev.map(m => m.id === assistantId
-          ? { ...m, content: 'Jawab aane mein problem hui 🙏 Dobara try karein.', isError: true, retryText: text.trim() }
-          : m
+      if (!fullText.trim()) {
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, content: 'Jawab aane mein problem hui 🙏 Dobara try karein.', isError: true, retryText: text.trim() }
+            : m
         ))
         return
       }
 
-      if (convId && full) await saveMessage(convId, 'assistant', full)
+      if (convId && fullText) await saveMessage(convId, 'assistant', fullText)
+
     } catch (error) {
-      console.error('[ChatWindow] Network or stream error:', error)
+      console.error('[ChatWindow] Error:', error)
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(), role: 'assistant',
         content: 'Internet connection check karein aur dobara try karein 🙏',
-        isError: true, retryText: text.trim()
+        isError: true, retryText: text.trim(),
       }])
     } finally {
       setSending(false)
       const updated = await loadConversations()
       setConversations(updated)
     }
-  }, [messages, sending, products])
+  }, [messages, sending])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#212121]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-white/60 text-sm">Madvet products load ho rahe hain...</p>
+          <p className="text-white/60 text-sm">Dr. Madvet load ho raha hai...</p>
         </div>
       </div>
     )
@@ -212,7 +237,6 @@ export default function ChatWindow() {
   return (
     <div className="flex h-screen bg-[#212121] text-white overflow-hidden">
 
-      {/* Sidebar */}
       <Sidebar
         conversations={conversations}
         activeId={activeConversationId}
@@ -223,7 +247,6 @@ export default function ChatWindow() {
         onToggle={() => setSidebarOpen(prev => !prev)}
       />
 
-      {/* Main Chat Area */}
       <div className="flex flex-col flex-1 min-w-0 relative">
 
         {/* Top Bar */}
@@ -240,35 +263,20 @@ export default function ChatWindow() {
             <span className="font-semibold text-sm">Dr. Madvet Assistant</span>
           </div>
           <div className="flex items-center gap-1">
-            {/* Products link — now points to Next.js /products page */}
-            <a
-              href="/products"
-              title="All Products"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white"
-            >
+            <a href="/products" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               <span>Products</span>
             </a>
-            {/* Training link */}
-            <a
-              href="/madvet-training.html"
-              title="Training"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white"
-            >
+            <a href="/madvet-training.html" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
               </svg>
               <span>Training</span>
             </a>
-            {/* New Chat button */}
-            <button
-              onClick={startNewChat}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              title="New Chat"
-            >
+            <button onClick={startNewChat} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title="New Chat">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
@@ -278,13 +286,9 @@ export default function ChatWindow() {
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
-
-          {/* Empty state */}
           {isEmpty && (
             <div className="flex flex-col items-center justify-center h-full px-4 text-center">
-              <div className="w-16 h-16 rounded-full bg-green-600 flex items-center justify-center mb-4 text-2xl">
-                🐄
-              </div>
+              <div className="w-16 h-16 rounded-full bg-green-600 flex items-center justify-center mb-4 text-2xl">🐄</div>
               <h1 className="text-2xl font-semibold mb-2">Dr. Madvet Assistant</h1>
               <p className="text-white/50 text-sm mb-8 max-w-sm">
                 Apne janwar ki koi bhi health problem puchein — Hindi, English, ya Hinglish mein
@@ -293,7 +297,6 @@ export default function ChatWindow() {
             </div>
           )}
 
-          {/* Message list */}
           {!isEmpty && (
             <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
               {messages.map(m => (
@@ -302,11 +305,11 @@ export default function ChatWindow() {
                     messageId={m.id}
                     role={m.role}
                     content={m.content}
-                    products={m.products}
+                    primaryProducts={m.primaryProducts}
+                    complementaryProducts={m.complementaryProducts}
                     showFeedback={m.role === 'assistant' && m.content.length > 0 && !m.isError}
                     dark={true}
                   />
-                  {/* Retry button on error messages */}
                   {m.isError && m.retryText && (
                     <div className="flex justify-start mt-2 ml-12">
                       <button
@@ -322,23 +325,17 @@ export default function ChatWindow() {
               ))}
               {sending && messages[messages.length - 1]?.role === 'user' && (
                 <div className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                    M
-                  </div>
-                  <div className="pt-1">
-                    <TypingIndicator />
-                  </div>
+                  <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-sm font-bold flex-shrink-0">M</div>
+                  <div className="pt-1"><TypingIndicator /></div>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Input Area */}
+        {/* Input */}
         <div className="flex-shrink-0 px-4 pb-4 pt-2 max-w-3xl mx-auto w-full">
-          {!isEmpty && (
-            <QuickReplies onSelect={sendMessage} visible={showQuickReplies} dark={true} />
-          )}
+          {!isEmpty && <QuickReplies onSelect={sendMessage} visible={showQuickReplies} dark={true} />}
           <InputBar onSend={sendMessage} disabled={sending} dark={true} />
           <p className="text-center text-white/25 text-xs mt-2">
             Dr. Madvet Assistant medical advice replace nahi karta — serious cases mein vet se milein

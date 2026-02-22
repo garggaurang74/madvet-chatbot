@@ -7,12 +7,13 @@ import { speakText, stopSpeaking } from '@/lib/tts'
 import type { MadvetProduct } from '@/lib/supabase'
 
 interface MessageBubbleProps {
-  messageId:     string
-  role:          'user' | 'assistant'
-  content:       string
-  products?:     MadvetProduct[]
-  showFeedback?: boolean
-  dark?:         boolean
+  messageId:              string
+  role:                   'user' | 'assistant'
+  content:                string
+  primaryProducts?:       MadvetProduct[]
+  complementaryProducts?: MadvetProduct[]
+  showFeedback?:          boolean
+  dark?:                  boolean
 }
 
 function cleanForSpeech(text: string): string {
@@ -30,11 +31,8 @@ function cleanForSpeech(text: string): string {
 }
 
 function getFormBadge(p: MadvetProduct): { label: string; color: string } {
-  const pkg  = (p.packaging   ?? '').toLowerCase()
-  const cat  = (p.category    ?? '').toLowerCase()
-  const ind  = (p.indication  ?? '').toLowerCase()
-  const desc = (p.description ?? '').toLowerCase()
-  const all  = pkg + ' ' + cat + ' ' + ind + ' ' + desc
+  const pkg = (p.packaging ?? '').toLowerCase()
+  const cat = (p.category  ?? '').toLowerCase()
 
   if (/\binjection\b|injectable|parenteral|\binj\b/.test(pkg) || /injection/.test(cat))
     return { label: 'Injection', color: 'bg-blue-500/20 text-blue-300' }
@@ -44,57 +42,34 @@ function getFormBadge(p: MadvetProduct): { label: string; color: string } {
     return { label: 'Tablet', color: 'bg-purple-400/20 text-purple-200' }
   if (/\bspray\b/.test(pkg))
     return { label: 'Spray', color: 'bg-cyan-500/20 text-cyan-300' }
-  if (/\bgel\b/.test(pkg)) {
-    const isOral = /oral|consume|drink|swallow|lick|feed|intake/.test(all)
-    return isOral
-      ? { label: 'Oral Gel',    color: 'bg-lime-500/20 text-lime-300'   }
-      : { label: 'Topical Gel', color: 'bg-orange-500/20 text-orange-300' }
-  }
+  if (/\bgel\b/.test(pkg))
+    return { label: 'Gel', color: 'bg-orange-500/20 text-orange-300' }
   if (/ointment/.test(pkg))
     return { label: 'Ointment', color: 'bg-orange-500/20 text-orange-300' }
   if (/\bsoap\b/.test(pkg))
     return { label: 'Soap', color: 'bg-pink-500/20 text-pink-300' }
   if (/\bpowder\b/.test(pkg))
     return { label: 'Powder', color: 'bg-yellow-500/20 text-yellow-300' }
-  // Liquid forms
-  if (/drench|syrup|solution|\bliquid\b/.test(pkg))
-    return { label: 'Drench / Liquid', color: 'bg-teal-500/20 text-teal-300' }
-  if (/\d+\s*m\s*l\b|\d+\s*litre|\d+\s*liter|\d+\s*lt\b/.test(pkg))
+  if (/drench|syrup|solution|\bliquid\b|\d+\s*m\s*l\b|\d+\s*litre/.test(pkg))
     return { label: 'Liquid', color: 'bg-teal-500/20 text-teal-300' }
-  // Weight-based packing (powder/supplement) — e.g. "1 Kg", "500g"
-  if (/\d+\s*kg\b|\d+\s*g\b/.test(pkg))
-    return { label: 'Powder / Supplement', color: 'bg-yellow-500/20 text-yellow-300' }
-  if (/\boral\b/.test(pkg))
-    return { label: 'Oral', color: 'bg-lime-500/20 text-lime-300' }
-  // Quantity-only packs like "1*3", "1x4", "1 x 1" — likely bolus/tablet
-  if (/^\d+\s*[x*]\s*\d+$/.test(pkg.trim()))
-    return { label: 'Bolus / Tablet', color: 'bg-purple-500/20 text-purple-300' }
-  // Final fallback — category name (never packaging first-word which could be a number)
   const catFirst = cat.split(/[\/,\s]/)[0].trim()
   return { label: catFirst ? catFirst.charAt(0).toUpperCase() + catFirst.slice(1) : 'Product', color: 'bg-gray-500/20 text-gray-300' }
 }
 
-// ── 1 primary card + named list for rest, each expandable ────────────────────
-function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boolean }) {
+// Primary products — first shown as full card, rest as expandable list
+function PrimaryProductCards({ products, dark }: { products: MadvetProduct[]; dark: boolean }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   if (products.length === 0) return null
 
-  const primary = products[0]
-  const rest    = products.slice(1)
+  const first = products[0]
+  const rest  = products.slice(1)
 
   return (
     <div className="space-y-2">
-      {/* Primary card — always visible */}
-      <ProductCard product={primary} dark={dark} />
-
-      {/* Other products — named rows, each expandable */}
+      <ProductCard product={first} dark={dark} />
       {rest.length > 0 && (
-        <div className={`rounded-xl border px-3 py-2 ${
-          dark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'
-        }`}>
-          <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${
-            dark ? 'text-white/40' : 'text-gray-400'
-          }`}>
+        <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+          <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${dark ? 'text-white/40' : 'text-gray-400'}`}>
             Aur options
           </p>
           <div className="space-y-1">
@@ -112,9 +87,7 @@ function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boo
                     <div className="flex items-center gap-2 min-w-0">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className={`w-3 h-3 flex-shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''} ${
-                          dark ? 'text-green-400' : 'text-madvet-primary'
-                        }`}
+                        className={`w-3 h-3 flex-shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''} ${dark ? 'text-green-400' : 'text-madvet-primary'}`}
                         fill="none" viewBox="0 0 24 24" stroke="currentColor"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -125,11 +98,7 @@ function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boo
                       {badge.label}
                     </span>
                   </button>
-                  {isOpen && (
-                    <div className="mt-1 ml-5">
-                      <ProductCard product={p} dark={dark} />
-                    </div>
-                  )}
+                  {isOpen && <div className="mt-1 ml-5"><ProductCard product={p} dark={dark} /></div>}
                 </div>
               )
             })}
@@ -140,11 +109,57 @@ function ProductCards({ products, dark }: { products: MadvetProduct[]; dark: boo
   )
 }
 
+// Complementary products — shown with a distinct "Also give" header
+function ComplementaryProductCards({ products, dark }: { products: MadvetProduct[]; dark: boolean }) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  if (products.length === 0) return null
+
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-green-800/50 bg-green-900/10' : 'border-green-200 bg-green-50'}`}>
+      <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${dark ? 'text-green-400/70' : 'text-green-600'}`}>
+        ➕ Saath mein dijiye
+      </p>
+      <div className="space-y-1">
+        {products.map((p, i) => {
+          const badge  = getFormBadge(p)
+          const isOpen = expandedIdx === i
+          return (
+            <div key={i}>
+              <button
+                onClick={() => setExpandedIdx(isOpen ? null : i)}
+                className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-left transition-colors ${
+                  dark ? 'hover:bg-white/10 text-white' : 'hover:bg-white text-gray-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`w-3 h-3 flex-shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''} ${dark ? 'text-green-400' : 'text-green-600'}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <span className="text-sm font-medium truncate">{p.product_name ?? 'Unknown'}</span>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${badge.color}`}>
+                  {badge.label}
+                </span>
+              </button>
+              {isOpen && <div className="mt-1 ml-5"><ProductCard product={p} dark={dark} /></div>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function MessageBubble({
   messageId,
   role,
   content,
-  products = [],
+  primaryProducts       = [],
+  complementaryProducts = [],
   showFeedback = false,
   dark = false,
 }: MessageBubbleProps) {
@@ -161,7 +176,7 @@ export default function MessageBubble({
         body:    JSON.stringify({ messageId, rating, messageContent: content }),
       })
       setFeedbackSent(rating)
-    } catch { /* ignore */ }
+    } catch {}
   }
 
   const handleSpeak = () => {
@@ -170,6 +185,8 @@ export default function MessageBubble({
     setPlaying(true)
     speakText(cleanForSpeech(content), () => setPlaying(false))
   }
+
+  const hasProducts = primaryProducts.length > 0 || complementaryProducts.length > 0
 
   return (
     <div className={`flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -180,32 +197,35 @@ export default function MessageBubble({
       )}
       <div className={`flex-1 ${isUser ? 'max-w-[85%]' : ''}`}>
         {isUser ? (
-          <div className={`rounded-2xl px-4 py-3 ${
-            dark ? 'bg-[#2f2f2f] text-white' : 'bg-madvet-primary text-white'
-          }`}>
+          <div className={`rounded-2xl px-4 py-3 ${dark ? 'bg-[#2f2f2f] text-white' : 'bg-madvet-primary text-white'}`}>
             <p className="whitespace-pre-wrap">{content}</p>
           </div>
         ) : (
           <div className="space-y-3">
-            <div className={`prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 ${
-              dark ? 'prose-invert' : ''
-            }`}>
+            {/* Bot text response */}
+            <div className={`prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 ${dark ? 'prose-invert' : ''}`}>
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
 
-            {products.length > 0 && <ProductCards products={products} dark={dark} />}
+            {/* Product cards — only shown after stream completes */}
+            {hasProducts && (
+              <div className="space-y-2">
+                <PrimaryProductCards products={primaryProducts} dark={dark} />
+                <ComplementaryProductCards products={complementaryProducts} dark={dark} />
+              </div>
+            )}
 
+            {/* Audio + Feedback row */}
             {content && (
               <div className="flex items-center gap-1">
                 <button
                   onClick={handleSpeak}
                   title={playing ? 'Rokein' : 'Sunein'}
-                  aria-label={playing ? 'Stop audio' : 'Play audio'}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors
-                    ${playing
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${
+                    playing
                       ? dark ? 'bg-white/20 text-white font-medium' : 'bg-madvet-primary/10 text-madvet-primary font-medium'
                       : dark ? 'text-white/50 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-madvet-primary hover:bg-madvet-primary/10'
-                    }`}
+                  }`}
                 >
                   {playing ? (
                     <span className="flex items-end gap-[2px] h-3">
@@ -231,7 +251,6 @@ export default function MessageBubble({
                           ? dark ? 'text-green-400' : 'text-madvet-primary'
                           : dark ? 'text-white/50 hover:text-white' : 'text-gray-400 hover:text-gray-600'
                       }`}
-                      aria-label="Good"
                     >👍</button>
                     <button
                       onClick={() => sendFeedback('down')}
@@ -240,7 +259,6 @@ export default function MessageBubble({
                           ? 'text-red-400'
                           : dark ? 'text-white/50 hover:text-white' : 'text-gray-400 hover:text-gray-600'
                       }`}
-                      aria-label="Bad"
                     >👎</button>
                   </>
                 )}
