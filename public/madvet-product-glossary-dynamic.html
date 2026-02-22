@@ -544,28 +544,10 @@
       </svg>
       <input type="text" id="search" placeholder="Search products, indications, composition, species…" autocomplete="off">
     </div>
-    <div class="filter-group">
+    <div class="filter-group" id="catFilters">
       <span class="filter-label">Category</span>
-      <div id="catFilters" style="display:contents"><button class="pill-filter active" data-cat="all">All</button></div>
-      <button class="pill-filter" data-cat="Antibiotic">Antibiotic</button>
-      <button class="pill-filter" data-cat="Anti-inflammatory">Anti-inflam.</button>
-      <button class="pill-filter" data-cat="Vitamin Supplement">Vitamins</button>
-      <button class="pill-filter" data-cat="Anthelmintic">Anthelmintic</button>
-      <button class="pill-filter" data-cat="Antiparasitic">Antiparasitic</button>
-      <button class="pill-filter" data-cat="Ectoparasiticide">Ectoparasitic.</button>
-      <button class="pill-filter" data-cat="Reproductive Hormone">Reproductive</button>
-      <button class="pill-filter" data-cat="Probiotic">Probiotic</button>
-      <button class="pill-filter" data-cat="Analgesic">Analgesic</button>
     </div>
-    <div class="filter-group">
-      <span class="filter-label">Species</span>
-      <button class="pill-filter active" data-sp="all">All</button>
-      <button class="pill-filter" data-sp="Cattle">Cattle</button>
-      <button class="pill-filter" data-sp="Buffalo">Buffalo</button>
-      <button class="pill-filter" data-sp="Goat">Goat</button>
-      <button class="pill-filter" data-sp="Sheep">Sheep</button>
-      <button class="pill-filter" data-sp="Dog">Dog</button>
-      <button class="pill-filter" data-sp="Poultry">Poultry</button>
+    <div class="filter-group" id="spFilters">
     </div>
     <div class="results-count"><span id="visibleCount">…</span> products <span id="searchScope" style="display:none;color:var(--gold);font-size:11px;font-weight:500;margin-left:6px;">· full catalog</span></div>
   </div>
@@ -611,161 +593,209 @@ const SUPABASE_URL = 'https://pzijwpqaadhdfcjjtobf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aWp3cHFhYWRoZGZjamp0b2JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTkzNzcsImV4cCI6MjA4NjgzNTM3N30.-fOTDwX8WlJyEToJ-LliGc3yOypal90zVBjPY2HRCDo';
 const TABLE        = 'products_enriched';
 
-// ── STATE ────────────────────────────────────────────────
 let PRODUCTS   = [];
 let activeCat  = 'all';
 let activeSp   = 'all';
 let searchText = '';
 
-// ── CATEGORY COLORS ──────────────────────────────────────
 const CAT_COLORS = {
-  'Antibiotic':              '#3b82f6',
-  'Anti-inflammatory':       '#f59e0b',
-  'Vitamin Supplement':      '#10b981',
-  'Anthelmintic':            '#8b5cf6',
-  'Anthelmintic / Antiparasitic': '#7c3aed',
-  'Ectoparasiticide':        '#ef4444',
-  'Antiparasitic':           '#ec4899',
-  'Reproductive Hormone':    '#f472b6',
-  'Probiotic':               '#14b8a6',
-  'Analgesic':               '#f97316',
-  'Antidiarrheal':           '#84cc16',
-  'Antidiarrheal / Gastrointestinal': '#65a30d',
-  'Antihistamine':           '#a78bfa',
-  'Dermatological':          '#fb7185',
-  'Udder Care':              '#2dd4bf',
+  'Antibiotic':                                      '#3b82f6',
+  'Anti-inflammatory':                               '#f59e0b',
+  'Vitamin Supplement':                              '#10b981',
+  'Anthelmintic':                                    '#8b5cf6',
+  'Anthelmintic / Antiparasitic':                    '#7c3aed',
+  'Ectoparasiticide':                                '#ef4444',
+  'Antiparasitic':                                   '#ec4899',
+  'Reproductive Hormone':                            '#f472b6',
+  'Probiotic':                                       '#14b8a6',
+  'Probiotic / Immunomodulator / Vitamin Supplement':'#14b8a6',
+  'Analgesic':                                       '#f97316',
+  'Antidiarrheal':                                   '#84cc16',
+  'Antidiarrheal / Gastrointestinal':                '#65a30d',
+  'Antihistamine':                                   '#a78bfa',
+  'Dermatological':                                  '#fb7185',
+  'Udder Care':                                      '#2dd4bf',
 };
 const getColor = c => CAT_COLORS[c] || '#94a3b8';
 
-// ── FETCH FROM SUPABASE ───────────────────────────────────
+const CAT_ORDER = [
+  'Antibiotic','Anti-inflammatory','Vitamin Supplement',
+  'Anthelmintic','Anthelmintic / Antiparasitic','Antiparasitic',
+  'Ectoparasiticide','Reproductive Hormone',
+  'Probiotic','Probiotic / Immunomodulator / Vitamin Supplement',
+  'Analgesic','Antidiarrheal','Antidiarrheal / Gastrointestinal',
+  'Antihistamine','Dermatological','Udder Care'
+];
+const CAT_LABELS = {
+  'Anti-inflammatory':                               'Anti-inflam.',
+  'Anthelmintic / Antiparasitic':                    'Anthelmintic',
+  'Ectoparasiticide':                                'Ectoparasitic.',
+  'Reproductive Hormone':                            'Reproductive',
+  'Antidiarrheal / Gastrointestinal':                'Antidiarrheal',
+  'Probiotic / Immunomodulator / Vitamin Supplement':'Probiotic',
+};
+const catLabel = c => CAT_LABELS[c] || c;
+
+// ── FETCH ─────────────────────────────────────────────────
 async function loadProducts() {
   const loadingEl = document.getElementById('loadingBar');
   const errorEl   = document.getElementById('loadError');
-
   try {
     const url = `${SUPABASE_URL}/rest/v1/${TABLE}?select=id,product_name,salt_ingredient,packaging,category,species,indication,description,usp_benefits,aliases&order=id.asc&limit=500`;
     const res = await fetch(url, {
-      headers: {
-        'apikey':        SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type':  'application/json',
-      }
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
-
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
     PRODUCTS = data.map(row => ({
       id:          row.id,
-      name:        (row.product_name        || '').trim(),
-      salt:        (row.salt_ingredient     || '').trim(),
-      packaging:   (row.packaging           || '').trim(),
-      category:    (row.category            || '').trim(),
-      species:     (row.species             || '').trim(),
-      indication:  (row.indication          || '').trim(),
-      description: (row.description         || '').trim(),
-      benefits:    (row.usp_benefits        || '').trim(),
-      aliases:     (row.aliases             || '').trim(),
+      name:        (row.product_name    || '').trim(),
+      salt:        (row.salt_ingredient || '').trim(),
+      packaging:   (row.packaging       || '').trim(),
+      category:    (row.category        || '').trim(),
+      species:     (row.species         || '').trim(),
+      indication:  (row.indication      || '').trim(),
+      description: (row.description     || '').trim(),
+      benefits:    (row.usp_benefits    || '').trim(),
+      aliases:     (row.aliases         || '').trim(),
     }));
-
-    // Update header counts
-    document.getElementById('totalCount').textContent  = PRODUCTS.length;
-
-    // Build dynamic category filter pills
-    buildCategoryFilters();
-
+    document.getElementById('totalCount').textContent = PRODUCTS.length;
+    buildFilters();
     if (loadingEl) loadingEl.style.display = 'none';
     render();
-
   } catch (err) {
-    console.error('[Glossary] Failed to load products:', err);
+    console.error('[Glossary] Failed:', err);
     if (loadingEl) loadingEl.style.display = 'none';
     if (errorEl)   errorEl.style.display   = 'flex';
   }
 }
 
-// ── DYNAMIC CATEGORY PILLS ────────────────────────────────
-function buildCategoryFilters() {
-  const catOrder = ['Antibiotic','Anti-inflammatory','Vitamin Supplement','Anthelmintic','Anthelmintic / Antiparasitic','Antiparasitic','Ectoparasiticide','Reproductive Hormone','Probiotic','Analgesic','Antidiarrheal','Antidiarrheal / Gastrointestinal','Antihistamine','Dermatological','Udder Care'];
+// ── BUILD FILTER PILLS FROM ACTUAL DB DATA ────────────────
+function buildFilters() {
+  // Categories
   const usedCats = [...new Set(PRODUCTS.map(p => p.category))].filter(Boolean);
-  const ordered  = [...catOrder.filter(c => usedCats.includes(c)), ...usedCats.filter(c => !catOrder.includes(c))];
-
-  const container = document.getElementById('catFilters');
-  if (!container) return;
-
-  // Keep "All" button, rebuild the rest
-  const allBtn = container.querySelector('[data-cat="all"]');
-  container.innerHTML = '';
-  if (allBtn) container.appendChild(allBtn);
-
-  ordered.forEach(cat => {
-    const btn = document.createElement('button');
-    btn.className    = 'pill-filter';
-    btn.dataset.cat  = cat;
-    btn.textContent  = cat.replace(' / ', '/').replace('Anti-inflammatory','Anti-inflam.').replace('Reproductive Hormone','Reproductive').replace('Ectoparasiticide','Ectoparasitic.');
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.pill-filter[data-cat]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeCat = cat;
-      render();
-    });
-    container.appendChild(btn);
+  const ordCats  = [...CAT_ORDER.filter(c => usedCats.includes(c)),
+                    ...usedCats.filter(c => !CAT_ORDER.includes(c))];
+  const catBox = document.getElementById('catFilters');
+  catBox.innerHTML = '<span class="filter-label">Category</span>';
+  const allCatBtn = makeBtn('All', 'cat', 'all', true);
+  catBox.appendChild(allCatBtn);
+  ordCats.forEach(cat => catBox.appendChild(makeBtn(catLabel(cat), 'cat', cat, false)));
+  catBox.addEventListener('click', e => {
+    const btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeCat = btn.dataset.cat;
+    render();
   });
 
-  // Re-wire All button
-  const rewiredAll = container.querySelector('[data-cat="all"]');
-  if (rewiredAll) {
-    rewiredAll.addEventListener('click', () => {
-      document.querySelectorAll('.pill-filter[data-cat]').forEach(b => b.classList.remove('active'));
-      rewiredAll.classList.add('active');
-      activeCat = 'all';
-      render();
-    });
-  }
+  // Species — from real data
+  const allSp = new Set();
+  PRODUCTS.forEach(p => p.species.split(/[,\/]/).map(s => s.trim()).filter(Boolean).forEach(s => allSp.add(s)));
+  const spOrder = ['Cattle','Buffalo','Sheep','Goat','Dog','Cat','Poultry','Horse'];
+  const ordSp   = [...spOrder.filter(s => allSp.has(s)), ...[...allSp].filter(s => !spOrder.includes(s))];
+  const spBox = document.getElementById('spFilters');
+  spBox.innerHTML = '<span class="filter-label">Species</span>';
+  const allSpBtn = makeBtn('All', 'sp', 'all', true);
+  spBox.appendChild(allSpBtn);
+  ordSp.forEach(sp => spBox.appendChild(makeBtn(sp, 'sp', sp, false)));
+  spBox.addEventListener('click', e => {
+    const btn = e.target.closest('[data-sp]');
+    if (!btn) return;
+    document.querySelectorAll('[data-sp]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeSp = btn.dataset.sp;
+    render();
+  });
+}
+
+function makeBtn(label, type, value, active) {
+  const btn = document.createElement('button');
+  btn.className = 'pill-filter' + (active ? ' active' : '');
+  btn.textContent = label;
+  if (type === 'cat') btn.dataset.cat = value;
+  else                btn.dataset.sp  = value;
+  return btn;
+}
+
+// ── SEARCH SCORING ────────────────────────────────────────
+function scoreProduct(p, q) {
+  let score = 0;
+  const n = p.name.toLowerCase(), pkg = p.packaging.toLowerCase(),
+        c = p.category.toLowerCase(), ind = p.indication.toLowerCase(),
+        d = p.description.toLowerCase(), b = p.benefits.toLowerCase(),
+        salt = p.salt.toLowerCase(), ali = p.aliases.toLowerCase(),
+        sp = p.species.toLowerCase();
+  if (n === q)               score += 100;
+  if (n.startsWith(q))       score += 60;
+  if (n.includes(q))         score += 40;
+  if (ali.includes(q))       score += 30;
+  if (salt.includes(q))      score += 25;
+  if (d.includes(q))         score += 20;
+  if (b.includes(q))         score += 15;
+  if (ind.split(',')[0].toLowerCase().includes(q)) score += 12;
+  if (ind.includes(q))       score += 8;
+  if (c.includes(q))         score += 5;
+  if (sp.includes(q))        score += 5;
+  if (pkg.includes(q))       score += 3;
+  return score;
 }
 
 // ── FILTERING ─────────────────────────────────────────────
 function getFiltered() {
+  const q = searchText.toLowerCase().trim();
+  if (q) {
+    return PRODUCTS
+      .map(p => ({ p, score: scoreProduct(p, q) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(({ p }) => p);
+  }
   return PRODUCTS.filter(p => {
-    // When searching: scan ENTIRE catalog — ignore category & species filters
-    if (searchText) {
-      const q = searchText.toLowerCase();
-      return (
-        p.name.toLowerCase().includes(q)        ||
-        p.indication.toLowerCase().includes(q)  ||
-        p.description.toLowerCase().includes(q) ||
-        p.benefits.toLowerCase().includes(q)    ||
-        p.category.toLowerCase().includes(q)    ||
-        p.species.toLowerCase().includes(q)     ||
-        p.packaging.toLowerCase().includes(q)   ||
-        p.aliases.toLowerCase().includes(q)     ||
-        p.salt.toLowerCase().includes(q)
-      );
-    }
-    // No search: apply filters
     const catOk = activeCat === 'all' || p.category === activeCat;
     const spOk  = activeSp  === 'all' || p.species.toLowerCase().includes(activeSp.toLowerCase());
     return catOk && spOk;
   });
 }
 
+// ── HIGHLIGHT ────────────────────────────────────────────
+function hl(text, q) {
+  if (!q || !text) return text || '';
+  const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp('(' + esc + ')', 'gi'),
+    '<mark style="background:#fef08a;color:#1a3a2a;border-radius:2px;padding:0 2px;">$1</mark>');
+}
+
 function groupByCategory(products) {
-  const groups = {};
-  products.forEach(p => {
-    if (!groups[p.category]) groups[p.category] = [];
-    groups[p.category].push(p);
-  });
-  return groups;
+  const g = {};
+  products.forEach(p => { if (!g[p.category]) g[p.category] = []; g[p.category].push(p); });
+  return g;
 }
 
 // ── CARD RENDER ───────────────────────────────────────────
 function renderCard(p) {
-  const color     = getColor(p.category);
-  const shortDesc = p.description || p.indication.split(',').slice(0,4).map(s => s.trim()).join(', ');
-  const saltBar   = p.salt ? `
+  const color = getColor(p.category);
+  const q     = searchText.toLowerCase().trim();
+
+  // Clean short description — prefer description, else first meaningful indication chunk
+  let shortDesc = '';
+  if (p.description && p.description.length > 5) {
+    shortDesc = p.description.length > 160 ? p.description.slice(0, 157) + '…' : p.description;
+  } else if (p.indication) {
+    const chunks = p.indication.split(',').map(s => s.trim()).filter(s => s.length > 10);
+    shortDesc = chunks.length ? chunks[0] : p.indication.slice(0, 120);
+  }
+
+  // Clean "Used For" — remove pure keyword noise, cap at 8 items
+  const indChunks = p.indication.split(',').map(s => s.trim()).filter(s => s.length > 6);
+  const cleanInd  = indChunks.slice(0, 8).join(', ') + (indChunks.length > 8 ? '…' : '');
+
+  const saltEsc = p.salt.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const saltBar = p.salt ? `
     <div class="card-composition">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
-      <span class="composition-text">${p.salt}</span>
+      <span class="composition-text">${q ? hl(p.salt, q) : p.salt}</span>
     </div>` : '';
 
   return `
@@ -773,11 +803,11 @@ function renderCard(p) {
       <div class="card-accent" style="background:${color}"></div>
       <div class="card-body">
         <div class="card-top">
-          <div class="product-name">${p.name}</div>
+          <div class="product-name">${q ? hl(p.name, q) : p.name}</div>
           <span class="pack-badge">${p.packaging}</span>
         </div>
         ${saltBar}
-        <p class="card-indication">${shortDesc}</p>
+        ${shortDesc ? `<p class="card-indication">${q ? hl(shortDesc, q) : shortDesc}</p>` : ''}
         <div class="card-footer">
           <button class="card-expand-btn" onclick="toggleCard(${p.id}, this)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
@@ -788,9 +818,10 @@ function renderCard(p) {
       <div class="card-detail" id="detail-${p.id}">
         <div class="card-detail-inner">
           ${p.description ? `<div class="detail-row"><div class="detail-key">Description</div><div class="detail-val">${p.description}</div></div>` : ''}
-          ${p.salt ? `<div class="detail-row composition-row"><div class="detail-key">Composition / Salts</div><div class="detail-val" style="display:flex;align-items:flex-start;gap:8px;">${p.salt}<button class="copy-btn" onclick="copyText(event,'${p.salt.replace(/'/g, "\'")}')" >Copy</button></div></div>` : ''}
+          ${p.salt ? `<div class="detail-row composition-row"><div class="detail-key">Composition</div><div class="detail-val" style="display:flex;align-items:flex-start;gap:8px;">${p.salt}<button class="copy-btn" onclick="copyText(event,'${saltEsc}')">Copy</button></div></div>` : ''}
           ${p.benefits && p.benefits !== 'N/A' ? `<div class="detail-row"><div class="detail-key">Key Benefits</div><div class="detail-val">${p.benefits}</div></div>` : ''}
-          <div class="detail-row"><div class="detail-key">Full Indications</div><div class="detail-val">${p.indication}</div></div>
+          ${cleanInd ? `<div class="detail-row"><div class="detail-key">Used For</div><div class="detail-val">${cleanInd}</div></div>` : ''}
+          ${p.species ? `<div class="detail-row"><div class="detail-key">Species</div><div class="detail-val">${p.species}</div></div>` : ''}
         </div>
       </div>
     </div>
@@ -799,39 +830,48 @@ function renderCard(p) {
 
 // ── RENDER ────────────────────────────────────────────────
 function render() {
-  const filtered     = getFiltered();
-  const content      = document.getElementById('mainContent');
-  const noResults    = document.getElementById('noResults');
-  const visibleCount = document.getElementById('visibleCount');
-  const scope        = document.getElementById('searchScope');
+  const filtered = getFiltered();
+  const content  = document.getElementById('mainContent');
+  const q        = searchText.toLowerCase().trim();
 
-  visibleCount.textContent   = filtered.length;
-  if (scope) scope.style.display = searchText ? 'inline' : 'none';
-
+  document.getElementById('visibleCount').textContent = filtered.length;
+  const scope = document.getElementById('searchScope');
+  if (scope) scope.style.display = q ? 'inline' : 'none';
   content.querySelectorAll('.category-section').forEach(el => el.remove());
-  noResults.classList.remove('visible');
+  document.getElementById('noResults').classList.remove('visible');
 
-  if (filtered.length === 0) { noResults.classList.add('visible'); return; }
+  if (!filtered.length) { document.getElementById('noResults').classList.add('visible'); return; }
 
-  const catOrder = ['Antibiotic','Anti-inflammatory','Vitamin Supplement','Anthelmintic','Anthelmintic / Antiparasitic','Antiparasitic','Ectoparasiticide','Reproductive Hormone','Probiotic','Analgesic','Antidiarrheal','Antidiarrheal / Gastrointestinal','Antihistamine','Dermatological','Udder Care'];
-  const groups   = groupByCategory(filtered);
-  const ordered  = [...catOrder.filter(c => groups[c]), ...Object.keys(groups).filter(c => !catOrder.includes(c))];
-
-  ordered.forEach(cat => {
-    const products = groups[cat];
-    const section  = document.createElement('div');
-    section.className = 'category-section';
-    const color = getColor(cat);
-    section.innerHTML = `
+  if (q) {
+    // Flat ranked list when searching
+    const sec = document.createElement('div');
+    sec.className = 'category-section';
+    sec.innerHTML = `
       <div class="category-header">
-        <div class="category-dot" style="background:${color}"></div>
-        <h2 class="category-title">${cat}</h2>
-        <span class="category-count">${products.length} product${products.length !== 1 ? 's' : ''}</span>
+        <div class="category-dot" style="background:var(--gold)"></div>
+        <h2 class="category-title">Search Results</h2>
+        <span class="category-count">${filtered.length} match${filtered.length !== 1 ? 'es' : ''}</span>
       </div>
-      <div class="product-grid">${products.map(renderCard).join('')}</div>
-    `;
-    content.appendChild(section);
-  });
+      <div class="product-grid">${filtered.map(renderCard).join('')}</div>`;
+    content.appendChild(sec);
+  } else {
+    const groups  = groupByCategory(filtered);
+    const ordered = [...CAT_ORDER.filter(c => groups[c]),
+                     ...Object.keys(groups).filter(c => !CAT_ORDER.includes(c))];
+    ordered.forEach(cat => {
+      const prods = groups[cat];
+      const sec   = document.createElement('div');
+      sec.className = 'category-section';
+      sec.innerHTML = `
+        <div class="category-header">
+          <div class="category-dot" style="background:${getColor(cat)}"></div>
+          <h2 class="category-title">${cat}</h2>
+          <span class="category-count">${prods.length} product${prods.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="product-grid">${prods.map(renderCard).join('')}</div>`;
+      content.appendChild(sec);
+    });
+  }
 }
 
 // ── CARD EXPAND ───────────────────────────────────────────
@@ -840,15 +880,14 @@ function toggleCard(id, btn) {
   const isOpen = detail.classList.contains('open');
   document.querySelectorAll('.card-detail.open').forEach(el => el.classList.remove('open'));
   document.querySelectorAll('.card-expand-btn').forEach(b => {
-    b.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Details`;
+    b.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Details';
   });
   if (!isOpen) {
     detail.classList.add('open');
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg> Less`;
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg> Less';
   }
 }
 
-// ── COPY ─────────────────────────────────────────────────
 function copyText(e, text) {
   e.stopPropagation();
   navigator.clipboard.writeText(text).catch(() => {
@@ -856,30 +895,23 @@ function copyText(e, text) {
     ta.value = text; document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
   });
-  const btn = e.target;
-  btn.textContent = 'Copied!';
-  btn.classList.add('copied');
-  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+  e.target.textContent = 'Copied!';
+  e.target.classList.add('copied');
+  setTimeout(() => { e.target.textContent = 'Copy'; e.target.classList.remove('copied'); }, 1800);
 }
 
-// ── SEARCH ────────────────────────────────────────────────
 document.getElementById('search').addEventListener('input', e => {
   searchText = e.target.value;
+  if (searchText) {
+    document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-cat="all"]') && document.querySelector('[data-cat="all"]').classList.add('active');
+    activeCat = 'all';
+  }
   render();
 });
 
-// ── SPECIES FILTERS ───────────────────────────────────────
-document.querySelectorAll('.pill-filter[data-sp]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.pill-filter[data-sp]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeSp = btn.dataset.sp;
-    render();
-  });
-});
-
-// ── INIT ─────────────────────────────────────────────────
 loadProducts();
 </script>
+
 </body>
 </html>
