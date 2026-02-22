@@ -122,7 +122,7 @@ function buildApiMessages(history: Message[], currentUserMessage: string, catalo
       // Strip old catalog from previous user messages — only current message needs it
       // Old format was: Customer asks: "..." \n\n## MADVET...
       const stripped = m.content
-        .replace(/Customer (?:asks|says):\s*"(.+?)"[\s\S]*/s, '$1')
+        .replace(/Customer (?:asks|says):\s*"([\s\S]+?)"[\s\S]*/, '$1')
         .trim()
       return { role: 'user', content: stripped || m.content }
     }
