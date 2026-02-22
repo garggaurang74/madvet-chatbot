@@ -416,7 +416,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
             display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
           }}>
             {/* Search */}
-            <div className="search-wrap" className="search-wrap" style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+            <div className="search-wrap" style={{ position: 'relative', flex: 1, minWidth: 220 }}>
               <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', opacity: 0.7, pointerEvents: 'none' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
               </svg>
