@@ -22,6 +22,8 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { overflow-x: hidden; max-width: 100%; }
   body {
     font-family: 'DM Sans', sans-serif;
     background: var(--cream);
@@ -97,7 +99,7 @@
     color: rgba(245,240,232,0.55);
     font-weight: 300;
     letter-spacing: 0.3px;
-    max-width: 420px;
+    max-width: min(420px, 100%);
     line-height: 1.7;
   }
 
@@ -442,138 +444,73 @@
 
   /* ── RESPONSIVE ── */
   /* ── TABLET ── */
+  /* ── TABLET ── */
   @media (max-width: 900px) {
-    .header-inner  { padding: 36px 24px 32px; flex-direction: column; align-items: flex-start; }
-    .header-stats  { align-self: stretch; justify-content: flex-start; }
-    .controls-inner { padding: 12px 20px; }
-    .main-content  { padding: 24px 20px 60px; }
+    .header-inner  { padding: 32px 20px 28px; flex-direction: column; align-items: flex-start; }
+    .header-stats  { align-self: stretch; justify-content: flex-start; flex-wrap: wrap; gap: 20px; }
+    .controls-inner { padding: 12px 16px; }
+    .main-content  { padding: 24px 16px 60px; }
     .product-grid  { grid-template-columns: 1fr 1fr; }
     .header-title  { font-size: 32px; }
   }
 
   /* ── MOBILE ── */
   @media (max-width: 640px) {
-    .header-inner  { padding: 20px 16px 18px; flex-direction: column; align-items: flex-start; }
-    .header-title  { font-size: 24px; }
-    .header-sub    { font-size: 13px; }
-    .header-stats  { gap: 12px; }
-    .stat-number   { font-size: 22px; }
+    header { width: 100%; }
+    .header-inner {
+      padding: 18px 16px 16px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      width: 100%;
+      max-width: 100%;
+    }
+    .header-left   { width: 100%; }
+    .header-stats  { align-self: stretch; justify-content: flex-start; flex-wrap: wrap; gap: 16px; width: 100%; }
+    .header-title  { font-size: 22px; letter-spacing: -0.5px; }
+    .header-subtitle { font-size: 13px; max-width: 100%; }
+    .stat-number   { font-size: 24px; }
 
-    /* Controls: stack search + scrollable filters */
+    .controls-bar  { width: 100%; }
     .controls-inner {
-      padding: 10px 12px;
+      padding: 8px 12px;
       flex-direction: column;
       align-items: stretch;
       gap: 8px;
+      width: 100%;
     }
-    .search-wrap { min-width: unset; width: 100%; }
+    .search-wrap   { min-width: unset; width: 100%; }
+    #search        { width: 100%; }
 
-    /* Filter pills: horizontal scroll, no wrap, hidden scrollbar */
     .filter-group {
       overflow-x: auto;
       flex-wrap: nowrap !important;
       -webkit-overflow-scrolling: touch;
-      padding-bottom: 4px;
+      padding-bottom: 2px;
       gap: 6px !important;
       scrollbar-width: none;
-      mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+      width: 100%;
     }
     .filter-group::-webkit-scrollbar { display: none; }
-    .filter-label { display: none; }
+    .filter-label  { display: none; }
+    .pill-filter   { padding: 5px 12px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
 
-    /* Pill sizing on mobile */
-    .pill-filter { padding: 5px 11px; font-size: 12px; white-space: nowrap; }
-
-    /* Grid — single column */
-    .product-grid  { grid-template-columns: 1fr; gap: 12px; }
-
-    /* Cards */
-    .card-body     { padding: 14px; }
-    .card-accent   { width: 4px; }
+    .main-content  { padding: 14px 12px 60px; width: 100%; }
+    .product-grid  { grid-template-columns: 1fr !important; gap: 10px; width: 100%; }
+    .product-card  { width: 100%; }
+    .card-body     { padding: 14px 14px 12px; }
     .product-name  { font-size: 14px; }
     .card-indication { font-size: 12px; }
-    .card-footer   { gap: 6px; }
+    .card-footer   { gap: 6px; flex-wrap: wrap; }
 
-    .main-content  { padding: 16px 12px 60px; }
     .results-count { font-size: 11px; }
+    footer         { padding: 20px 16px; }
   }
 
   @media (max-width: 380px) {
-    .product-grid  { grid-template-columns: 1fr; }
-    .header-title  { font-size: 20px; }
+    .header-title  { font-size: 19px; }
+    .pill-filter   { padding: 4px 10px; font-size: 11px; }
   }
-
-  /* ── ANIMATION ── */
-  .product-card {
-    animation: fadeUp 0.3s ease both;
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .hidden { display: none !important; }
-
-  /* ── FOOTER ── */
-  footer {
-    background: var(--forest);
-    padding: 28px 48px;
-    text-align: center;
-  }
-  footer p {
-    font-size: 12px;
-    color: rgba(245,240,232,0.3);
-    letter-spacing: 1px;
-  }
-  footer strong { color: var(--gold); }
-
-  /* ── COMPOSITION ROW ── */
-  .card-composition {
-    display: flex;
-    align-items: flex-start;
-    gap: 7px;
-    margin-bottom: 12px;
-    padding: 8px 10px;
-    background: rgba(61,122,87,0.06);
-    border-radius: 8px;
-    border-left: 3px solid var(--forest-light);
-  }
-  .card-composition svg { flex-shrink: 0; margin-top: 1px; color: var(--forest-light); }
-  .composition-text {
-    font-size: 12px;
-    color: var(--forest);
-    font-weight: 500;
-    line-height: 1.55;
-    letter-spacing: 0.1px;
-  }
-  .detail-row.composition-row .detail-val {
-    font-size: 13px;
-    color: var(--forest);
-    font-weight: 500;
-    line-height: 1.6;
-    background: rgba(61,122,87,0.07);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border-left: 3px solid var(--forest-light);
-  }
-  /* copy button */
-  .copy-btn {
-    margin-left: auto;
-    flex-shrink: 0;
-    background: none;
-    border: 1px solid rgba(61,122,87,0.25);
-    color: var(--text-muted);
-    font-size: 10px;
-    font-family: 'DM Sans', sans-serif;
-    padding: 2px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .copy-btn:hover { background: rgba(61,122,87,0.1); color: var(--forest); border-color: var(--forest-light); }
-  .copy-btn.copied { background: var(--forest-light); color: white; border-color: var(--forest-light); }
 
 </style>
 </head>
