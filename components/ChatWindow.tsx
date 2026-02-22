@@ -196,14 +196,11 @@ export default function ChatWindow() {
         }
       }
 
-      if (!fullText.trim()) {
-        setMessages(prev => prev.map(m =>
-          m.id === assistantId
-            ? { ...m, content: 'Jawab aane mein problem hui 🙏 Dobara try karein.', isError: true, retryText: text.trim() }
-            : m
-        ))
-        return
-      }
+      // Clean display text by removing PRODUCTS tag and unescaping newlines
+      const displayText = fullText
+        .replace(/\n*PRODUCTS:\s*primary=\[[^\]]*\]\s*complementary=\[[^\]]*\]/gi, '')
+        .replace(/\\n/g, '\n')
+        .trim()
 
       if (convId && fullText) await saveMessage(convId, 'assistant', fullText)
 
