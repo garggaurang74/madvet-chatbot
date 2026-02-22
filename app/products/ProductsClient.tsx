@@ -462,7 +462,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
             </div>
 
             {/* Count */}
-            <div className="results-count" className="results-count" style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(245,240,232,0.4)', whiteSpace: 'nowrap' }}>
+            <div className="results-count" style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(245,240,232,0.4)', whiteSpace: 'nowrap' }}>
               <span style={{ color: 'var(--gold-light)', fontWeight: 600 }}>{filtered.length}</span> products
             </div>
           </div>
