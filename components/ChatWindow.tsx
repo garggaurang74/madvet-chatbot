@@ -267,7 +267,7 @@ export default function ChatWindow() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <img src="/madvet-icon.png" alt="Madvet" style={{height:28,width:28,borderRadius:6,objectFit:"cover",flexShrink:0}} />
+            <img src="/madvet-icon.png" alt="Madvet" style={{height:32,width:32,objectFit:"contain",flexShrink:0}} />
             <span className="font-semibold text-sm">Dr. Madvet Assistant</span>
           </div>
           <div className="flex items-center gap-1">
@@ -296,7 +296,7 @@ export default function ChatWindow() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           {isEmpty && (
             <div className="flex flex-col items-center justify-center h-full px-4 text-center">
-              <div style={{background:"#fff",borderRadius:16,padding:"12px 20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center"}}><img src="/madvet-logo.png" alt="Madvet Animal Healthcare" style={{height:56,objectFit:"contain"}} /></div>
+              <img src="/madvet-icon.png" alt="Madvet" style={{height:96,width:96,objectFit:"contain",marginBottom:16}} />
               <h1 className="text-2xl font-semibold mb-2">Dr. Madvet Assistant</h1>
               <p className="text-white/50 text-sm mb-8 max-w-sm">
                 Apne janwar ki koi bhi health problem puchein — Hindi, English, ya Hinglish mein
