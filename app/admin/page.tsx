@@ -8,7 +8,7 @@ type ProductData = {
   product_name: string; salt_ingredient: string; packaging: string
   description: string; category: string; species: string
   indication: string; aliases: string; dosage: string
-  usp_benefits: string; image_url: string
+  usp_benefits: string; image_url: string; formulation: string
 }
 type AdminMode  = 'home' | 'add' | 'image'
 type AddStage   = 'step1' | 'enriching' | 'review' | 'saving' | 'done' | 'error'
@@ -17,7 +17,7 @@ type ImageStage = 'select' | 'upload' | 'preview' | 'saving' | 'done' | 'error'
 const EMPTY: ProductData = {
   product_name:'', salt_ingredient:'', packaging:'', description:'',
   category:'', species:'', indication:'', aliases:'', dosage:'',
-  usp_benefits:'', image_url:''
+  usp_benefits:'', image_url:'', formulation:''
 }
 const CATEGORIES = [
   'Antibiotic','Anthelmintic / Antiparasitic','Ectoparasiticide',
