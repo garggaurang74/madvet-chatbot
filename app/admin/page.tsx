@@ -34,154 +34,100 @@ const FORMULATION_OPTIONS = [
 const toBase64  = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res((r.result as string).split(',')[1]); r.onerror=rej; r.readAsDataURL(f) })
 const toDataUrl = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result as string); r.onerror=rej; r.readAsDataURL(f) })
 
-// ─── Studio Image Enhancement with Background Removal ───────────────────────
-// 1) Detects background colour by sampling edges
-// 2) Flood-fills from all 4 corners to make matching pixels transparent (chroma-key)
-// 3) Composites onto a premium studio gradient with drop shadow
+// ─── Pure-canvas Studio Enhancement ──────────────────────────────────────────
+// Resizes → boosts colour/contrast → places on premium studio gradient bg
+// No background removal (unreliable without AI) — just makes ANY photo look
+// professional with consistent studio feel.
 async function enhanceImage(dataUrl: string): Promise<string> {
   return new Promise(res => {
     const img = new Image()
     img.onload = () => {
-      const W = Math.min(img.width,  1200)
-      const H = Math.round(img.height * W / img.width)
+      // Normalise to max 1200px wide
+      const maxW = 1200
+      const scale = img.width > maxW ? maxW / img.width : 1
+      const W = Math.round(img.width  * scale)
+      const H = Math.round(img.height * scale)
 
-      // ── Draw original ──────────────────────────────────────────────────────
+      // ── 1. Draw & analyse source ───────────────────────────────────────────
       const src = document.createElement('canvas')
       src.width = W; src.height = H
       const sx = src.getContext('2d')!
       sx.drawImage(img, 0, 0, W, H)
-      const imgData = sx.getImageData(0, 0, W, H)
-      const data    = imgData.data
 
-      // ── Sample background colour from 20 edge pixels ───────────────────────
-      const edgePx: number[][] = []
-      const step = Math.max(1, Math.floor(W / 10))
-      for (let x = 0; x < W; x += step) {
-        edgePx.push([x, 0]); edgePx.push([x, H-1])
-      }
-      for (let y = 0; y < H; y += step) {
-        edgePx.push([0, y]); edgePx.push([W-1, y])
-      }
-      let rS=0, gS=0, bS=0
-      edgePx.forEach(([ex, ey]) => {
-        const i = (ey * W + ex) * 4
-        rS += data[i]; gS += data[i+1]; bS += data[i+2]
-      })
-      const bgR = Math.round(rS / edgePx.length)
-      const bgG = Math.round(gS / edgePx.length)
-      const bgB = Math.round(bS / edgePx.length)
-      const luma = 0.299*bgR + 0.587*bgG + 0.114*bgB
+      // Sample corners to detect background luma
+      const d = sx.getImageData(0,0,W,H).data
+      const corners = [[0,0],[W-1,0],[0,H-1],[W-1,H-1],[W>>1,0],[0,H>>1],[W-1,H>>1],[W>>1,H-1]]
+      let rS=0,gS=0,bS=0
+      corners.forEach(([cx,cy])=>{const i=(cy*W+cx)*4;rS+=d[i];gS+=d[i+1];bS+=d[i+2]})
+      const bgLuma = 0.299*(rS/8) + 0.587*(gS/8) + 0.114*(bS/8)
+      const isDark = bgLuma < 80
 
-      // Tolerance: tighter for white/near-white, looser for coloured backgrounds
-      const tolerance = luma > 200 ? 28 : luma > 120 ? 38 : 50
-
-      // ── Flood-fill from corners — mark background pixels alpha=0 ──────────
-      const visited = new Uint8Array(W * H)
-      const queue: number[] = []
-
-      const seed = (x: number, y: number) => {
-        if (x < 0 || x >= W || y < 0 || y >= H) return
-        const idx = y * W + x
-        if (visited[idx]) return
-        const i = idx * 4
-        const dr = Math.abs(data[i]   - bgR)
-        const dg = Math.abs(data[i+1] - bgG)
-        const db = Math.abs(data[i+2] - bgB)
-        if (dr + dg + db < tolerance * 3) {
-          visited[idx] = 1
-          queue.push(idx)
-        }
-      }
-
-      // Seed all 4 corners + mid-edges
-      [[0,0],[W-1,0],[0,H-1],[W-1,H-1],[W>>1,0],[W>>1,H-1],[0,H>>1],[W-1,H>>1]].forEach(([x,y])=>seed(x,y))
-
-      while (queue.length) {
-        const idx = queue.pop()!
-        const x = idx % W, y = Math.floor(idx / W)
-        const check = (nx: number, ny: number) => {
-          if (nx < 0 || nx >= W || ny < 0 || ny >= H) return
-          const ni = ny * W + nx
-          if (visited[ni]) return
-          const i = ni * 4
-          const dr = Math.abs(data[i]   - bgR)
-          const dg = Math.abs(data[i+1] - bgG)
-          const db = Math.abs(data[i+2] - bgB)
-          if (dr + dg + db < tolerance * 3) { visited[ni] = 1; queue.push(ni) }
-        }
-        check(x-1,y); check(x+1,y); check(x,y-1); check(x,y+1)
-      }
-
-      // Set background pixels to transparent
-      for (let i = 0; i < W * H; i++) {
-        if (visited[i]) data[i*4+3] = 0
-      }
-
-      // Feather edges (1px blur of alpha channel)
-      for (let y = 1; y < H-1; y++) {
-        for (let x = 1; x < W-1; x++) {
-          const i = y * W + x
-          if (!visited[i]) continue
-          // If neighbour is product (not background), soften
-          const neighbours = [i-1, i+1, i-W, i+W]
-          const hasProduct = neighbours.some(n => !visited[n])
-          if (hasProduct) data[i*4+3] = 80  // partial alpha at edges
-        }
-      }
-
-      sx.putImageData(imgData, 0, 0)
-
-      // ── Composite onto studio canvas ───────────────────────────────────────
-      const PAD = Math.round(W * 0.09)
-      const cW  = W + PAD*2, cH = H + PAD*2
+      // ── 2. Studio canvas with padding ─────────────────────────────────────
+      const PAD = Math.round(Math.min(W,H) * 0.07)
+      const cW  = W + PAD*2
+      const cH  = H + PAD*2
       const out = document.createElement('canvas')
       out.width = cW; out.height = cH
       const ctx = out.getContext('2d')!
 
-      // Premium studio background — warm white radial
-      const isDark = luma < 80
-      const bg = ctx.createRadialGradient(cW/2, cH*0.4, 0, cW/2, cH/2, cW*0.75)
+      // Premium radial gradient background
+      const bg = ctx.createRadialGradient(cW*0.5, cH*0.38, 0, cW*0.5, cH*0.5, cW*0.8)
       if (isDark) {
-        bg.addColorStop(0, '#2d2d2d'); bg.addColorStop(1, '#111')
+        bg.addColorStop(0, '#323232')
+        bg.addColorStop(1, '#0e0e0e')
       } else {
-        bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.55, '#f5f2ee'); bg.addColorStop(1, '#e5dfd4')
+        bg.addColorStop(0, '#ffffff')
+        bg.addColorStop(0.5, '#f6f3ef')
+        bg.addColorStop(1,   '#e2dbd0')
       }
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, cW, cH)
 
-      // Subtle floor vignette
-      const vgn = ctx.createLinearGradient(0, cH*0.6, 0, cH)
-      vgn.addColorStop(0, 'rgba(0,0,0,0)')
-      vgn.addColorStop(1, isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)')
-      ctx.fillStyle = vgn
+      // Floor gradient — darker bottom strip for depth
+      const floor = ctx.createLinearGradient(0, cH*0.65, 0, cH)
+      floor.addColorStop(0, 'rgba(0,0,0,0)')
+      floor.addColorStop(1, isDark ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.07)')
+      ctx.fillStyle = floor
       ctx.fillRect(0, 0, cW, cH)
 
-      // Drop shadow behind product
-      ctx.shadowColor   = isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.2)'
-      ctx.shadowBlur    = 28
+      // ── 3. Draw product with colour boost + soft shadow ────────────────────
+      ctx.shadowColor   = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.22)'
+      ctx.shadowBlur    = 32
+      ctx.shadowOffsetY = 12
       ctx.shadowOffsetX = 0
-      ctx.shadowOffsetY = 10
-      ctx.filter = 'contrast(1.06) brightness(1.04) saturate(1.18)'
+      // Contrast + saturation boost so product pops against the neutral bg
+      ctx.filter = 'contrast(1.12) brightness(1.05) saturate(1.3)'
       ctx.drawImage(src, PAD, PAD, W, H)
       ctx.filter = 'none'
       ctx.shadowColor = 'transparent'
 
-      // Elliptical floor shadow
+      // ── 4. Elliptical floor shadow under product ───────────────────────────
       ctx.save()
-      ctx.globalAlpha = isDark ? 0.2 : 0.1
-      const eg = ctx.createRadialGradient(cW/2, PAD+H+2, 0, cW/2, PAD+H+2, W*0.4)
-      eg.addColorStop(0, 'rgba(0,0,0,1)'); eg.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.globalAlpha = isDark ? 0.25 : 0.12
+      const eg = ctx.createRadialGradient(cW/2, PAD+H+2, 0, cW/2, PAD+H+2, W*0.42)
+      eg.addColorStop(0, 'rgba(0,0,0,1)')
+      eg.addColorStop(1, 'rgba(0,0,0,0)')
       ctx.fillStyle = eg
       ctx.beginPath()
-      ctx.ellipse(cW/2, PAD+H+4, W*0.38, 12, 0, 0, Math.PI*2)
+      ctx.ellipse(cW/2, PAD+H+5, W*0.4, 13, 0, 0, Math.PI*2)
       ctx.fill()
       ctx.restore()
 
-      res(out.toDataURL('image/jpeg', 0.92))
+      // ── 5. Subtle vignette corners ─────────────────────────────────────────
+      if (!isDark) {
+        const vig = ctx.createRadialGradient(cW/2,cH/2,cW*0.35, cW/2,cH/2,cW*0.75)
+        vig.addColorStop(0, 'rgba(0,0,0,0)')
+        vig.addColorStop(1, 'rgba(0,0,0,0.08)')
+        ctx.fillStyle = vig
+        ctx.fillRect(0,0,cW,cH)
+      }
+
+      res(out.toDataURL('image/jpeg', 0.93))
     }
     img.src = dataUrl
   })
 }
+
 
 async function processImageForStudio(dataUrl: string): Promise<string> {
   return enhanceImage(dataUrl)
@@ -199,10 +145,13 @@ async function uploadToStorage(base64: string, mime: string, name: string): Prom
     const file = `${slug}-${Date.now()}.${ext}`
     const bytes = atob(base64); const arr = new Uint8Array(bytes.length)
     for (let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i)
-    const { error } = await sb.storage.from('product-images').upload(file, new Blob([arr],{type:mime}), {contentType:mime, upsert:false})
-    if (error) { console.error('[Storage]',error.message); return null }
+    const { error } = await sb.storage.from('product-images').upload(file, new Blob([arr],{type:mime}), {contentType:mime, upsert:true})
+    if (error) {
+      console.error('[Storage] upload error:', error.message, error)
+      throw new Error(`Storage: ${error.message}`)
+    }
     return sb.storage.from('product-images').getPublicUrl(file).data?.publicUrl ?? null
-  } catch(e) { console.error('[Storage]',e); return null }
+  } catch(e) { console.error('[Storage]',e); throw e }
 }
 
 // ── Password Gate ─────────────────────────────────────────────────────────────
@@ -633,7 +582,7 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
     try {
       const b64Enh   = enhanced.split(',')[1]
       const imageUrl = await uploadToStorage(b64Enh, 'image/jpeg', selected.product_name)
-      if (!imageUrl) throw new Error('Upload failed')
+      if (!imageUrl) throw new Error('Upload returned null — check Supabase storage bucket policy')
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL
       const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       if (!url || !key) throw new Error('Supabase not configured')
