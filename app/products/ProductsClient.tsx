@@ -73,27 +73,44 @@ type Lang = 'en' | 'hi'
 
 // ── SEARCH SCORING ────────────────────────────────────────────────────────────
 
+// Normalize: strip punctuation so "vh5" matches "V.H-5", "500ml" matches "500 ml"
+function norm(s: string): string {
+  return s.toLowerCase().replace(/[.\-_/\s]+/g, '')
+}
+
 function scoreToken(p: Product, t: string): number {
+  const nt  = norm(t)
+  const nn  = norm(p.name)
+  const raw = p.name.toLowerCase()
   let score = 0
-  const n = p.name.toLowerCase()
-  if (n === t)            score += 100
-  if (n.startsWith(t))    score += 60
-  else if (n.includes(t)) score += 40
-  if (p.aliases.toLowerCase().includes(t))      score += 30
-  if (p.salt.toLowerCase().includes(t))         score += 25
-  if (p.description.toLowerCase().includes(t))  score += 20
-  if (p.benefits.toLowerCase().includes(t))     score += 15
-  if (p.indication.toLowerCase().includes(t))   score += 8
-  if (p.category.toLowerCase().includes(t))     score += 5
-  if (p.species.toLowerCase().includes(t))      score += 5
-  if (p.packaging.toLowerCase().includes(t))    score += 3
-  if (p.formulation.toLowerCase().includes(t))  score += 3
+
+  // Name match — try both raw and normalized
+  if (nn === nt || raw === t)              score += 100
+  else if (nn.startsWith(nt) || raw.startsWith(t)) score += 60
+  else if (nn.includes(nt) || raw.includes(t))     score += 40
+
+  // Other fields — check both raw and normalized versions
+  const fields: [string, number][] = [
+    [p.aliases,     30],
+    [p.salt,        25],
+    [p.description, 20],
+    [p.benefits,    15],
+    [p.indication,   8],
+    [p.category,     5],
+    [p.species,      5],
+    [p.packaging,    3],
+    [p.formulation,  3],
+  ]
+  for (const [val, pts] of fields) {
+    if (!val) continue
+    if (val.toLowerCase().includes(t) || norm(val).includes(nt)) score += pts
+  }
   return score
 }
 
-// Multi-token AND scoring: "vh5 100" matches VH5 in name AND 100ml in packaging
+// Multi-token AND scoring: "vh5 100" matches V.H-5 in name AND 100ml in packaging
 function scoreProduct(p: Product, q: string): number {
-  const tokens = q.split(/\s+/).filter(Boolean)
+  const tokens = q.trim().split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return 0
   let total = 0
   for (const t of tokens) {
@@ -197,9 +214,10 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
           />
           <span style={{
             fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', color: '#5a7060',
-            background: '#ede6d6', borderRadius: 6, padding: '4px 9px', whiteSpace: 'nowrap',
-            flexShrink: 0, textTransform: 'uppercase',
-          }}>{p.packaging}</span>
+            background: '#ede6d6', borderRadius: 6, padding: '4px 9px',
+            whiteSpace: 'nowrap', flexShrink: 0, textTransform: 'uppercase',
+            maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis',
+          }} title={p.packaging}>{p.packaging}</span>
         </div>
 
         {/* Composition */}

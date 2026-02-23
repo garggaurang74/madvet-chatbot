@@ -34,94 +34,155 @@ const FORMULATION_OPTIONS = [
 const toBase64  = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res((r.result as string).split(',')[1]); r.onerror=rej; r.readAsDataURL(f) })
 const toDataUrl = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result as string); r.onerror=rej; r.readAsDataURL(f) })
 
-// ─── Studio Image Enhancement ─────────────────────────────────────────────────
-// Samples 4 corners to detect background, applies smart background replacement,
-// professional color grading, and drop shadow for a studio product shot look.
+// ─── Studio Image Enhancement with Background Removal ───────────────────────
+// 1) Detects background colour by sampling edges
+// 2) Flood-fills from all 4 corners to make matching pixels transparent (chroma-key)
+// 3) Composites onto a premium studio gradient with drop shadow
 async function enhanceImage(dataUrl: string): Promise<string> {
   return new Promise(res => {
     const img = new Image()
     img.onload = () => {
-      const SIZE   = 1024   // normalise to 1024px wide for consistency
-      const aspect = img.height / img.width
-      const W = SIZE
-      const H = Math.round(SIZE * aspect)
+      const W = Math.min(img.width,  1200)
+      const H = Math.round(img.height * W / img.width)
 
-      // Step 1: Draw original into temp canvas
-      const tmp    = document.createElement('canvas')
-      tmp.width    = W; tmp.height = H
-      const tctx   = tmp.getContext('2d')!
-      tctx.filter  = 'none'
-      tctx.drawImage(img, 0, 0, W, H)
+      // ── Draw original ──────────────────────────────────────────────────────
+      const src = document.createElement('canvas')
+      src.width = W; src.height = H
+      const sx = src.getContext('2d')!
+      sx.drawImage(img, 0, 0, W, H)
+      const imgData = sx.getImageData(0, 0, W, H)
+      const data    = imgData.data
 
-      // Step 2: Sample corners to detect dominant background color
-      const sample = (x: number, y: number) => tctx.getImageData(x, y, 4, 4).data
-      const corners = [
-        sample(0, 0), sample(W-4, 0), sample(0, H-4), sample(W-4, H-4),
-        sample(W>>1, 0), sample(0, H>>1), sample(W-4, H>>1), sample(W>>1, H-4),
-      ]
-      let rAvg=0, gAvg=0, bAvg=0
-      corners.forEach(d => { rAvg+=d[0]; gAvg+=d[1]; bAvg+=d[2] })
-      rAvg=Math.round(rAvg/corners.length); gAvg=Math.round(gAvg/corners.length); bAvg=Math.round(bAvg/corners.length)
-
-      // Determine if background is light or dark
-      const luma = 0.299*rAvg + 0.587*gAvg + 0.114*bAvg
-      const isDarkBg = luma < 80
-      const isNearWhite = luma > 220
-
-      // Step 3: Output canvas with studio padding
-      const PAD = Math.round(W * 0.08)
-      const cW = W + PAD*2, cH = H + PAD*2
-      const out  = document.createElement('canvas')
-      out.width  = cW; out.height = cH
-      const octx = out.getContext('2d')!
-
-      // Studio background gradient
-      const bg = octx.createRadialGradient(cW/2, cH*0.4, 0, cW/2, cH/2, cW*0.75)
-      if (isDarkBg) {
-        bg.addColorStop(0, '#2a2a2a')
-        bg.addColorStop(1, '#111111')
-      } else {
-        bg.addColorStop(0, '#ffffff')
-        bg.addColorStop(0.6, '#f0f0f0')
-        bg.addColorStop(1, '#d8d8d8')
+      // ── Sample background colour from 20 edge pixels ───────────────────────
+      const edgePx: number[][] = []
+      const step = Math.max(1, Math.floor(W / 10))
+      for (let x = 0; x < W; x += step) {
+        edgePx.push([x, 0]); edgePx.push([x, H-1])
       }
-      octx.fillStyle = bg
-      octx.fillRect(0, 0, cW, cH)
+      for (let y = 0; y < H; y += step) {
+        edgePx.push([0, y]); edgePx.push([W-1, y])
+      }
+      let rS=0, gS=0, bS=0
+      edgePx.forEach(([ex, ey]) => {
+        const i = (ey * W + ex) * 4
+        rS += data[i]; gS += data[i+1]; bS += data[i+2]
+      })
+      const bgR = Math.round(rS / edgePx.length)
+      const bgG = Math.round(gS / edgePx.length)
+      const bgB = Math.round(bS / edgePx.length)
+      const luma = 0.299*bgR + 0.587*bgG + 0.114*bgB
 
-      // Subtle floor gradient (bottom third)
-      const floor = octx.createLinearGradient(0, cH*0.65, 0, cH)
-      floor.addColorStop(0, 'rgba(0,0,0,0)')
-      floor.addColorStop(1, isDarkBg ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.06)')
-      octx.fillStyle = floor
-      octx.fillRect(0, 0, cW, cH)
+      // Tolerance: tighter for white/near-white, looser for coloured backgrounds
+      const tolerance = luma > 200 ? 28 : luma > 120 ? 38 : 50
 
-      // Step 4: Draw the product image with colour-correction filter
-      octx.filter = isNearWhite
-        ? 'contrast(1.1) brightness(1.0) saturate(1.15)'   // already white bg product shot
-        : 'contrast(1.18) brightness(1.06) saturate(1.25)' // boost colours
-      octx.drawImage(tmp, PAD, PAD, W, H)
-      octx.filter = 'none'
+      // ── Flood-fill from corners — mark background pixels alpha=0 ──────────
+      const visited = new Uint8Array(W * H)
+      const queue: number[] = []
 
-      // Step 5: Reflection — very subtle product shadow on floor
-      octx.save()
-      octx.globalAlpha = isDarkBg ? 0.15 : 0.08
-      octx.scale(1, -1)
-      octx.translate(0, -(PAD + H)*2 - PAD)
-      const grad = octx.createLinearGradient(0, -(PAD+H), 0, -PAD)
-      grad.addColorStop(0, 'rgba(0,0,0,0)')
-      grad.addColorStop(1, 'rgba(0,0,0,1)')
-      octx.drawImage(tmp, PAD, PAD, W, H)
-      octx.fillStyle = grad
-      octx.fillRect(PAD, PAD, W, H)
-      octx.restore()
+      const seed = (x: number, y: number) => {
+        if (x < 0 || x >= W || y < 0 || y >= H) return
+        const idx = y * W + x
+        if (visited[idx]) return
+        const i = idx * 4
+        const dr = Math.abs(data[i]   - bgR)
+        const dg = Math.abs(data[i+1] - bgG)
+        const db = Math.abs(data[i+2] - bgB)
+        if (dr + dg + db < tolerance * 3) {
+          visited[idx] = 1
+          queue.push(idx)
+        }
+      }
 
-      res(out.toDataURL('image/jpeg', 0.93))
+      // Seed all 4 corners + mid-edges
+      [[0,0],[W-1,0],[0,H-1],[W-1,H-1],[W>>1,0],[W>>1,H-1],[0,H>>1],[W-1,H>>1]].forEach(([x,y])=>seed(x,y))
+
+      while (queue.length) {
+        const idx = queue.pop()!
+        const x = idx % W, y = Math.floor(idx / W)
+        const check = (nx: number, ny: number) => {
+          if (nx < 0 || nx >= W || ny < 0 || ny >= H) return
+          const ni = ny * W + nx
+          if (visited[ni]) return
+          const i = ni * 4
+          const dr = Math.abs(data[i]   - bgR)
+          const dg = Math.abs(data[i+1] - bgG)
+          const db = Math.abs(data[i+2] - bgB)
+          if (dr + dg + db < tolerance * 3) { visited[ni] = 1; queue.push(ni) }
+        }
+        check(x-1,y); check(x+1,y); check(x,y-1); check(x,y+1)
+      }
+
+      // Set background pixels to transparent
+      for (let i = 0; i < W * H; i++) {
+        if (visited[i]) data[i*4+3] = 0
+      }
+
+      // Feather edges (1px blur of alpha channel)
+      for (let y = 1; y < H-1; y++) {
+        for (let x = 1; x < W-1; x++) {
+          const i = y * W + x
+          if (!visited[i]) continue
+          // If neighbour is product (not background), soften
+          const neighbours = [i-1, i+1, i-W, i+W]
+          const hasProduct = neighbours.some(n => !visited[n])
+          if (hasProduct) data[i*4+3] = 80  // partial alpha at edges
+        }
+      }
+
+      sx.putImageData(imgData, 0, 0)
+
+      // ── Composite onto studio canvas ───────────────────────────────────────
+      const PAD = Math.round(W * 0.09)
+      const cW  = W + PAD*2, cH = H + PAD*2
+      const out = document.createElement('canvas')
+      out.width = cW; out.height = cH
+      const ctx = out.getContext('2d')!
+
+      // Premium studio background — warm white radial
+      const isDark = luma < 80
+      const bg = ctx.createRadialGradient(cW/2, cH*0.4, 0, cW/2, cH/2, cW*0.75)
+      if (isDark) {
+        bg.addColorStop(0, '#2d2d2d'); bg.addColorStop(1, '#111')
+      } else {
+        bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.55, '#f5f2ee'); bg.addColorStop(1, '#e5dfd4')
+      }
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, cW, cH)
+
+      // Subtle floor vignette
+      const vgn = ctx.createLinearGradient(0, cH*0.6, 0, cH)
+      vgn.addColorStop(0, 'rgba(0,0,0,0)')
+      vgn.addColorStop(1, isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)')
+      ctx.fillStyle = vgn
+      ctx.fillRect(0, 0, cW, cH)
+
+      // Drop shadow behind product
+      ctx.shadowColor   = isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.2)'
+      ctx.shadowBlur    = 28
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 10
+      ctx.filter = 'contrast(1.06) brightness(1.04) saturate(1.18)'
+      ctx.drawImage(src, PAD, PAD, W, H)
+      ctx.filter = 'none'
+      ctx.shadowColor = 'transparent'
+
+      // Elliptical floor shadow
+      ctx.save()
+      ctx.globalAlpha = isDark ? 0.2 : 0.1
+      const eg = ctx.createRadialGradient(cW/2, PAD+H+2, 0, cW/2, PAD+H+2, W*0.4)
+      eg.addColorStop(0, 'rgba(0,0,0,1)'); eg.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = eg
+      ctx.beginPath()
+      ctx.ellipse(cW/2, PAD+H+4, W*0.38, 12, 0, 0, Math.PI*2)
+      ctx.fill()
+      ctx.restore()
+
+      res(out.toDataURL('image/jpeg', 0.92))
     }
     img.src = dataUrl
   })
 }
 
-// Pure canvas studio enhancement — no external API needed
 async function processImageForStudio(dataUrl: string): Promise<string> {
   return enhanceImage(dataUrl)
 }
