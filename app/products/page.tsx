@@ -62,7 +62,7 @@ async function fetchProducts(): Promise<Product[]> {
 
   const { data, error } = await supabase
     .from(table)
-    .select('id, product_name, salt_ingredient, packaging, formulation, category, species, indication, description, usp_benefits, aliases, image_url')
+    .select('id, product_name, salt_ingredient, packaging, formulation, category, species, indication, description, usp_benefits, aliases, image_url, video_url')
     .order('id', { ascending: true })
     .limit(500)
 
@@ -88,6 +88,7 @@ async function fetchProducts(): Promise<Product[]> {
       benefits:    (row.usp_benefits    || '').trim(),
       aliases:     (row.aliases         || '').trim(),
       image_url:   (row.image_url       || '').trim(),
+      video_url:   (row.video_url        || '').trim(),
     }
   })
 }
