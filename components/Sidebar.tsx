@@ -50,9 +50,7 @@ export default function Sidebar({
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-white/10">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center text-xs font-bold">
-                M
-              </div>
+              <img src="/madvet-icon.png" alt="Madvet" style={{height:28,width:28,borderRadius:6,objectFit:"cover"}} />
               <span className="font-semibold text-sm">Madvet</span>
             </div>
             <button
@@ -125,9 +123,7 @@ export default function Sidebar({
           {/* Footer */}
           <div className="p-3 border-t border-white/10">
             <div className="flex items-center gap-2 px-2 py-2 rounded-lg">
-              <div className="w-7 h-7 rounded-full bg-green-700 flex items-center justify-center text-xs font-bold">
-                🐄
-              </div>
+              <img src="/madvet-icon.png" alt="Madvet" style={{height:28,width:28,borderRadius:6,objectFit:"cover"}} />
               <div>
                 <p className="text-xs font-medium">Dr. Madvet Assistant</p>
                 <p className="text-xs text-white/40">Animal Healthcare AI</p>

@@ -486,7 +486,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
             fontFamily: "'DM Serif Display', serif", color: 'var(--cream)',
             fontSize: 18, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10,
           }}>
-            <span style={{ fontSize: 22 }}>🐄</span> Madvet
+            <img src="/madvet-icon.png" alt="Madvet" style={{height:32,width:32,borderRadius:6,objectFit:"cover",marginRight:2}} /> Madvet
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <Link href="/" className="nav-link-item" style={{

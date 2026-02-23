@@ -172,7 +172,7 @@ function PasswordGate({ onUnlock }: { onUnlock: (p:string) => boolean }) {
     <div className="min-h-screen bg-[#212121] text-white flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-[#2f2f2f] rounded-2xl p-8 border border-white/10">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-green-600 flex items-center justify-center mx-auto mb-4 text-2xl">🐄</div>
+          <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4 flex items-center justify-center bg-black"><img src="/madvet-icon.png" alt="Madvet" className="w-full h-full object-cover" /></div>
           <h1 className="text-2xl font-bold mb-1">Madvet Admin</h1>
           <p className="text-white/50 text-sm">Product Management</p>
         </div>
@@ -950,7 +950,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[#212121] text-white">
       <div className="border-b border-white/10 px-6 py-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center font-bold text-sm">M</div>
+        <img src="/madvet-icon.png" alt="Madvet" className="w-8 h-8 rounded-full object-cover" />
         <div><h1 className="font-semibold">Madvet Admin</h1><p className="text-xs text-white/40">Product Management</p></div>
         {mode !== 'home'
           ? <button onClick={()=>setMode('home')} className="ml-auto text-xs text-white/40 hover:text-white transition-colors">← Home</button>
