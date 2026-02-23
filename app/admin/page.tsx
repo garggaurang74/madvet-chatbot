@@ -34,95 +34,94 @@ const FORMULATION_OPTIONS = [
 const toBase64  = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res((r.result as string).split(',')[1]); r.onerror=rej; r.readAsDataURL(f) })
 const toDataUrl = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result as string); r.onerror=rej; r.readAsDataURL(f) })
 
-// ─── Pure-canvas Studio Enhancement ──────────────────────────────────────────
-// Resizes → boosts colour/contrast → places on premium studio gradient bg
-// No background removal (unreliable without AI) — just makes ANY photo look
-// professional with consistent studio feel.
+// ─── Studio Enhancement ────────────────────────────────────────────────────────
+// Crops to the product (removes excess background), brightens, boosts colour,
+// places on a clean white-to-warm-cream radial gradient background.
+// Works well with real-world photos taken against walls/floors.
 async function enhanceImage(dataUrl: string): Promise<string> {
   return new Promise(res => {
     const img = new Image()
     img.onload = () => {
-      // Normalise to max 1200px wide
       const maxW = 1200
       const scale = img.width > maxW ? maxW / img.width : 1
       const W = Math.round(img.width  * scale)
       const H = Math.round(img.height * scale)
 
-      // ── 1. Draw & analyse source ───────────────────────────────────────────
+      // ── 1. Draw source at normalised size ──────────────────────────────────
       const src = document.createElement('canvas')
       src.width = W; src.height = H
       const sx = src.getContext('2d')!
       sx.drawImage(img, 0, 0, W, H)
+      const d = sx.getImageData(0, 0, W, H).data
 
-      // Sample corners to detect background luma
-      const d = sx.getImageData(0,0,W,H).data
-      const corners = [[0,0],[W-1,0],[0,H-1],[W-1,H-1],[W>>1,0],[0,H>>1],[W-1,H>>1],[W>>1,H-1]]
-      let rS=0,gS=0,bS=0
-      corners.forEach(([cx,cy])=>{const i=(cy*W+cx)*4;rS+=d[i];gS+=d[i+1];bS+=d[i+2]})
-      const bgLuma = 0.299*(rS/8) + 0.587*(gS/8) + 0.114*(bS/8)
-      const isDark = bgLuma < 80
+      // ── 2. Auto-crop: find tightest bounding box of non-background pixels ──
+      // Sample background colour from the 4 true corners (avg)
+      const sampleCorner = (cx: number, cy: number) => {
+        const i = (cy * W + cx) * 4
+        return [d[i], d[i+1], d[i+2]]
+      }
+      const corners = [sampleCorner(0,0), sampleCorner(W-1,0), sampleCorner(0,H-1), sampleCorner(W-1,H-1)]
+      const bgR = corners.reduce((a,c)=>a+c[0],0)/4
+      const bgG = corners.reduce((a,c)=>a+c[1],0)/4
+      const bgB = corners.reduce((a,c)=>a+c[2],0)/4
+      const THRESH = 38  // colour distance to count as "not background"
 
-      // ── 2. Studio canvas with padding ─────────────────────────────────────
-      const PAD = Math.round(Math.min(W,H) * 0.07)
-      const cW  = W + PAD*2
-      const cH  = H + PAD*2
+      let minX = W, maxX = 0, minY = H, maxY = 0
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4
+          const dr = d[i]-bgR, dg = d[i+1]-bgG, db = d[i+2]-bgB
+          if (Math.sqrt(dr*dr+dg*dg+db*db) > THRESH) {
+            if (x < minX) minX = x; if (x > maxX) maxX = x
+            if (y < minY) minY = y; if (y > maxY) maxY = y
+          }
+        }
+      }
+      // Fallback to full image if crop detection fails
+      if (maxX <= minX || maxY <= minY) { minX=0; minY=0; maxX=W-1; maxY=H-1 }
+
+      // Add generous padding around detected product area
+      const PAD_FRAC = 0.12
+      const pw = Math.round((maxX - minX) * PAD_FRAC)
+      const ph = Math.round((maxY - minY) * PAD_FRAC)
+      const cropX = Math.max(0, minX - pw)
+      const cropY = Math.max(0, minY - ph)
+      const cropW = Math.min(W, maxX + pw) - cropX
+      const cropH = Math.min(H, maxY + ph) - cropY
+
+      // ── 3. Output canvas — square with clean studio background ────────────
+      const SIZE = Math.max(cropW, cropH, 600)
       const out = document.createElement('canvas')
-      out.width = cW; out.height = cH
+      out.width = SIZE; out.height = SIZE
       const ctx = out.getContext('2d')!
 
-      // Premium radial gradient background
-      const bg = ctx.createRadialGradient(cW*0.5, cH*0.38, 0, cW*0.5, cH*0.5, cW*0.8)
-      if (isDark) {
-        bg.addColorStop(0, '#323232')
-        bg.addColorStop(1, '#0e0e0e')
-      } else {
-        bg.addColorStop(0, '#ffffff')
-        bg.addColorStop(0.5, '#f6f3ef')
-        bg.addColorStop(1,   '#e2dbd0')
-      }
+      // Clean white → warm cream radial gradient (always light, professional)
+      const bg = ctx.createRadialGradient(SIZE*0.5, SIZE*0.42, 0, SIZE*0.5, SIZE*0.5, SIZE*0.75)
+      bg.addColorStop(0,   '#ffffff')
+      bg.addColorStop(0.5, '#f8f5f0')
+      bg.addColorStop(1,   '#ede8e0')
       ctx.fillStyle = bg
-      ctx.fillRect(0, 0, cW, cH)
+      ctx.fillRect(0, 0, SIZE, SIZE)
 
-      // Floor gradient — darker bottom strip for depth
-      const floor = ctx.createLinearGradient(0, cH*0.65, 0, cH)
-      floor.addColorStop(0, 'rgba(0,0,0,0)')
-      floor.addColorStop(1, isDark ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.07)')
-      ctx.fillStyle = floor
-      ctx.fillRect(0, 0, cW, cH)
+      // ── 4. Draw cropped product centred, with brightness + colour boost ────
+      const drawW = Math.round(SIZE * 0.82)
+      const drawH = Math.round(cropH * (drawW / cropW))
+      const drawX = Math.round((SIZE - drawW) / 2)
+      const drawY = Math.round((SIZE - drawH) / 2)
 
-      // ── 3. Draw product with colour boost + soft shadow ────────────────────
-      ctx.shadowColor   = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.22)'
-      ctx.shadowBlur    = 32
-      ctx.shadowOffsetY = 12
+      // Soft drop shadow
+      ctx.shadowColor   = 'rgba(0,0,0,0.18)'
+      ctx.shadowBlur    = 28
+      ctx.shadowOffsetY = 10
       ctx.shadowOffsetX = 0
-      // Contrast + saturation boost so product pops against the neutral bg
-      ctx.filter = 'contrast(1.12) brightness(1.05) saturate(1.3)'
-      ctx.drawImage(src, PAD, PAD, W, H)
+
+      // Brightness + contrast + saturation boost
+      ctx.filter = 'brightness(1.12) contrast(1.15) saturate(1.35)'
+      ctx.drawImage(src, cropX, cropY, cropW, cropH, drawX, drawY, drawW, drawH)
       ctx.filter = 'none'
       ctx.shadowColor = 'transparent'
 
-      // ── 4. Elliptical floor shadow under product ───────────────────────────
-      ctx.save()
-      ctx.globalAlpha = isDark ? 0.25 : 0.12
-      const eg = ctx.createRadialGradient(cW/2, PAD+H+2, 0, cW/2, PAD+H+2, W*0.42)
-      eg.addColorStop(0, 'rgba(0,0,0,1)')
-      eg.addColorStop(1, 'rgba(0,0,0,0)')
-      ctx.fillStyle = eg
-      ctx.beginPath()
-      ctx.ellipse(cW/2, PAD+H+5, W*0.4, 13, 0, 0, Math.PI*2)
-      ctx.fill()
-      ctx.restore()
-
-      // ── 5. Subtle vignette corners ─────────────────────────────────────────
-      if (!isDark) {
-        const vig = ctx.createRadialGradient(cW/2,cH/2,cW*0.35, cW/2,cH/2,cW*0.75)
-        vig.addColorStop(0, 'rgba(0,0,0,0)')
-        vig.addColorStop(1, 'rgba(0,0,0,0.08)')
-        ctx.fillStyle = vig
-        ctx.fillRect(0,0,cW,cH)
-      }
-
-      res(out.toDataURL('image/jpeg', 0.93))
+      res(out.toDataURL('image/jpeg', 0.92))
     }
     img.src = dataUrl
   })

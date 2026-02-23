@@ -42,12 +42,13 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
 
       {/* Product Image */}
       {product.image_url && (
-        <div className="w-full h-32 overflow-hidden bg-gray-100">
+        <div className="w-full overflow-hidden" style={{ background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', aspectRatio:'1/1', maxHeight: 220 }}>
           <img
             src={product.image_url}
             alt={name}
             className="w-full h-full object-contain"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            style={{ padding: '8px' }}
+            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
           />
         </div>
       )}
