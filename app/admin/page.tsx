@@ -10,7 +10,7 @@ type ProductData = {
   indication: string; aliases: string; dosage: string
   usp_benefits: string; image_url: string; formulation: string
 }
-type AdminMode  = 'home' | 'add' | 'image'
+type AdminMode  = 'home' | 'add' | 'image' | 'video'
 type AddStage   = 'step1' | 'enriching' | 'review' | 'saving' | 'done' | 'error'
 type ImageStage = 'select' | 'upload' | 'preview' | 'saving' | 'done' | 'error'
 
@@ -481,7 +481,7 @@ function AddProductMode({ onHome }: { onHome: () => void }) {
                     ${productPreview?'border-green-600 bg-green-900/30':'border-white/20 bg-white/5 hover:border-white/40'}`}>
                   {productPreview ? '✅' : '📷'}
                 </button>
-                <input ref={productRef} type="file" accept="image/*" capture="environment" onChange={handleProductPhoto} className="hidden" />
+                <input ref={productRef} type="file" accept="image/*" onChange={handleProductPhoto} className="hidden" />
               </div>
               {productPreview && (
                 <div className="flex items-center gap-2 mt-2">
@@ -504,7 +504,7 @@ function AddProductMode({ onHome }: { onHome: () => void }) {
                     ${saltPreview?'border-green-600 bg-green-900/30':'border-white/20 bg-white/5 hover:border-white/40'}`}>
                   {saltPreview ? '✅' : '🧪'}
                 </button>
-                <input ref={saltRef} type="file" accept="image/*" capture="environment" onChange={handleSaltPhoto} className="hidden" />
+                <input ref={saltRef} type="file" accept="image/*" onChange={handleSaltPhoto} className="hidden" />
               </div>
               {saltPreview && (
                 <div className="flex items-center gap-2 mt-2">
@@ -691,14 +691,22 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
 
       {imgStage === 'upload' && selected && (
         <div className="space-y-5">
-          <div><h2 className="text-lg font-semibold mb-1">{selected.product_name}</h2><p className="text-white/40 text-sm">Photo lo — AI automatically enhance karega</p></div>
-          <div onClick={()=>imgRef.current?.click()}
-            className="border-2 border-dashed border-white/20 hover:border-white/40 rounded-xl p-10 cursor-pointer transition-colors text-center">
-            <input ref={imgRef} type="file" accept="image/*" capture="environment" onChange={handleFile} className="hidden" />
+          <div><h2 className="text-lg font-semibold mb-1">{selected.product_name}</h2><p className="text-white/40 text-sm">Photo lo ya Gallery se select karo — AI automatically enhance karega</p></div>
+          {/* Camera button */}
+          <div onClick={()=>{imgRef.current!.setAttribute('capture','environment'); imgRef.current?.click()}}
+            className="border-2 border-dashed border-white/20 hover:border-green-600 rounded-xl p-8 cursor-pointer transition-colors text-center">
             <div className="text-4xl mb-3">📷</div>
-            <p className="font-medium mb-1">Photo lo ya upload karo</p>
-            <p className="text-white/40 text-sm">AI brightness, contrast, saturation enhance karega</p>
+            <p className="font-medium mb-1">Camera se Photo Lo</p>
+            <p className="text-white/40 text-sm">Live camera → AI enhance karega</p>
           </div>
+          {/* Gallery button */}
+          <div onClick={()=>{imgRef.current!.removeAttribute('capture'); imgRef.current?.click()}}
+            className="border-2 border-dashed border-white/20 hover:border-orange-500 rounded-xl p-8 cursor-pointer transition-colors text-center">
+            <div className="text-4xl mb-3">🖼️</div>
+            <p className="font-medium mb-1">Gallery se Upload Karo</p>
+            <p className="text-white/40 text-sm">Phone ki gallery → AI enhance karega</p>
+          </div>
+          <input ref={imgRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
           {processing && <Spinner text="AI enhance kar raha hai..." />}
           <button onClick={()=>setImgStage('select')} className="w-full py-2 text-sm text-white/40 hover:text-white transition-colors">← Back</button>
         </div>
@@ -736,6 +744,184 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
           <div className="text-5xl mb-4">❌</div>
           <p className="text-red-400 text-sm bg-red-900/20 px-4 py-3 rounded-lg mb-6">{error}</p>
           <button onClick={reset} className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-semibold">Dobara Try</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── ADD / UPDATE VIDEO LINK ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+type VideoStage = 'select' | 'enter' | 'saving' | 'done' | 'error'
+
+function AddVideoMode({ onHome }: { onHome: () => void }) {
+  const [stage, setStage]         = useState<VideoStage>('select')
+  const [allProducts, setAll]     = useState<{id:number;product_name:string;video_url:string}[]>([])
+  const [search, setSearch]       = useState('')
+  const [selected, setSelected]   = useState<{id:number;product_name:string;video_url:string}|null>(null)
+  const [videoUrl, setVideoUrl]   = useState('')
+  const [error, setError]         = useState('')
+  const [loading, setLoading]     = useState(true)
+
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !key) return
+    createClient(url, key)
+      .from('products_enriched').select('id,product_name,video_url')
+      .order('product_name',{ascending:true}).limit(500)
+      .then(({data}) => { setAll((data||[]) as any); setLoading(false) })
+  }, [])
+
+  const filtered = allProducts.filter(p => p.product_name.toLowerCase().includes(search.toLowerCase()))
+
+  // Extract YouTube video ID for preview
+  const extractYtId = (url: string) => {
+    const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
+    return m?.[1] ?? null
+  }
+  const previewId = videoUrl ? extractYtId(videoUrl) : null
+
+  const handleSave = async () => {
+    if (!selected) return
+    if (videoUrl && !extractYtId(videoUrl)) {
+      setError('YouTube link nahi hai. youtube.com ya youtu.be link paste karo.')
+      return
+    }
+    setStage('saving')
+    setError('')
+    try {
+      const res = await fetch('/api/update-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '' },
+        body: JSON.stringify({ product_id: selected.id, video_url: videoUrl || null })
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error)
+      setStage('done')
+    } catch(e) { setError(String(e)); setStage('error') }
+  }
+
+  const reset = () => { setStage('select'); setSelected(null); setSearch(''); setVideoUrl(''); setError('') }
+
+  const steps = ['Select','Enter URL','Done']
+  const stepIdx: Record<VideoStage,number> = { select:0, enter:1, saving:1, done:2, error:0 }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-8 text-xs">
+        {steps.map((s,i) => (
+          <div key={s} className="flex items-center gap-2">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-medium
+              ${stepIdx[stage]===i?'bg-purple-600 text-white':stepIdx[stage]>i?'bg-purple-900 text-purple-300':'bg-white/10 text-white/30'}`}>
+              {i+1}
+            </div>
+            <span className={stepIdx[stage]===i?'text-white':'text-white/30'}>{s}</span>
+            {i<2 && <div className="w-5 h-px bg-white/10"/>}
+          </div>
+        ))}
+      </div>
+
+      {stage === 'select' && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Product Select Karein</h2>
+            <p className="text-white/40 text-sm">Jis product ka YouTube video link add/update karna hai</p>
+          </div>
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Product naam type karein..."
+              className="w-full bg-[#2f2f2f] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-purple-500" />
+          </div>
+          {loading ? (
+            <div className="text-center py-8 text-white/40 text-sm">Loading...</div>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {filtered.length===0 && <div className="text-center py-8 text-white/40 text-sm">Koi product nahi mila</div>}
+              {filtered.map(p => (
+                <button key={p.id} onClick={()=>{setSelected(p);setVideoUrl(p.video_url||'');setStage('enter')}}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-purple-600 hover:bg-purple-900/20 transition-colors text-left">
+                  <div className="w-10 h-10 rounded-lg bg-purple-600/20 border border-purple-600/30 flex items-center justify-center flex-shrink-0 text-lg">
+                    {p.video_url ? '▶️' : '📹'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{p.product_name}</p>
+                    <p className="text-xs text-white/30 mt-0.5">{p.video_url ? '✅ Video hai — update karein' : '📹 Video nahi hai — add karein'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={onHome} className="w-full py-2 text-sm text-white/40 hover:text-white transition-colors">← Back</button>
+        </div>
+      )}
+
+      {stage === 'enter' && selected && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">{selected.product_name}</h2>
+            <p className="text-white/40 text-sm">YouTube video link paste karein</p>
+          </div>
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-3">
+            <label className="text-xs text-white/50 block">YouTube Video URL</label>
+            <input
+              value={videoUrl}
+              onChange={e=>{setVideoUrl(e.target.value);setError('')}}
+              placeholder="https://youtube.com/watch?v=... ya https://youtu.be/..."
+              className="w-full bg-[#2f2f2f] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-purple-500"
+            />
+            {videoUrl && !previewId && (
+              <p className="text-amber-400 text-xs">⚠️ Valid YouTube link nahi laga — youtube.com/watch?v= ya youtu.be/ format use karein</p>
+            )}
+            {/* Live preview */}
+            {previewId && (
+              <div>
+                <p className="text-xs text-purple-400 mb-2">✅ Preview:</p>
+                <div style={{position:'relative',paddingBottom:'56.25%',height:0,borderRadius:10,overflow:'hidden',background:'#000'}}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${previewId}?rel=0`}
+                    style={{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}
+                    frameBorder="0" allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+            {/* Clear button if video exists */}
+            {(selected.video_url || videoUrl) && (
+              <button onClick={()=>setVideoUrl('')} className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                🗑️ Video link hatao (clear karo)
+              </button>
+            )}
+          </div>
+          {error && <p className="text-red-400 text-sm bg-red-900/20 px-4 py-2 rounded-lg">{error}</p>}
+          <div className="flex gap-3">
+            <button onClick={()=>setStage('select')} className="flex-1 py-3 rounded-xl border border-white/20 hover:bg-white/5 text-sm font-medium transition-colors">← Back</button>
+            <button onClick={handleSave}
+              disabled={!!(videoUrl && !previewId)}
+              className="flex-1 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 font-semibold transition-colors">
+              {videoUrl ? '✅ Save Video Link' : '🗑️ Remove Video'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {stage === 'saving' && <Spinner text="Save ho raha hai..." />}
+
+      {stage === 'done' && selected && (
+        <DoneScreen
+          name={selected.product_name}
+          imageUrl={previewId ? `https://img.youtube.com/vi/${previewId}/mqdefault.jpg` : undefined}
+          onAddMore={reset}
+          label={videoUrl ? 'Video link save ho gaya! 🎬' : 'Video link remove ho gaya!'}
+        />
+      )}
+
+      {stage === 'error' && (
+        <div className="text-center py-12">
+          <div className="text-5xl mb-4">❌</div>
+          <p className="text-red-400 text-sm bg-red-900/20 px-4 py-3 rounded-lg mb-6">{error}</p>
+          <button onClick={reset} className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 font-semibold">Dobara Try</button>
         </div>
       )}
     </div>
@@ -794,7 +980,18 @@ export default function AdminPage() {
                 <div className="w-12 h-12 rounded-xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center text-2xl flex-shrink-0 group-hover:bg-orange-600/30 transition-colors">📸</div>
                 <div>
                   <p className="font-semibold text-base mb-1">Existing Product ki Photo Add Karo</p>
-                  <p className="text-sm text-white/50">Purane products dhoondo · photo lo · AI enhance karega · save</p>
+                  <p className="text-sm text-white/50">Purane products dhoondo · photo lo ya gallery se upload karo · AI enhance karega · save</p>
+                </div>
+              </div>
+            </button>
+
+            <button onClick={()=>setMode('video')}
+              className="w-full p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-purple-600 hover:bg-purple-900/20 transition-colors text-left group">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-purple-600/20 border border-purple-600/30 flex items-center justify-center text-2xl flex-shrink-0 group-hover:bg-purple-600/30 transition-colors">🎬</div>
+                <div>
+                  <p className="font-semibold text-base mb-1">Product Video Link Add Karo</p>
+                  <p className="text-sm text-white/50">YouTube link paste karo · product page par embed hoga · training mein bhi dikhega · shareable</p>
                 </div>
               </div>
             </button>
@@ -803,6 +1000,7 @@ export default function AdminPage() {
 
         {mode === 'add'   && <AddProductMode onHome={()=>setMode('home')} />}
         {mode === 'image' && <AddImageMode   onHome={()=>setMode('home')} />}
+        {mode === 'video' && <AddVideoMode   onHome={()=>setMode('home')} />}
       </div>
     </div>
   )

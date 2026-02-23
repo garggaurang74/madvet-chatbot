@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
       'dosage',
       'usp_benefits',
       'image_url',
+      'video_url',
     ] as const
 
     const safe: Record<string, string> = {}

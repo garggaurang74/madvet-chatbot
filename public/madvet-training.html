@@ -220,7 +220,7 @@ const T = {
     hdrTitle:'Madvet Training', hdrSub:'Complete 1-Day Program',
     prodLink:'← Products', progressLabel:'Overall Progress',
     homeTitle:'Your 1-Day Training Plan',
-    homeSub:`${ALL_PRODUCTS.length || 89} products · ${PLAN.length} sessions · Learn → Quiz → Done ✓`,
+    homeSub:'89 products · 6 sessions · Learn → Quiz → Done ✓',
     start:'Start →', redo:'Redo', locked:'🔒 Locked', complete:'✓ Complete', ready:'Ready',
     products:'products',
     studyLabel:' — Study', quizLabel:' — Quiz',
@@ -266,7 +266,7 @@ const T = {
     hdrTitle:'Madvet Training', hdrSub:'1 दिन का पूरा Program',
     prodLink:'← Products', progressLabel:'कुल Progress',
     homeTitle:'आपकी 1 दिन की Training Plan',
-    homeSub:`${ALL_PRODUCTS.length || 89} products · ${PLAN.length} sessions · पढ़ो → Quiz → Done ✓`,
+    homeSub:'89 products · 6 sessions · पढ़ो → Quiz → Done ✓',
     start:'शुरू करें →', redo:'दोबारा करें', locked:'🔒 बंद', complete:'✓ पूरा', ready:'तैयार',
     products:'products',
     studyLabel:' — अध्ययन', quizLabel:' — Quiz',
@@ -399,7 +399,7 @@ let quizAnswered  = false;
 // ── FETCH PRODUCTS ────────────────────────────────────────────────────────────
 async function loadProducts() {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits&order=id.asc&limit=500`;
+    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,video_url&order=id.asc&limit=500`;
     const res = await fetch(url, { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` }});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -417,6 +417,7 @@ async function loadProducts() {
       usesHi: (r.indication||'').split(',').map(s=>s.trim()).filter(s=>s.length>2 && /[\u0900-\u097F]/.test(s)).slice(0,4),
       description: (r.description||'').trim(),
       benefits: (r.usp_benefits||'').trim(),
+      video_url: (r.video_url||'').trim(),
     }));
   } catch(e) {
     console.warn('Supabase not configured — demo mode');
@@ -610,6 +611,19 @@ function renderLearn() {
         <div class="species-row">🐄 ${p.species}</div>
       </div>
       ${tip?`<div class="tip-box">${tip}</div>`:''}
+      ${p.video_url ? (() => {
+        const vid = p.video_url;
+        const ytMatch = vid.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+        const videoId = ytMatch ? ytMatch[1] : null;
+        if (!videoId) return '';
+        return '<div class="lc-section" style="margin-top:10px;">' +
+          '<div class="lc-label">📹 Product Video</div>' +
+          '<div style="position:relative;padding-bottom:56.25%;height:0;border-radius:12px;overflow:hidden;border:1px solid #d4c9b0;background:#000;">' +
+            '<iframe src="https://www.youtube.com/embed/' + videoId + '?rel=0" style="position:absolute;top:0;left:0;width:100%;height:100%;" frameborder="0" allowfullscreen loading="lazy"></iframe>' +
+          '</div>' +
+          '<a href="' + vid + '" target="_blank" style="display:inline-block;margin-top:6px;font-size:11px;color:#3d7a57;text-decoration:none;">↗ YouTube पर देखें / Share करें</a>' +
+        '</div>';
+      })() : ''}
     </div>
     <div class="card-nav">
       ${learnIdx>0?`<button class="nav-btn nav-prev" onclick="learnNav(-1)">${t('prev')}</button>`:'<div></div>'}
