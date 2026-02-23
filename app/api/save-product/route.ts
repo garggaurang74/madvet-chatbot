@@ -1,10 +1,22 @@
 import { NextRequest } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
 import { invalidateProductCache } from '@/lib/productCache'
-import { embedAndStoreProduct, buildProductEmbedText } from '@/lib/semanticSearch'
+import { embedAndStoreProduct } from '@/lib/semanticSearch'
 import OpenAI from 'openai'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+// ─────────────────────────────────────────────
+// SANITIZE — strips any HTML tags / entities that
+// could leak from AI extraction into text fields
+// ─────────────────────────────────────────────
+function stripHtml(str: string): string {
+  return str
+    .replace(/<[^>]*>/g, '')          // remove all HTML tags
+    .replace(/&[a-z]+;/gi, ' ')       // replace HTML entities (&nbsp; etc.)
+    .replace(/\s+/g, ' ')             // collapse whitespace
+    .trim()
+}
 
 // ─────────────────────────────────────────────
 // AI AUTO-ENRICHMENT
@@ -89,7 +101,7 @@ export async function POST(req: NextRequest) {
     const safe: Record<string, string> = {}
     for (const key of ALLOWED_FIELDS) {
       if (product[key] !== undefined && product[key] !== '') {
-        safe[key] = String(product[key]).trim()
+        safe[key] = stripHtml(String(product[key]).trim())
       }
     }
 
@@ -133,7 +145,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: error.message }, { status: 500 })
     }
 
-    // Step 3: Auto-embed for semantic search (non-blocking — don't fail save if embedding fails)
+    // Step 3: Auto-embed for semantic search (non-blocking)
     if (data?.id) {
       embedAndStoreProduct(data.id, {
         ...safe,

@@ -95,6 +95,7 @@ header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
 .lc-name{font-family:'DM Serif Display',serif;font-size:clamp(22px,6vw,32px);color:var(--forest);line-height:1.1;margin-bottom:10px;word-break:break-word;}
 .lc-salt{font-size:13px;color:var(--muted);background:var(--cream-dark);border-radius:8px;padding:8px 12px;margin-bottom:14px;line-height:1.5;word-break:break-word;overflow-wrap:break-word;}
 .lc-salt span{font-weight:600;color:var(--forest);}
+.lc-img{width:100%;max-height:180px;object-fit:contain;border-radius:12px;background:#f5f0e8;padding:8px;margin-bottom:14px;display:block;}
 .lc-section{margin-bottom:12px;}
 .lc-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
 .use-tags{display:flex;flex-wrap:wrap;gap:5px;}
@@ -383,7 +384,7 @@ let quizAnswered  = false;
 // ── FETCH PRODUCTS ────────────────────────────────────────────────────────────
 async function loadProducts() {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits&order=id.asc&limit=500`;
+    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,image_url&order=id.asc&limit=500`;
     const res = await fetch(url, { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` }});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -401,6 +402,7 @@ async function loadProducts() {
       usesHi: (r.indication||'').split(',').map(s=>s.trim()).filter(s=>s.length>2 && /[\u0900-\u097F]/.test(s)).slice(0,4),
       description: (r.description||'').trim(),
       benefits: (r.usp_benefits||'').trim(),
+      image: (r.image_url||'').trim(),
     }));
   } catch(e) {
     console.warn('Supabase not configured — demo mode');
@@ -559,6 +561,7 @@ function renderLearn() {
         <div class="form-badge">${p.formulation||p.packaging}</div>
       </div>
       <div class="lc-name">${p.name}</div>
+      ${p.image?`<img class="lc-img" src="${p.image}" alt="${p.name}" onerror="this.style.display='none'">`:''}
       <div class="lc-salt"><span>${saltLabel}</span> ${p.salt||'—'}</div>
       ${p.description?`
         <div class="lc-section">
