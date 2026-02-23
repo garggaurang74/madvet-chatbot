@@ -267,19 +267,18 @@ function isExcluded(p: MadvetProduct, excludeCategories: string[]): boolean {
 // ─────────────────────────────────────────────
 // SMART PRODUCT NAME MATCHING
 // Handles: spaces ("pure flud"→"pureflud"), dots/dashes ("D. Progest-NP"),
-//          spelling variants ("projest"↔"progest"), apostrophes ("Tikk's")
+//          typos ("Megluforve"↔"Megluforce"), apostrophes ("Tikk's"),
+//          size suffixes ("Megluforce 100ml" still matches "Megluforce Injection")
 // ─────────────────────────────────────────────
 
-// Strip punctuation + spaces, lowercase — "D. Progest-NP" → "dprogestnp"
+// Strip punctuation + spaces, lowercase only — no i→l (breaks "injection", "100ml")
 function normalizeName(str: string): string {
   return str
     .toLowerCase()
-    .replace(/[.\-'\u2019\s%]/g, '')
-    .replace(/[i1]/g, 'l')
+    .replace(/[.\-'\u2019\s%,]/g, '')
 }
 
-// Phonetic normalize — collapses doubled letters and sound variants
-// "progest" and "projest" both → "projet"
+// Phonetic normalize — collapses doubled letters and common sound variants
 function normalizePhonetic(str: string): string {
   return normalizeName(str)
     .replace(/(.)\1+/g, '$1')   // tikkk → tik
@@ -288,45 +287,81 @@ function normalizePhonetic(str: string): string {
     .replace(/gest/g, 'jest')   // progest = projest
 }
 
+// Levenshtein edit distance for typo tolerance
+function editDistance(a: string, b: string): number {
+  if (a.length < b.length) return editDistance(b, a)
+  if (!b.length) return a.length
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 0; i < a.length; i++) {
+    const curr = [i + 1]
+    for (let j = 0; j < b.length; j++) {
+      curr.push(Math.min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (a[i] !== b[j] ? 1 : 0)))
+    }
+    prev = curr
+  }
+  return prev[b.length]
+}
+
+// Extract meaningful words from a string — skip short tokens and size suffixes like "100ml"
+function meaningfulWords(str: string): string[] {
+  return str
+    .toLowerCase()
+    .split(/\s+/)
+    .map(w => w.replace(/[.\-'\u2019%,]/g, ''))
+    .filter(w => w.length >= 4 && !/^\d+(ml|mg|gm|kg|l)?$/i.test(w))
+}
+
 function findSpecificProductMatch(
   query:    string,
   products: MadvetProduct[]
 ): MadvetProduct | null {
-  const lq        = query.toLowerCase().trim()
-  const normLq    = normalizeName(lq)
-  const phonLq    = normalizePhonetic(lq)
+  const lq     = query.toLowerCase().trim()
+  const normLq = normalizeName(lq)
+  const phonLq = normalizePhonetic(lq)
 
-  // Split query into meaningful words (normalized + phonetic)
-  const qWordsNorm = lq.split(/\s+/).map(normalizeName).filter(w => w.length >= 4)
-  const qWordsPhon = lq.split(/\s+/).map(normalizePhonetic).filter(w => w.length >= 4)
+  // Meaningful words from query (ignore size/number tokens)
+  const qWords      = meaningfulWords(lq)
+  const qWordsNorm  = qWords.map(normalizeName)
+  const qWordsPhon  = qWords.map(normalizePhonetic)
 
   function matchesQuery(candidate: string): boolean {
     if (!candidate || candidate.length < 3) return false
-    const lc       = candidate.toLowerCase()
-    const normC    = normalizeName(candidate)
-    const phonC    = normalizePhonetic(candidate)
+    const lc      = candidate.toLowerCase()
+    const normC   = normalizeName(candidate)
+    const phonC   = normalizePhonetic(candidate)
 
-    // 1. Direct substring match
+    // 1. Direct substring
     if (lq.includes(lc) || lc.includes(lq)) return true
 
     // 2. Normalized match — handles spaces/punctuation ("pure flud" ↔ "Pureflud")
-    if (normC.length >= 4 && normLq.includes(normC)) return true
+    if (normC.length >= 4 && (normLq.includes(normC) || normC.includes(normLq))) return true
 
-    // 3. Phonetic match — handles spelling variants ("projest" ↔ "Progest-NP")
-    if (phonC.length >= 4 && phonLq.includes(phonC)) return true
+    // 3. Phonetic match
+    if (phonC.length >= 4 && (phonLq.includes(phonC) || phonC.includes(phonLq))) return true
 
-    // 4. Word-level match — each significant word of candidate vs query words
-    const candWords = candidate.split(/\s+/).map(normalizeName).filter(w => w.length >= 4)
-    const candWordsP = candidate.split(/\s+/).map(normalizePhonetic).filter(w => w.length >= 4)
+    // 4. Word-level: each significant word of candidate vs query words
+    const cWords     = meaningfulWords(candidate)
+    const cWordsNorm = cWords.map(normalizeName)
+    const cWordsPhon = cWords.map(normalizePhonetic)
 
-    for (const cw of candWords) {
-      // Exact word match
-      if (qWordsNorm.some(qw => qw === cw)) return true
-      // One contains the other (handles "tikks" ↔ "tikksstop")
-      if (qWordsNorm.some(qw => qw.includes(cw) || cw.includes(qw))) return true
+    for (const cw of cWordsNorm) {
+      if (qWordsNorm.some(qw => qw === cw || qw.includes(cw) || cw.includes(qw))) return true
     }
-    for (const cw of candWordsP) {
+    for (const cw of cWordsPhon) {
       if (qWordsPhon.some(qw => qw === cw || qw.includes(cw) || cw.includes(qw))) return true
+    }
+
+    // 5. Fuzzy/typo tolerance — edit distance on meaningful words
+    // Allows "Megluforve" to match "Megluforce", "projest" to match "progest"
+    for (const qw of qWordsNorm) {
+      if (qw.length < 5) continue
+      for (const cw of cWordsNorm) {
+        if (cw.length < 5) continue
+        const maxLen = Math.max(qw.length, cw.length)
+        const dist   = editDistance(qw, cw)
+        // Allow 1 typo per 6 chars (e.g. 8-char word allows 1 mistake)
+        if (dist <= Math.floor(maxLen / 6) + 1) return true
+      }
     }
 
     return false
@@ -342,7 +377,7 @@ function findSpecificProductMatch(
     if (matchesQuery(p.product_name ?? '')) return p
   }
 
-  // Pass 2: aliases (split on comma or pipe)
+  // Pass 2: aliases
   for (const p of sorted) {
     const aliases = (p.aliases ?? '').split(/[,|،]/).map(a => a.trim()).filter(a => a.length >= 3)
     for (const alias of aliases) {
