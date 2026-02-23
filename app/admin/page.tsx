@@ -81,16 +81,17 @@ async function enhanceImage(dataUrl: string): Promise<string> {
       if (maxX <= minX || maxY <= minY) { minX=0; minY=0; maxX=W-1; maxY=H-1 }
 
       // Add generous padding around detected product area
-      const PAD_FRAC = 0.12
+      // Add generous padding — 20% of detected product size on each side
+      const PAD_FRAC = 0.20
       const pw = Math.round((maxX - minX) * PAD_FRAC)
       const ph = Math.round((maxY - minY) * PAD_FRAC)
       const cropX = Math.max(0, minX - pw)
       const cropY = Math.max(0, minY - ph)
-      const cropW = Math.min(W, maxX + pw) - cropX
-      const cropH = Math.min(H, maxY + ph) - cropY
+      const cropW = Math.min(W, maxX + pw + pw) - cropX
+      const cropH = Math.min(H, maxY + ph + ph) - cropY
 
       // ── 3. Output canvas — square with clean studio background ────────────
-      const SIZE = Math.max(cropW, cropH, 600)
+      const SIZE = 900  // fixed square output
       const out = document.createElement('canvas')
       out.width = SIZE; out.height = SIZE
       const ctx = out.getContext('2d')!
@@ -103,20 +104,24 @@ async function enhanceImage(dataUrl: string): Promise<string> {
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, SIZE, SIZE)
 
-      // ── 4. Draw cropped product centred, with brightness + colour boost ────
-      const drawW = Math.round(SIZE * 0.82)
-      const drawH = Math.round(cropH * (drawW / cropW))
+      // ── 4. Fit product inside canvas with 15% margin on each side ─────────
+      const MARGIN = SIZE * 0.15
+      const availW = SIZE - MARGIN * 2
+      const availH = SIZE - MARGIN * 2
+      const scaleToFit = Math.min(availW / cropW, availH / cropH)
+      const drawW = Math.round(cropW * scaleToFit)
+      const drawH = Math.round(cropH * scaleToFit)
       const drawX = Math.round((SIZE - drawW) / 2)
       const drawY = Math.round((SIZE - drawH) / 2)
 
       // Soft drop shadow
-      ctx.shadowColor   = 'rgba(0,0,0,0.18)'
-      ctx.shadowBlur    = 28
-      ctx.shadowOffsetY = 10
+      ctx.shadowColor   = 'rgba(0,0,0,0.15)'
+      ctx.shadowBlur    = 24
+      ctx.shadowOffsetY = 8
       ctx.shadowOffsetX = 0
 
       // Brightness + contrast + saturation boost
-      ctx.filter = 'brightness(1.12) contrast(1.15) saturate(1.35)'
+      ctx.filter = 'brightness(1.10) contrast(1.12) saturate(1.30)'
       ctx.drawImage(src, cropX, cropY, cropW, cropH, drawX, drawY, drawW, drawH)
       ctx.filter = 'none'
       ctx.shadowColor = 'transparent'
@@ -141,7 +146,7 @@ async function uploadToStorage(base64: string, mime: string, name: string): Prom
     const sb   = createClient(url, key)
     const ext  = mime.includes('png') ? 'png' : 'jpg'
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
-    const file = `${slug}-${Date.now()}.${ext}`
+    const file = `${slug}.${ext}`
     const bytes = atob(base64); const arr = new Uint8Array(bytes.length)
     for (let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i)
     const { error } = await sb.storage.from('product-images').upload(file, new Blob([arr],{type:mime}), {contentType:mime, upsert:true})
