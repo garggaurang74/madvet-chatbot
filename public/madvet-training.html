@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,12 +16,17 @@
 body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
 
 /* HEADER */
-header{background:var(--forest);padding:16px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.25);}
+header{background:var(--forest);padding:16px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.25);}
 .logo{width:36px;height:36px;border-radius:50%;background:var(--forest-light);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
 header h1{font-family:'DM Serif Display',serif;color:var(--cream);font-size:18px;}
 header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
-.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .day-badge{background:rgba(200,169,110,.15);border:1px solid rgba(200,169,110,.3);border-radius:16px;padding:5px 12px;color:var(--gold-light);font-size:12px;font-weight:600;}
+
+/* LANGUAGE TOGGLE */
+.lang-toggle{display:flex;border:1px solid rgba(200,169,110,.3);border-radius:20px;overflow:hidden;}
+.lang-btn{padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:rgba(245,240,232,.5);font-family:'DM Sans',sans-serif;transition:all .15s;}
+.lang-btn.active{background:rgba(200,169,110,.25);color:var(--gold-light);}
 
 /* OVERALL PROGRESS */
 .top-progress{background:var(--forest-mid);padding:12px 24px;border-bottom:1px solid rgba(200,169,110,.15);}
@@ -31,11 +36,10 @@ header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
 .tp-fill{height:100%;background:linear-gradient(90deg,var(--forest-light),var(--gold));border-radius:3px;transition:width .5s ease;}
 .tp-pct{font-size:12px;font-weight:700;color:var(--gold-light);white-space:nowrap;}
 
-/* SESSION OVERVIEW (home screen) */
+/* HOME */
 .home{max-width:720px;margin:0 auto;padding:24px 20px 80px;}
 .home-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--forest);margin-bottom:4px;}
 .home-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
-
 .session-card{background:var(--white);border:1px solid var(--cream-dark);border-radius:16px;padding:18px 20px;margin-bottom:12px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
 .session-card:hover{border-color:var(--gold);box-shadow:0 4px 20px rgba(26,58,42,.1);transform:translateY(-1px);}
 .session-card.done{opacity:.7;}
@@ -44,7 +48,6 @@ header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
 .session-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--cream-dark);}
 .session-card.done::before{background:var(--green);}
 .session-card.active-now::before{background:var(--gold);}
-
 .sess-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
 .sess-info{flex:1;}
 .sess-time{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
@@ -67,12 +70,12 @@ header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
 .study-title h2{font-size:16px;font-weight:700;color:var(--forest);}
 .study-title p{font-size:12px;color:var(--muted);}
 .study-prog{display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.study-dots{display:flex;gap:4px;}
+.study-dots{display:flex;gap:4px;flex-wrap:wrap;max-width:120px;}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--cream-dark);transition:background .2s;}
 .dot.done-dot{background:var(--green);}
 .dot.curr-dot{background:var(--gold);}
 
-/* LEARN CARD (study) */
+/* LEARN CARD */
 .learn-card{background:var(--white);border:2px solid var(--cream-dark);border-radius:20px;padding:28px;margin-bottom:16px;box-shadow:0 4px 20px rgba(26,58,42,.07);}
 .lc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;}
 .lc-cat{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
@@ -89,6 +92,9 @@ header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
 .tip-box{background:rgba(200,169,110,.08);border:1px solid rgba(200,169,110,.25);border-radius:10px;padding:10px 14px;font-size:12px;color:#7a5c2a;line-height:1.5;margin-top:12px;}
 .tip-box strong{color:var(--forest);}
 
+/* HINDI TIP BOX */
+.hindi-tag{display:inline-block;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);border-radius:6px;padding:2px 8px;font-size:11px;color:#6d28d9;margin-right:4px;margin-bottom:4px;}
+
 /* NAV BUTTONS */
 .card-nav{display:flex;gap:10px;}
 .nav-btn{flex:1;padding:13px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
@@ -98,53 +104,47 @@ header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
 .nav-next:hover{background:var(--forest-light);}
 .nav-next.finish{background:var(--amber);color:var(--forest);}
 
-/* QUIZ SCREEN */
+/* QUIZ */
 .quiz-wrap{background:var(--white);border:2px solid var(--cream-dark);border-radius:20px;padding:24px;margin-bottom:16px;box-shadow:0 4px 20px rgba(26,58,42,.07);}
 .quiz-q-num{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
 .quiz-question{font-size:18px;font-weight:600;color:var(--forest);line-height:1.4;margin-bottom:6px;}
 .quiz-hint{font-size:13px;color:var(--muted);margin-bottom:18px;}
-.options{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
-.opt{padding:12px 16px;border-radius:11px;border:2px solid var(--cream-dark);background:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;text-align:left;color:var(--text);transition:all .15s;}
-.opt:hover:not(:disabled){border-color:var(--forest-light);background:rgba(61,122,87,.04);}
-.opt.correct{background:#f0fdf4;border-color:#22c55e;color:#15803d;}
-.opt.wrong{background:#fef2f2;border-color:#ef4444;color:#b91c1c;}
-.opt.reveal{background:#fefce8;border-color:#eab308;color:#854d0e;}
-.opt:disabled{cursor:default;}
+.options{display:flex;flex-direction:column;gap:10px;}
+.opt{padding:13px 16px;border-radius:12px;border:2px solid var(--cream-dark);background:var(--white);text-align:left;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;color:var(--text);}
+.opt:hover:not(:disabled){border-color:var(--forest);background:rgba(26,58,42,.04);}
+.opt.correct{border-color:var(--green);background:rgba(34,197,94,.08);color:#15803d;}
+.opt.wrong{border-color:var(--red);background:rgba(239,68,68,.08);color:#dc2626;}
+.opt.reveal{border-color:var(--green);background:rgba(34,197,94,.05);color:#16a34a;}
 .quiz-score-bar{display:flex;gap:10px;margin-bottom:16px;}
-.score-pill{flex:1;background:var(--cream-dark);border-radius:10px;padding:10px;text-align:center;}
-.score-n{font-family:'DM Serif Display',serif;font-size:24px;color:var(--forest);}
-.score-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
-.quiz-next-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--forest);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:none;}
+.score-pill{flex:1;background:var(--white);border:1px solid var(--cream-dark);border-radius:12px;padding:10px;text-align:center;}
+.score-n{font-size:20px;font-weight:700;color:var(--forest);}
+.score-l{font-size:11px;color:var(--muted);margin-top:2px;}
+.quiz-next-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--forest);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:none;margin-top:14px;}
 .quiz-next-btn:hover{background:var(--forest-light);}
 
 /* SESSION COMPLETE */
-.sess-complete{text-align:center;padding:40px 20px;}
-.big-icon{font-size:60px;margin-bottom:12px;}
-.sc-title{font-family:'DM Serif Display',serif;font-size:28px;color:var(--forest);margin-bottom:6px;}
-.sc-sub{font-size:14px;color:var(--muted);margin-bottom:24px;}
-.sc-stats{display:flex;gap:12px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;}
-.sc-stat{background:var(--white);border:1px solid var(--cream-dark);border-radius:14px;padding:16px 20px;text-align:center;}
-.sc-n{font-family:'DM Serif Display',serif;font-size:32px;color:var(--forest);}
-.sc-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
-.sc-btn{padding:13px 28px;border-radius:12px;border:none;background:var(--forest);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin:0 6px;}
+.sess-complete{background:var(--white);border:2px solid var(--cream-dark);border-radius:20px;padding:32px 24px;text-align:center;box-shadow:0 4px 20px rgba(26,58,42,.07);}
+.big-icon{font-size:56px;margin-bottom:12px;}
+.sc-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--forest);margin-bottom:8px;}
+.sc-sub{font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
+.sc-stats{display:flex;gap:12px;justify-content:center;margin-bottom:24px;}
+.sc-stat{text-align:center;}
+.sc-n{font-size:28px;font-weight:700;}
+.sc-l{font-size:12px;color:var(--muted);margin-top:2px;}
+.sc-btn{display:block;width:100%;padding:13px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px;background:var(--forest);color:var(--cream);}
 .sc-btn:hover{background:var(--forest-light);}
 .sc-btn.sec{background:var(--cream-dark);color:var(--muted);}
+.sc-btn.sec:hover{background:#ddd6c4;}
 
 /* FINAL COMPLETE */
-.final-complete{text-align:center;padding:48px 20px;}
-.trophy{font-size:80px;margin-bottom:16px;}
-.fc-title{font-family:'DM Serif Display',serif;font-size:32px;color:var(--forest);margin-bottom:8px;}
-.fc-sub{font-size:15px;color:var(--muted);margin-bottom:32px;max-width:400px;margin-left:auto;margin-right:auto;}
-.fc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:360px;margin:0 auto 28px;}
-.fc-box{background:var(--white);border:1px solid var(--cream-dark);border-radius:14px;padding:16px;text-align:center;}
-.fc-n{font-family:'DM Serif Display',serif;font-size:30px;color:var(--forest);}
-.fc-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
-
-@media(max-width:480px){
-  .lc-name{font-size:26px;}
-  .home,.study-screen{padding:16px 14px 80px;}
-  header{padding:14px 16px;}
-}
+.final-complete{text-align:center;padding:40px 20px;}
+.trophy{font-size:72px;margin-bottom:20px;}
+.fc-title{font-family:'DM Serif Display',serif;font-size:32px;color:var(--forest);margin-bottom:12px;}
+.fc-sub{font-size:15px;color:var(--muted);margin-bottom:32px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.6;}
+.fc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:360px;margin:0 auto 32px;}
+.fc-box{background:var(--white);border:1px solid var(--cream-dark);border-radius:16px;padding:20px;text-align:center;}
+.fc-n{font-size:32px;font-weight:700;color:var(--forest);}
+.fc-l{font-size:12px;color:var(--muted);margin-top:4px;}
 </style>
 </head>
 <body>
@@ -157,19 +157,22 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 <header>
   <div class="logo">🐄</div>
   <div>
-    <h1>Madvet Training</h1>
-    <p>Complete 1-Day Program</p>
+    <h1 id="hdrTitle">Madvet Training</h1>
+    <p id="hdrSub">Complete 1-Day Program</p>
   </div>
   <div class="hdr-right">
-    <a href="/products" style="text-decoration:none;padding:6px 14px;border:1px solid rgba(200,169,110,0.3);border-radius:6px;color:rgba(245,240,232,0.7);font-size:12px;font-weight:500;">← Products</a>
-    <div class="day-badge">📅 Day 1</div>
-  </div>
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="btnEN" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" id="btnHI" onclick="setLang('hi')">हिंदी</button>
+    </div>
+    <a href="/products" style="text-decoration:none;padding:6px 14px;border:1px solid rgba(200,169,110,0.3);border-radius:6px;color:rgba(245,240,232,0.7);font-size:12px;font-weight:500;" id="prodLink">← Products</a>
+    <div class="day-badge" id="dayBadge">📅 Day 1</div>
   </div>
 </header>
 
 <div class="top-progress">
   <div class="tp-inner">
-    <span class="tp-label">Overall Progress</span>
+    <span class="tp-label" id="progressLabel">Overall Progress</span>
     <div class="tp-bar"><div class="tp-fill" id="topFill" style="width:0%"></div></div>
     <span class="tp-pct" id="topPct">0%</span>
   </div>
@@ -177,8 +180,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 <!-- HOME SCREEN -->
 <div class="home" id="homeScreen">
-  <div class="home-title">Your 1-Day Training Plan</div>
-  <div class="home-sub">89 products · 6 sessions · Learn → Quiz → Done ✓</div>
+  <div class="home-title" id="homeTitle">Your 1-Day Training Plan</div>
+  <div class="home-sub" id="homeSub">89 products · 6 sessions · Learn → Quiz → Done ✓</div>
   <div id="sessionList"></div>
 </div>
 
@@ -198,23 +201,134 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 </div>
 
 <script>
-// ── PRODUCT DATA (embedded — no Supabase needed for learning) ──────────────
-// Will be overridden if Supabase loads. Fallback keeps app working offline.
+// ── LANGUAGE ─────────────────────────────────────────────────────────────────
+let LANG = localStorage.getItem('mdv_lang') || 'en';
 
-const CAT_COLORS = {
-  'Antibiotic':                   '#f59e0b',
-  'Anti-inflammatory / Analgesic':'#f97316',
-  'Vitamin Supplement':           '#8b5cf6',
-  'Anthelmintic / Antiparasitic': '#10b981',
-  'Ectoparasiticide':             '#06b6d4',
-  'Reproductive Hormone':         '#ec4899',
-  'Probiotic':                    '#84cc16',
-  'Antidiarrheal':                '#14b8a6',
-  'Antihistamine':                '#a855f7',
-  'Dermatological':               '#f43f5e',
-  'Udder Care':                   '#2dd4bf',
+const T = {
+  en: {
+    hdrTitle:'Madvet Training', hdrSub:'Complete 1-Day Program',
+    prodLink:'← Products', progressLabel:'Overall Progress',
+    homeTitle:'Your 1-Day Training Plan',
+    homeSub:'89 products · 6 sessions · Learn → Quiz → Done ✓',
+    start:'Start →', redo:'Redo', locked:'🔒 Locked', complete:'✓ Complete', ready:'Ready',
+    products:'products',
+    studyLabel:' — Study', quizLabel:' — Quiz',
+    cardOf:'Card', of:'of', questions:'questions',
+    salt:'Salt:', about:'About This Product', usedFor:'Used For',
+    benefits:'Key Benefits', species:'Species',
+    prev:'← Prev', next:'Next →', takeQuiz:'📝 Take Quiz →',
+    q:'Question', correct:'Correct', left:'Left',
+    nextQ:'Next →', finishSess:'Finish Session ✓',
+    excellent:'Excellent!', passed:'Session Passed', practice:'Keep Practicing',
+    msgExcellent:'Great job! Move to the next session.',
+    msgGood:'Good — redo this session to strengthen memory.',
+    msgPractice:'Review these products again before moving on.',
+    quizScore:'Quiz Score', accuracy:'Accuracy',
+    nextSess:'Next Session →', backPlan:'Back to Plan', redoSess:'Redo Session',
+    trainingComplete:'Training Complete!',
+    trainingDone:'You\'ve studied all 89 Madvet products and passed every quiz. You\'re ready to sell and recommend with confidence.',
+    learned:'Products learned', sessions:'Sessions done', quizQ:'Quiz questions', day:'Day',
+    startOver:'Start Over',
+    sess: [
+      { time:'Session 1 · 15 min', name:'Antibiotics', desc:'17 products · Bolus vs Injection vs Powder' },
+      { time:'Session 2 · 12 min', name:'Pain & Fever', desc:'14 products · Megluforce, 3D, Spasgo, Meloforce' },
+      { time:'Session 3 · 20 min', name:'Vitamins & Supplements', desc:'25 products · Biggest category — Doodh Double, Calciforce, Butacin…' },
+      { time:'Session 4 · 10 min', name:'Dewormers & Ectoparasiticides', desc:'13 products · Wormi Stop, Fluck Stop, Ivo Force, Tikk\'s Stop' },
+      { time:'Session 5 · 8 min', name:'Reproductive & Probiotics', desc:'11 products · Heat Pregna, Utro OK, BHUK OK, TRT Bolus' },
+      { time:'Session 6 · 5 min', name:'Skin, Allergy & Udder', desc:'9 products · SKIN TOP, Mastiout, ALLSTOP, HEAL-5X' },
+    ],
+    tips: {
+      'Antibiotic':'💡 <strong>Tip:</strong> Know the salt class — Ceftriaxone (broad spectrum), Levofloxacin (respiratory), Amoxycillin (general). Bolus = mild, Injection = serious infection.',
+      'Anti-inflammatory / Analgesic':'💡 <strong>Tip:</strong> Flunixin (Megluforce) = strongest fever + colic. Meloxicam (Ezy Flam, Meloforce) = joints + post-surgery. Piroxicam (3D, Spasgo) = general pain.',
+      'Vitamin Supplement':'💡 <strong>Tip:</strong> Doodh Double = milk production. Calciforce = calcium deficiency. Butacin = weakness/recovery. Livorite = liver + anemia. V.H-5 = general health.',
+      'Anthelmintic / Antiparasitic':'💡 <strong>Tip:</strong> Wormi Stop = gut worms (bolus). Fluck Stop = liver flukes + worms. Ivo Force = ivermectin injection. Albo-l = oral liquid dewormer.',
+      'Ectoparasiticide':'💡 <strong>Tip:</strong> Tikk\'s Stop soap = ticks + lice. Flunill Pour-On = pour on back for ticks. Tikks stop 6ml = amitraz concentrate (mix in water, spray).',
+      'Reproductive Hormone':'💡 <strong>Tip:</strong> D. Progest-NP = progesterone (repeat breeding). Heat Pregna = heat induction (herbal). Utro OK = post-calving uterine tonic.',
+      'Probiotic':'💡 <strong>Tip:</strong> Give probiotics AFTER antibiotics to restore gut bacteria. BHUK OK = appetite + digestion. FAT-EX = liver + rumen.',
+      'Antidiarrheal':'💡 <strong>Tip:</strong> Stop Stop bolus = diarrhea/dysentery. Gumbloat suspension = flatulence/bloat (simethicone — anti-gas).',
+      'Antihistamine':'💡 <strong>Tip:</strong> ALLSTOP = chlorpheniramine injection. For allergy, urticaria, hives. Always injection — fast action needed.',
+      'Dermatological':'💡 <strong>Tip:</strong> SKIN TOP Spray = general skin conditions. HEAL-5X powder = wounds + maggots (herbal). EZY DERM = skin tonic for pets.',
+      'Udder Care':'💡 <strong>Tip:</strong> Mastiout Spray = herbal mastitis spray. Spray on teat/udder after milking. Works with systemic antibiotic for full mastitis treatment.',
+    }
+  },
+  hi: {
+    hdrTitle:'Madvet Training', hdrSub:'1 दिन का पूरा Program',
+    prodLink:'← Products', progressLabel:'कुल Progress',
+    homeTitle:'आपकी 1 दिन की Training Plan',
+    homeSub:'89 products · 6 sessions · पढ़ो → Quiz → Done ✓',
+    start:'शुरू करें →', redo:'दोबारा करें', locked:'🔒 बंद', complete:'✓ पूरा', ready:'तैयार',
+    products:'products',
+    studyLabel:' — अध्ययन', quizLabel:' — Quiz',
+    cardOf:'Card', of:'का', questions:'सवाल',
+    salt:'Salt:', about:'इस Product के बारे में', usedFor:'किसके लिए उपयोग होता है',
+    benefits:'मुख्य फायदे', species:'जानवर',
+    prev:'← पिछला', next:'अगला →', takeQuiz:'📝 Quiz लो →',
+    q:'सवाल', correct:'सही', left:'बाकी',
+    nextQ:'अगला →', finishSess:'Session खत्म ✓',
+    excellent:'शाबाश!', passed:'Session पास', practice:'अभ्यास जारी रखें',
+    msgExcellent:'बहुत अच्छा! अगले session पर जाएं।',
+    msgGood:'अच्छा — याद मजबूत करने के लिए यह session दोबारा करें।',
+    msgPractice:'आगे बढ़ने से पहले इन products को दोबारा देखें।',
+    quizScore:'Quiz Score', accuracy:'सटीकता',
+    nextSess:'अगला Session →', backPlan:'Plan पर वापस', redoSess:'Session दोबारा करें',
+    trainingComplete:'Training पूरी हो गई!',
+    trainingDone:'आपने Madvet के सभी 89 products पढ़ लिए और हर quiz pass किया। अब आप confidently बेच और recommend कर सकते हैं।',
+    learned:'Products सीखे', sessions:'Sessions पूरे', quizQ:'Quiz के सवाल', day:'दिन',
+    startOver:'फिर से शुरू करें',
+    sess: [
+      { time:'Session 1 · 15 मिनट', name:'Antibiotics (एंटीबायोटिक)', desc:'17 products · Bolus, Injection और Powder का फर्क' },
+      { time:'Session 2 · 12 मिनट', name:'दर्द और बुखार', desc:'14 products · Megluforce, 3D, Spasgo, Meloforce' },
+      { time:'Session 3 · 20 मिनट', name:'Vitamins और Supplements', desc:'25 products · सबसे बड़ी category — Doodh Double, Calciforce, Butacin…' },
+      { time:'Session 4 · 10 मिनट', name:'Dewormers और Ectoparasiticides', desc:'13 products · Wormi Stop, Fluck Stop, Ivo Force, Tikk\'s Stop' },
+      { time:'Session 5 · 8 मिनट', name:'Reproductive और Probiotics', desc:'11 products · Heat Pregna, Utro OK, BHUK OK, TRT Bolus' },
+      { time:'Session 6 · 5 मिनट', name:'Skin, Allergy और Udder Care', desc:'9 products · SKIN TOP, Mastiout, ALLSTOP, HEAL-5X' },
+    ],
+    tips: {
+      'Antibiotic':'💡 <strong>याद रखें:</strong> Salt class जानना जरूरी — Ceftriaxone (broad spectrum), Levofloxacin (सांस की बीमारी), Amoxycillin (general). Bolus = हल्का infection, Injection = गंभीर infection।',
+      'Anti-inflammatory / Analgesic':'💡 <strong>याद रखें:</strong> Flunixin (Megluforce) = सबसे तेज बुखार + colic. Meloxicam (Ezy Flam, Meloforce) = जोड़ों का दर्द + operation के बाद. Piroxicam (3D, Spasgo) = सामान्य दर्द।',
+      'Vitamin Supplement':'💡 <strong>याद रखें:</strong> Doodh Double = दूध बढ़ाए. Calciforce = calcium की कमी. Butacin = कमज़ोरी/recovery. Livorite = liver + खून की कमी. V.H-5 = सामान्य स्वास्थ्य।',
+      'Anthelmintic / Antiparasitic':'💡 <strong>याद रखें:</strong> Wormi Stop = पेट के कीड़े (bolus). Fluck Stop = liver flukes + कीड़े. Ivo Force = ivermectin injection. Albo-l = oral liquid dewormer।',
+      'Ectoparasiticide':'💡 <strong>याद रखें:</strong> Tikk\'s Stop soap = चिचड़ी + जूं. Flunill Pour-On = पीठ पर डालो. Tikks stop 6ml = amitraz concentrate (पानी में मिलाकर spray)।',
+      'Reproductive Hormone':'💡 <strong>याद रखें:</strong> D. Progest-NP = बार-बार गर्भ न ठहरना. Heat Pregna = गर्मी लाने के लिए (herbal). Utro OK = बच्चा देने के बाद गर्भाशय का tonic।',
+      'Probiotic':'💡 <strong>याद रखें:</strong> Antibiotic के बाद probiotic दो — पेट के bacteria ठीक होंगे. BHUK OK = भूख + पाचन. FAT-EX = liver + rumen।',
+      'Antidiarrheal':'💡 <strong>याद रखें:</strong> Stop Stop bolus = दस्त/पेचिश. Gumbloat suspension = पेट फूलना (simethicone — gas की दवा)।',
+      'Antihistamine':'💡 <strong>याद रखें:</strong> ALLSTOP = chlorpheniramine injection. Allergy, urticaria, चकत्ते के लिए. हमेशा injection — तेज असर जरूरी।',
+      'Dermatological':'💡 <strong>याद रखें:</strong> SKIN TOP Spray = चमड़ी की बीमारी. HEAL-5X powder = घाव + maggots (herbal). EZY DERM = pets के लिए skin tonic।',
+      'Udder Care':'💡 <strong>याद रखें:</strong> Mastiout Spray = herbal mastitis spray. दूध दुहने के बाद teat/udder पर spray करो. Mastitis के पूरे इलाज के लिए antibiotic के साथ उपयोग करें।',
+    }
+  }
 };
 
+function t(key) { return T[LANG][key] || T['en'][key] || key; }
+
+function setLang(l) {
+  LANG = l;
+  localStorage.setItem('mdv_lang', l);
+  document.getElementById('btnEN').classList.toggle('active', l==='en');
+  document.getElementById('btnHI').classList.toggle('active', l==='hi');
+  document.getElementById('hdrTitle').textContent  = t('hdrTitle');
+  document.getElementById('hdrSub').textContent    = t('hdrSub');
+  document.getElementById('prodLink').textContent  = t('prodLink');
+  document.getElementById('progressLabel').textContent = t('progressLabel');
+  // Re-render current view
+  if (document.getElementById('homeScreen').style.display !== 'none' ||
+      !document.getElementById('homeScreen').style.display) {
+    renderHome();
+  } else if (currentStep === 'learn') {
+    renderLearn();
+  } else {
+    renderQuiz();
+  }
+}
+
+// ── CAT COLORS + NORMALIZE ────────────────────────────────────────────────────
+const CAT_COLORS = {
+  'Antibiotic':'#f59e0b','Anti-inflammatory / Analgesic':'#f97316',
+  'Vitamin Supplement':'#8b5cf6','Anthelmintic / Antiparasitic':'#10b981',
+  'Ectoparasiticide':'#06b6d4','Reproductive Hormone':'#ec4899',
+  'Probiotic':'#84cc16','Antidiarrheal':'#14b8a6',
+  'Antihistamine':'#a855f7','Dermatological':'#f43f5e','Udder Care':'#2dd4bf',
+};
 const CAT_NORMALIZE = {
   'Anti-inflammatory':'Anti-inflammatory / Analgesic',
   'Anti-inflammatory, Analgesic, Antipyretic':'Anti-inflammatory / Analgesic',
@@ -233,99 +347,52 @@ const CAT_NORMALIZE = {
   'Udder Care / Herbal Antimicrobial':'Udder Care',
 };
 
-// ── TRAINING PLAN ──────────────────────────────────────────────────────────
-// Each session: learn cards first, then a mini quiz
+// ── TRAINING PLAN ─────────────────────────────────────────────────────────────
+// quizCount is now MINIMUM — actual quiz uses max(quizCount, min(products, 10))
 const PLAN = [
-  {
-    id: 0,
-    icon: '💊', color: '#f59e0b',
-    time: 'Session 1 · 15 min',
-    name: 'Antibiotics',
-    desc: '17 products · Bolus vs Injection vs Powder',
-    cats: ['Antibiotic'],
-    quizCount: 5,
-  },
-  {
-    id: 1,
-    icon: '🔥', color: '#f97316',
-    time: 'Session 2 · 12 min',
-    name: 'Pain & Fever',
-    desc: '14 products · Megluforce, 3D, Spasgo, Meloforce',
-    cats: ['Anti-inflammatory / Analgesic'],
-    quizCount: 5,
-  },
-  {
-    id: 2,
-    icon: '🌿', color: '#8b5cf6',
-    time: 'Session 3 · 20 min',
-    name: 'Vitamins & Supplements',
-    desc: '25 products · Biggest category — Doodh Double, Calciforce, Butacin…',
-    cats: ['Vitamin Supplement'],
-    quizCount: 6,
-  },
-  {
-    id: 3,
-    icon: '🪱', color: '#10b981',
-    time: 'Session 4 · 10 min',
-    name: 'Dewormers & Ectoparasiticides',
-    desc: '13 products · Wormi Stop, Fluck Stop, Ivo Force, Tikk\'s Stop',
-    cats: ['Anthelmintic / Antiparasitic', 'Ectoparasiticide'],
-    quizCount: 5,
-  },
-  {
-    id: 4,
-    icon: '🧬', color: '#ec4899',
-    time: 'Session 5 · 8 min',
-    name: 'Reproductive & Probiotics',
-    desc: '11 products · Heat Pregna, Utro OK, BHUK OK, TRT Bolus',
-    cats: ['Reproductive Hormone', 'Probiotic'],
-    quizCount: 4,
-  },
-  {
-    id: 5,
-    icon: '✨', color: '#f43f5e',
-    time: 'Session 6 · 5 min',
-    name: 'Skin, Allergy & Udder',
-    desc: '9 products · SKIN TOP, Mastiout, ALLSTOP, HEAL-5X',
-    cats: ['Dermatological', 'Antihistamine', 'Antidiarrheal', 'Udder Care'],
-    quizCount: 4,
-  },
+  { id:0, icon:'💊', color:'#f59e0b', cats:['Antibiotic'],                                                  quizCount:10 },
+  { id:1, icon:'🔥', color:'#f97316', cats:['Anti-inflammatory / Analgesic'],                               quizCount:10 },
+  { id:2, icon:'🌿', color:'#8b5cf6', cats:['Vitamin Supplement'],                                          quizCount:10 },
+  { id:3, icon:'🪱', color:'#10b981', cats:['Anthelmintic / Antiparasitic','Ectoparasiticide'],              quizCount:10 },
+  { id:4, icon:'🧬', color:'#ec4899', cats:['Reproductive Hormone','Probiotic'],                            quizCount:10 },
+  { id:5, icon:'✨', color:'#f43f5e', cats:['Dermatological','Antihistamine','Antidiarrheal','Udder Care'],  quizCount:10 },
 ];
 
-// ── STATE ──────────────────────────────────────────────────────────────────
-let ALL_PRODUCTS = [];
-let sessProgress = JSON.parse(localStorage.getItem('mdv_progress') || '{}');
-// sessProgress[id] = 'done' | 'learn' | 'quiz'
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let ALL_PRODUCTS  = [];
+let sessProgress  = JSON.parse(localStorage.getItem('mdv_progress') || '{}');
+let currentSess   = null;
+let currentStep   = 'learn';
+let learnIdx      = 0;
+let quizIdx       = 0;
+let quizQ         = [];
+let quizCorrect   = 0;
+let quizAnswered  = false;
 
-let currentSess = null;
-let currentStep = 'learn'; // 'learn' | 'quiz'
-let learnIdx = 0;
-let quizIdx = 0;
-let quizQ = [];
-let quizCorrect = 0;
-let quizAnswered = false;
-
-// ── FETCH PRODUCTS ─────────────────────────────────────────────────────────
+// ── FETCH PRODUCTS ────────────────────────────────────────────────────────────
 async function loadProducts() {
   try {
     const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits&order=id.asc&limit=500`;
-    const res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
+    const res = await fetch(url, { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` }});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     ALL_PRODUCTS = data.map(r => ({
       id: r.id,
-      name: (r.product_name || '').trim(),
-      salt: (r.salt_ingredient || '').trim(),
+      name: (r.product_name||'').trim(),
+      salt: (r.salt_ingredient||'').trim(),
       category: (CAT_NORMALIZE[r.category] || r.category || '').trim(),
-      formulation: (r.formulation || guessForm(r.packaging || '')).trim(),
-      species: (r.species || '').trim(),
-      packaging: (r.packaging || '').trim(),
-      uses: (r.indication || '').split(',').map(s => s.trim()).filter(s => s.length > 3 && !/[\u0900-\u097F]/.test(s)).slice(0, 4),
-      description: (r.description || '').trim(),
-      benefits: (r.usp_benefits || '').trim(),
+      formulation: (r.formulation || guessForm(r.packaging||'')).trim(),
+      species: (r.species||'').trim(),
+      packaging: (r.packaging||'').trim(),
+      // English uses only — no Hindi in use tags
+      uses: (r.indication||'').split(',').map(s=>s.trim()).filter(s=>s.length>3 && !/[\u0900-\u097F]/.test(s)).slice(0,4),
+      // Hindi uses — only Hindi/Hinglish terms
+      usesHi: (r.indication||'').split(',').map(s=>s.trim()).filter(s=>s.length>2 && /[\u0900-\u097F]/.test(s)).slice(0,4),
+      description: (r.description||'').trim(),
+      benefits: (r.usp_benefits||'').trim(),
     }));
   } catch(e) {
-    console.warn('Supabase not configured — using demo mode');
+    console.warn('Supabase not configured — demo mode');
   }
   renderHome();
 }
@@ -333,13 +400,13 @@ async function loadProducts() {
 function guessForm(pkg) {
   const p = pkg.toLowerCase();
   if (p.includes('bolus')) return 'Bolus';
-  if (p.includes('inj') || p.includes('syringe')) return 'Injection';
-  if (p.includes('tablet') || p.includes(' tab')) return 'Tablet';
+  if (p.includes('inj')||p.includes('syringe')) return 'Injection';
+  if (p.includes('tablet')||p.includes(' tab')) return 'Tablet';
   if (p.includes('spray')) return 'Spray';
   if (p.includes('gel')) return 'Gel';
   if (p.includes('soap')) return 'Soap';
-  if (p.includes('powder') || p.includes('sachet') || /\d+(gm|kg)/.test(p)) return 'Powder';
-  if (p.includes('pour-on') || p.includes('pour on')) return 'Pour-On';
+  if (p.includes('powder')||p.includes('sachet')||/\d+(gm|kg)/.test(p)) return 'Powder';
+  if (p.includes('pour-on')||p.includes('pour on')) return 'Pour-On';
   if (p.includes('suspension')) return 'Suspension';
   if (/\d+\s*ml|litre|liter|syrup|liquid|solution/.test(p)) return 'Liquid';
   return '';
@@ -349,18 +416,18 @@ function getSessionProducts(sess) {
   return ALL_PRODUCTS.filter(p => sess.cats.includes(p.category));
 }
 
-// ── HOME ───────────────────────────────────────────────────────────────────
+// ── HOME ──────────────────────────────────────────────────────────────────────
 function renderHome() {
+  // Update static text
+  document.getElementById('homeTitle').textContent = t('homeTitle');
+  document.getElementById('homeSub').textContent   = t('homeSub');
   updateTopProgress();
+
   const list = document.getElementById('sessionList');
   list.innerHTML = '';
 
-  // Check if all done
   const allDone = PLAN.every(s => sessProgress[s.id] === 'done');
-  if (allDone && ALL_PRODUCTS.length > 0) {
-    renderFinalComplete();
-    return;
-  }
+  if (allDone && ALL_PRODUCTS.length > 0) { renderFinalComplete(); return; }
 
   let foundActive = false;
   PLAN.forEach((sess, i) => {
@@ -370,25 +437,27 @@ function renderHome() {
     if (isActive && !foundActive) foundActive = true;
 
     const card = document.createElement('div');
-    card.className = 'session-card' + (isDone ? ' done' : '') + (!prevDone ? ' locked' : '') + (isActive ? ' active-now' : '');
+    card.className = 'session-card'+(isDone?' done':'')+((!prevDone)?' locked':'')+(isActive?' active-now':'');
 
-    const prods = getSessionProducts(sess);
-    const statusText = isDone ? '✓ Complete' : !prevDone ? '🔒 Locked' : 'Ready';
+    const prods      = getSessionProducts(sess);
+    const statusText = isDone ? t('complete') : !prevDone ? t('locked') : t('ready');
+    const sessInfo   = T[LANG].sess[i];
+    const actualQ    = Math.min(Math.max(sess.quizCount, Math.min(prods.length, 10)), prods.length);
 
     card.innerHTML = `
       <div class="sess-icon" style="background:${sess.color}20">${sess.icon}</div>
       <div class="sess-info">
-        <div class="sess-time">${sess.time}</div>
-        <div class="sess-name">${sess.name}</div>
-        <div class="sess-desc">${sess.desc}</div>
+        <div class="sess-time">${sessInfo.time}</div>
+        <div class="sess-name">${sessInfo.name}</div>
+        <div class="sess-desc">${sessInfo.desc}</div>
       </div>
       <div class="sess-right">
-        <div class="sess-count">${prods.length || '—'} products</div>
+        <div class="sess-count">${prods.length||'—'} ${t('products')}</div>
         <div class="sess-status" style="color:${isDone?'var(--green)':isActive?'var(--amber)':'var(--muted)'}">${statusText}</div>
-        ${(isActive || isDone) ? `<button class="start-btn ${isDone?'redo':'go'}" onclick="startSession(${sess.id})" style="margin-top:6px">${isDone?'Redo':'Start →'}</button>` : ''}
+        ${(isActive||isDone)?`<button class="start-btn ${isDone?'redo':'go'}" onclick="startSession(${sess.id})" style="margin-top:6px">${isDone?t('redo'):t('start')}</button>`:''}
       </div>
     `;
-    if ((isActive || isDone) && !card.querySelector('.locked')) {
+    if ((isActive||isDone) && !card.querySelector('.locked')) {
       card.onclick = (e) => { if (!e.target.classList.contains('start-btn')) startSession(sess.id); };
     }
     list.appendChild(card);
@@ -396,42 +465,43 @@ function renderHome() {
 }
 
 function renderFinalComplete() {
-  const totalQuiz = PLAN.reduce((a,s) => a + s.quizCount, 0);
+  const totalQuiz = PLAN.reduce((a,s) => {
+    const prods = getSessionProducts(s);
+    return a + Math.min(Math.max(s.quizCount, Math.min(prods.length, 10)), prods.length);
+  }, 0);
   document.getElementById('homeScreen').innerHTML = `
     <div class="final-complete">
       <div class="trophy">🏆</div>
-      <div class="fc-title">Training Complete!</div>
-      <div class="fc-sub">You've studied all 89 Madvet products and passed every quiz. You're ready to sell and recommend with confidence.</div>
+      <div class="fc-title">${t('trainingComplete')}</div>
+      <div class="fc-sub">${t('trainingDone')}</div>
       <div class="fc-grid">
-        <div class="fc-box"><div class="fc-n">89</div><div class="fc-l">Products learned</div></div>
-        <div class="fc-box"><div class="fc-n">6</div><div class="fc-l">Sessions done</div></div>
-        <div class="fc-box"><div class="fc-n">${totalQuiz}</div><div class="fc-l">Quiz questions</div></div>
-        <div class="fc-box"><div class="fc-n">1</div><div class="fc-l">Day</div></div>
+        <div class="fc-box"><div class="fc-n">89</div><div class="fc-l">${t('learned')}</div></div>
+        <div class="fc-box"><div class="fc-n">6</div><div class="fc-l">${t('sessions')}</div></div>
+        <div class="fc-box"><div class="fc-n">${totalQuiz}</div><div class="fc-l">${t('quizQ')}</div></div>
+        <div class="fc-box"><div class="fc-n">1</div><div class="fc-l">${t('day')}</div></div>
       </div>
-      <button class="sc-btn sec" onclick="resetAll()">Start Over</button>
+      <button class="sc-btn sec" onclick="resetAll()">${t('startOver')}</button>
     </div>
   `;
 }
 
 function updateTopProgress() {
-  const done = Object.values(sessProgress).filter(v => v === 'done').length;
-  const pct  = Math.round((done / PLAN.length) * 100);
-  document.getElementById('topFill').style.width = pct + '%';
-  document.getElementById('topPct').textContent  = pct + '%';
+  const done = Object.values(sessProgress).filter(v=>v==='done').length;
+  const pct  = Math.round((done/PLAN.length)*100);
+  document.getElementById('topFill').style.width = pct+'%';
+  document.getElementById('topPct').textContent  = pct+'%';
 }
 
-// ── SESSION START ──────────────────────────────────────────────────────────
+// ── SESSION START ─────────────────────────────────────────────────────────────
 function startSession(sessId) {
-  currentSess  = PLAN.find(s => s.id === sessId);
+  currentSess  = PLAN.find(s=>s.id===sessId);
   currentStep  = 'learn';
   learnIdx     = 0;
   quizIdx      = 0;
   quizCorrect  = 0;
   quizAnswered = false;
-
   document.getElementById('homeScreen').style.display  = 'none';
   document.getElementById('studyScreen').style.display = 'block';
-
   renderLearn();
 }
 
@@ -442,38 +512,31 @@ function goHome() {
   renderHome();
 }
 
-// ── LEARN PHASE ────────────────────────────────────────────────────────────
+// ── LEARN PHASE ───────────────────────────────────────────────────────────────
 function renderLearn() {
   const sess  = currentSess;
   const prods = getSessionProducts(sess);
+  const sessInfo = T[LANG].sess[sess.id];
 
-  document.getElementById('studyTitle').textContent    = sess.name + ' — Study';
-  document.getElementById('studySubtitle').textContent = `Card ${learnIdx + 1} of ${prods.length}`;
+  document.getElementById('studyTitle').textContent    = sessInfo.name + t('studyLabel');
+  document.getElementById('studySubtitle').textContent = `${t('cardOf')} ${learnIdx+1} ${t('of')} ${prods.length}`;
 
-  // Dots
   const dots = document.getElementById('studyDots');
-  dots.innerHTML = prods.map((_, i) =>
-    `<div class="dot ${i < learnIdx ? 'done-dot' : i === learnIdx ? 'curr-dot' : ''}"></div>`
-  ).slice(0, Math.min(prods.length, 12)).join('');
+  dots.innerHTML = prods.slice(0, Math.min(prods.length,12)).map((_,i)=>
+    `<div class="dot ${i<learnIdx?'done-dot':i===learnIdx?'curr-dot':''}"></div>`
+  ).join('');
 
-  const p = prods[learnIdx];
-  const color = CAT_COLORS[p.category] || '#94a3b8';
+  const p     = prods[learnIdx];
+  const color = CAT_COLORS[p.category]||'#94a3b8';
+  const tip   = T[LANG].tips[p.category]||'';
 
-  // Smart tip per category
-  const tips = {
-    'Antibiotic': `💡 <strong>Tip:</strong> Know the salt class — Ceftriaxone (broad spectrum), Levofloxacin (respiratory), Amoxycillin (general). Bolus = mild, Injection = serious infection.`,
-    'Anti-inflammatory / Analgesic': `💡 <strong>Tip:</strong> Flunixin (Megluforce) = strongest fever + colic. Meloxicam (Ezy Flam, Meloforce) = joints + post-surgery. Piroxicam (3D, Spasgo) = general pain.`,
-    'Vitamin Supplement': `💡 <strong>Tip:</strong> Doodh Double = milk production. Calciforce = calcium deficiency. Butacin = weakness/recovery. Livorite = liver + anemia. V.H-5 = general health.`,
-    'Anthelmintic / Antiparasitic': `💡 <strong>Tip:</strong> Wormi Stop = gut worms (bolus). Fluck Stop = liver flukes + worms (liquid/bolus). Ivo Force = ivermectin injection (internal + external). Albo-l = oral liquid dewormer.`,
-    'Ectoparasiticide': `💡 <strong>Tip:</strong> Tikk's Stop soap = ticks + lice (5% mild, 8% severe). Flunill Pour-On = pour on back for ticks. Tikks stop 6ml = amitraz concentrate (mix in water, spray).`,
-    'Reproductive Hormone': `💡 <strong>Tip:</strong> D. Progest-NP = progesterone injection (repeat breeding). Heat Pregna Bolus = heat induction (herbal). Utro OK = post-calving uterine tonic. Milk Double = milk drop (galactogogue).`,
-    'Probiotic': `💡 <strong>Tip:</strong> Give probiotics AFTER antibiotics to restore gut bacteria. BHUK OK = appetite + digestion. FAT-EX = liver + rumen. Pashu Boost Gold = milk fat increase.`,
-    'Antidiarrheal': `💡 <strong>Tip:</strong> Stop Stop bolus = diarrhea/dysentery (bacterial + protozoal). Gumbloat suspension = flatulence/bloat (simethicone — anti-gas, not antidiarrheal).`,
-    'Antihistamine': `💡 <strong>Tip:</strong> ALLSTOP = chlorpheniramine injection. For allergy reactions, urticaria, hives. 100ml for large animals, 30ml for smaller. Always injection — fast action needed.`,
-    'Dermatological': `💡 <strong>Tip:</strong> SKIN TOP Spray = general skin conditions (all large animals). HEAL-5X powder = wounds + maggots (herbal). EZY DERM = skin tonic for pets (oral). 5-in-1 Shampoo = pets tick/flea.`,
-    'Udder Care': `💡 <strong>Tip:</strong> Mastiout Spray = herbal mastitis spray for udder. Spray directly on teat/udder after milking. Works with systemic antibiotic for full mastitis treatment.`,
-  };
-  const tip = tips[p.category] || '';
+  // In Hindi mode, show Hindi use tags if available, else English
+  const displayUses = (LANG==='hi' && p.usesHi.length > 0) ? p.usesHi : p.uses;
+  const usedForLabel = t('usedFor');
+  const saltLabel    = t('salt');
+  const aboutLabel   = t('about');
+  const benefitsLabel= t('benefits');
+  const speciesLabel = t('species');
 
   document.getElementById('studyContent').innerHTML = `
     <div class="learn-card">
@@ -482,36 +545,40 @@ function renderLearn() {
           <div class="lc-dot" style="background:${color}"></div>
           <span style="color:${color}">${p.category}</span>
         </div>
-        <div class="form-badge">${p.formulation || p.packaging}</div>
+        <div class="form-badge">${p.formulation||p.packaging}</div>
       </div>
       <div class="lc-name">${p.name}</div>
-      <div class="lc-salt"><span>Salt:</span> ${p.salt || '—'}</div>
-      ${p.description ? `
+      <div class="lc-salt"><span>${saltLabel}</span> ${p.salt||'—'}</div>
+      ${p.description?`
         <div class="lc-section">
-          <div class="lc-label">About This Product</div>
+          <div class="lc-label">${aboutLabel}</div>
           <div style="font-size:13px;color:#1c2b22;line-height:1.6;background:#fff;border:1px solid #e8dfc8;border-radius:10px;padding:10px 14px;">${p.description}</div>
-        </div>` : ''}
-      ${p.uses.length ? `
+        </div>`:''}
+      ${displayUses.length?`
         <div class="lc-section">
-          <div class="lc-label">Used For</div>
-          <div class="use-tags">${p.uses.map(u => `<span class="use-tag">${u}</span>`).join('')}</div>
-        </div>` : ''}
-      ${p.benefits ? `
+          <div class="lc-label">${usedForLabel}</div>
+          <div class="use-tags">${displayUses.map(u=>`<span class="use-tag">${u}</span>`).join('')}</div>
+        </div>`:''}
+      ${(LANG==='hi' && p.usesHi.length>0 && p.uses.length>0)?`
+        <div class="lc-section" style="margin-top:-6px">
+          <div class="use-tags">${p.uses.slice(0,3).map(u=>`<span class="hindi-tag">${u}</span>`).join('')}</div>
+        </div>`:''}
+      ${p.benefits?`
         <div class="lc-section">
-          <div class="lc-label">Key Benefits</div>
+          <div class="lc-label">${benefitsLabel}</div>
           <div style="font-size:12px;color:#3d7a57;line-height:1.6;">${p.benefits}</div>
-        </div>` : ''}
+        </div>`:''}
       <div class="lc-section">
-        <div class="lc-label">Species</div>
+        <div class="lc-label">${speciesLabel}</div>
         <div class="species-row">🐄 ${p.species}</div>
       </div>
-      ${tip ? `<div class="tip-box">${tip}</div>` : ''}
+      ${tip?`<div class="tip-box">${tip}</div>`:''}
     </div>
     <div class="card-nav">
-      ${learnIdx > 0 ? `<button class="nav-btn nav-prev" onclick="learnNav(-1)">← Prev</button>` : '<div></div>'}
-      <button class="nav-btn nav-next ${learnIdx === prods.length - 1 ? 'finish' : ''}"
-        onclick="${learnIdx === prods.length - 1 ? 'startQuiz()' : 'learnNav(1)'}">
-        ${learnIdx === prods.length - 1 ? '📝 Take Quiz →' : 'Next →'}
+      ${learnIdx>0?`<button class="nav-btn nav-prev" onclick="learnNav(-1)">${t('prev')}</button>`:'<div></div>'}
+      <button class="nav-btn nav-next ${learnIdx===prods.length-1?'finish':''}"
+        onclick="${learnIdx===prods.length-1?'startQuiz()':'learnNav(1)'}">
+        ${learnIdx===prods.length-1?t('takeQuiz'):t('next')}
       </button>
     </div>
   `;
@@ -519,35 +586,45 @@ function renderLearn() {
 
 function learnNav(dir) {
   const prods = getSessionProducts(currentSess);
-  learnIdx = Math.max(0, Math.min(prods.length - 1, learnIdx + dir));
+  learnIdx = Math.max(0, Math.min(prods.length-1, learnIdx+dir));
   renderLearn();
 }
 
-// ── QUIZ PHASE ─────────────────────────────────────────────────────────────
+// ── QUIZ PHASE ────────────────────────────────────────────────────────────────
 function startQuiz() {
   currentStep  = 'quiz';
   quizIdx      = 0;
   quizCorrect  = 0;
   quizAnswered = false;
 
-  const sess      = currentSess;
-  const sessProd  = getSessionProducts(sess);
-  const shuffled  = [...sessProd].sort(() => Math.random() - .5);
-  const count     = Math.min(sess.quizCount, shuffled.length);
-  quizQ = buildQuizQuestions(shuffled.slice(0, count));
+  const sess     = currentSess;
+  const sessProd = getSessionProducts(sess);
+  const shuffled = [...sessProd].sort(()=>Math.random()-.5);
 
-  document.getElementById('studyTitle').textContent    = sess.name + ' — Quiz';
-  document.getElementById('studySubtitle').textContent = `${count} questions`;
+  // Minimum 10 questions, capped by available products
+  // If fewer than 10 products, allow repeat question types to reach 10
+  const targetQ = Math.min(Math.max(10, sess.quizCount), sessProd.length);
+  // Build questions — if not enough products, cycle through with different question types
+  quizQ = buildQuizQuestions(shuffled, targetQ);
+
+  const sessInfo = T[LANG].sess[sess.id];
+  document.getElementById('studyTitle').textContent    = sessInfo.name + t('quizLabel');
+  document.getElementById('studySubtitle').textContent = `${quizQ.length} ${t('questions')}`;
   renderQuiz();
 }
 
-function buildQuizQuestions(products) {
-  // Mix of question types: name→use, use→name, salt→name
-  return products.map((p, i) => {
-    const types = ['use2name', 'name2form', 'salt2name'];
-    const type  = types[i % types.length];
-    return { p, type };
-  });
+function buildQuizQuestions(products, targetCount) {
+  const types = ['use2name','name2form','salt2name','name2species','use2category'];
+  const questions = [];
+  let typeIdx = 0;
+  // Cycle through products (and repeat if needed) until we reach targetCount
+  for (let i = 0; i < targetCount; i++) {
+    const p    = products[i % products.length];
+    const type = types[typeIdx % types.length];
+    questions.push({ p, type, idx: i });
+    typeIdx++;
+  }
+  return questions;
 }
 
 function renderQuiz() {
@@ -556,144 +633,188 @@ function renderQuiz() {
 
   const { p, type } = quizQ[quizIdx];
   const sess  = currentSess;
-  const prods = ALL_PRODUCTS.length > 0 ? ALL_PRODUCTS : getSessionProducts(sess);
+  const prods = ALL_PRODUCTS.length>0 ? ALL_PRODUCTS : getSessionProducts(sess);
 
-  // Wrong options from same category first, then all products
-  const sameCat = prods.filter(x => x.name !== p.name && sess.cats.includes(x.category));
-  const others  = [...sameCat, ...prods.filter(x => x.name !== p.name && !sess.cats.includes(x.category))];
-  const wrongs  = others.sort(() => Math.random() - .5).slice(0, 3);
-  const options = [p, ...wrongs].sort(() => Math.random() - .5);
-
-  let question = '', hint = '';
-  if (type === 'use2name') {
-    const use = p.uses[0] || p.description.split('.')[0] || p.category;
-    question  = `Which product treats: "${use}"?`;
-    hint      = `Category: ${p.category} · ${p.formulation || p.packaging}`;
-  } else if (type === 'name2form') {
-    question = `What formulation is ${p.name}?`;
-    hint     = `Category: ${p.category}`;
-    // For this type, options are forms not names
-    const forms = ['Bolus', 'Injection', 'Liquid', 'Tablet', 'Powder', 'Spray', 'Gel', 'Soap'];
-    const correctForm = p.formulation || guessForm(p.packaging);
-    const wrongForms  = forms.filter(f => f !== correctForm).sort(() => Math.random() - .5).slice(0, 3);
-    const formOpts    = [correctForm, ...wrongForms].sort(() => Math.random() - .5);
-    renderFormQuiz(question, hint, formOpts, correctForm);
-    return;
-  } else {
-    // salt2name
-    const saltShort = (p.salt || '').split(',')[0].trim() || p.category;
-    question = `Which product contains: "${saltShort}"?`;
-    hint     = `${p.category} · ${p.formulation || p.packaging}`;
-  }
+  const sameCat = prods.filter(x=>x.name!==p.name && sess.cats.includes(x.category));
+  const others  = [...sameCat, ...prods.filter(x=>x.name!==p.name && !sess.cats.includes(x.category))];
+  const wrongs  = others.sort(()=>Math.random()-.5).slice(0,3);
+  const options = [p,...wrongs].sort(()=>Math.random()-.5);
 
   const dots = document.getElementById('studyDots');
-  dots.innerHTML = quizQ.map((_, i) =>
-    `<div class="dot ${i < quizIdx ? 'done-dot' : i === quizIdx ? 'curr-dot' : ''}"></div>`
-  ).join('');
+  dots.innerHTML = quizQ.map((_,i)=>
+    `<div class="dot ${i<quizIdx?'done-dot':i===quizIdx?'curr-dot':''}"></div>`
+  ).slice(0,Math.min(quizQ.length,15)).join('');
+
+  let question='', hint='';
+
+  if (type==='use2name') {
+    const use = (LANG==='hi' && p.usesHi.length>0) ? p.usesHi[0] : (p.uses[0]||p.description.split('.')[0]||p.category);
+    question = LANG==='hi' ? `कौन सा product इलाज करता है: "${use}"?` : `Which product treats: "${use}"?`;
+    hint     = `${LANG==='hi'?'Category':'Category'}: ${p.category} · ${p.formulation||p.packaging}`;
+  } else if (type==='name2form') {
+    question = LANG==='hi' ? `${p.name} किस form में आता है?` : `What formulation is ${p.name}?`;
+    hint     = `Category: ${p.category}`;
+    const forms = ['Bolus','Injection','Liquid','Tablet','Powder','Spray','Gel','Soap'];
+    const correctForm = p.formulation||guessForm(p.packaging);
+    const wrongForms  = forms.filter(f=>f!==correctForm).sort(()=>Math.random()-.5).slice(0,3);
+    const formOpts    = [correctForm,...wrongForms].sort(()=>Math.random()-.5);
+    renderFormQuiz(question, hint, formOpts, correctForm);
+    return;
+  } else if (type==='salt2name') {
+    const saltShort = (p.salt||'').split(',')[0].trim()||p.category;
+    question = LANG==='hi' ? `कौन सा product इसमें है: "${saltShort}"?` : `Which product contains: "${saltShort}"?`;
+    hint     = `${p.category} · ${p.formulation||p.packaging}`;
+  } else if (type==='name2species') {
+    question = LANG==='hi' ? `${p.name} किन जानवरों के लिए है?` : `${p.name} is used for which animals?`;
+    hint     = `Category: ${p.category}`;
+    // Use species options
+    const allSpecies = ['Cattle, Buffalo','Cattle, Buffalo, Sheep, Goat','Cattle, Buffalo, Horse','Dog, Cat','Poultry','Sheep, Goat'];
+    const correctSp  = p.species;
+    const wrongSp    = allSpecies.filter(s=>s!==correctSp).sort(()=>Math.random()-.5).slice(0,3);
+    const spOpts     = [correctSp,...wrongSp].sort(()=>Math.random()-.5);
+    renderSpeciesQuiz(question, hint, spOpts, correctSp);
+    return;
+  } else {
+    // use2category
+    const use = p.uses[0]||p.description.split('.')[0]||p.name;
+    question = LANG==='hi' ? `"${use}" के लिए सही category कौन सी है?` : `"${use}" belongs to which category?`;
+    hint     = `Product: ${p.name}`;
+    const cats     = Object.keys(CAT_COLORS);
+    const wrongCats= cats.filter(c=>c!==p.category).sort(()=>Math.random()-.5).slice(0,3);
+    const catOpts  = [p.category,...wrongCats].sort(()=>Math.random()-.5);
+    renderCatQuiz(question, hint, catOpts, p.category);
+    return;
+  }
 
   document.getElementById('studyContent').innerHTML = `
-    <div class="quiz-score-bar">
-      <div class="score-pill"><div class="score-n" style="color:var(--green)">${quizCorrect}</div><div class="score-l">Correct</div></div>
-      <div class="score-pill"><div class="score-n">${quizIdx + 1}/${quizQ.length}</div><div class="score-l">Question</div></div>
-      <div class="score-pill"><div class="score-n">${quizQ.length - quizIdx - 1}</div><div class="score-l">Left</div></div>
-    </div>
+    ${scoreBar()}
     <div class="quiz-wrap">
-      <div class="quiz-q-num">Question ${quizIdx + 1} of ${quizQ.length}</div>
+      <div class="quiz-q-num">${t('q')} ${quizIdx+1} ${t('of')} ${quizQ.length}</div>
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${options.map(o => `<button class="opt" onclick="checkOpt(this,'${escQ(o.name)}','${escQ(p.name)}')">${o.name}</button>`).join('')}
+        ${options.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o.name)}','${escQ(p.name)}')">${o.name}</button>`).join('')}
       </div>
-      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">Next →</button>
+      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
   `;
+}
+
+function scoreBar() {
+  return `
+    <div class="quiz-score-bar">
+      <div class="score-pill"><div class="score-n" style="color:var(--green)">${quizCorrect}</div><div class="score-l">${t('correct')}</div></div>
+      <div class="score-pill"><div class="score-n">${quizIdx+1}/${quizQ.length}</div><div class="score-l">${t('q')}</div></div>
+      <div class="score-pill"><div class="score-n">${quizQ.length-quizIdx-1}</div><div class="score-l">${t('left')}</div></div>
+    </div>`;
 }
 
 function renderFormQuiz(question, hint, formOpts, correctForm) {
-  const dots = document.getElementById('studyDots');
-  dots.innerHTML = quizQ.map((_, i) =>
-    `<div class="dot ${i < quizIdx ? 'done-dot' : i === quizIdx ? 'curr-dot' : ''}"></div>`
-  ).join('');
-
   document.getElementById('studyContent').innerHTML = `
-    <div class="quiz-score-bar">
-      <div class="score-pill"><div class="score-n" style="color:var(--green)">${quizCorrect}</div><div class="score-l">Correct</div></div>
-      <div class="score-pill"><div class="score-n">${quizIdx + 1}/${quizQ.length}</div><div class="score-l">Question</div></div>
-      <div class="score-pill"><div class="score-n">${quizQ.length - quizIdx - 1}</div><div class="score-l">Left</div></div>
-    </div>
+    ${scoreBar()}
     <div class="quiz-wrap">
-      <div class="quiz-q-num">Question ${quizIdx + 1} of ${quizQ.length}</div>
+      <div class="quiz-q-num">${t('q')} ${quizIdx+1} ${t('of')} ${quizQ.length}</div>
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${formOpts.map(f => `<button class="opt" onclick="checkOpt(this,'${f}','${correctForm}')">${f}</button>`).join('')}
+        ${formOpts.map(f=>`<button class="opt" onclick="checkOpt(this,'${f}','${correctForm}')">${f}</button>`).join('')}
       </div>
-      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">Next →</button>
+      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
   `;
 }
 
-function escQ(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+function renderSpeciesQuiz(question, hint, opts, correct) {
+  document.getElementById('studyContent').innerHTML = `
+    ${scoreBar()}
+    <div class="quiz-wrap">
+      <div class="quiz-q-num">${t('q')} ${quizIdx+1} ${t('of')} ${quizQ.length}</div>
+      <div class="quiz-question">${question}</div>
+      <div class="quiz-hint">${hint}</div>
+      <div class="options">
+        ${opts.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
+      </div>
+      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
+    </div>
+  `;
+}
+
+function renderCatQuiz(question, hint, opts, correct) {
+  document.getElementById('studyContent').innerHTML = `
+    ${scoreBar()}
+    <div class="quiz-wrap">
+      <div class="quiz-q-num">${t('q')} ${quizIdx+1} ${t('of')} ${quizQ.length}</div>
+      <div class="quiz-question">${question}</div>
+      <div class="quiz-hint">${hint}</div>
+      <div class="options">
+        ${opts.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
+      </div>
+      <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
+    </div>
+  `;
+}
+
+function escQ(s) { return (s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 
 function checkOpt(btn, chosen, correct) {
   if (quizAnswered) return;
   quizAnswered = true;
   document.querySelectorAll('.opt').forEach(b => {
     b.disabled = true;
-    if (b.textContent.trim() === correct) b.classList.add(chosen === correct ? 'correct' : 'reveal');
+    if (b.textContent.trim()===correct) b.classList.add(chosen===correct?'correct':'reveal');
   });
-  if (chosen === correct) { btn.classList.add('correct'); quizCorrect++; }
+  if (chosen===correct) { btn.classList.add('correct'); quizCorrect++; }
   else btn.classList.add('wrong');
   const nb = document.getElementById('qNext');
-  if (nb) { nb.style.display = 'block'; nb.textContent = quizIdx < quizQ.length - 1 ? 'Next →' : 'Finish Session ✓'; }
+  if (nb) { nb.style.display='block'; nb.textContent = quizIdx<quizQ.length-1 ? t('nextQ') : t('finishSess'); }
 }
 
-function nextQuiz() {
-  quizIdx++;
-  renderQuiz();
-}
+function nextQuiz() { quizIdx++; renderQuiz(); }
 
-// ── SESSION COMPLETE ───────────────────────────────────────────────────────
+// ── SESSION COMPLETE ──────────────────────────────────────────────────────────
 function renderSessionComplete() {
   const sess  = currentSess;
-  const pct   = Math.round((quizCorrect / quizQ.length) * 100);
-  const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '💪' : '📚';
-  const msg   = pct >= 80 ? 'Great job! Move to the next session.' : pct >= 60 ? 'Good — redo this session to strengthen memory.' : 'Review these products again before moving on.';
+  const pct   = Math.round((quizCorrect/quizQ.length)*100);
+  const emoji = pct>=80?'🎉':pct>=60?'💪':'📚';
+  const title = pct>=80?t('excellent'):pct>=60?t('passed'):t('practice');
+  const msg   = pct>=80?t('msgExcellent'):pct>=60?t('msgGood'):t('msgPractice');
 
-  if (pct >= 60) {
-    sessProgress[sess.id] = 'done';
+  if (pct>=60) {
+    sessProgress[sess.id]='done';
     localStorage.setItem('mdv_progress', JSON.stringify(sessProgress));
   }
 
-  document.getElementById('studyDots').innerHTML = '';
-  document.getElementById('studyTitle').textContent    = sess.name;
-  document.getElementById('studySubtitle').textContent = 'Session complete';
+  document.getElementById('studyDots').innerHTML='';
+  const sessInfo = T[LANG].sess[sess.id];
+  document.getElementById('studyTitle').textContent    = sessInfo.name;
+  document.getElementById('studySubtitle').textContent = LANG==='hi'?'Session पूरा':'Session complete';
 
   document.getElementById('studyContent').innerHTML = `
     <div class="sess-complete">
       <div class="big-icon">${emoji}</div>
-      <div class="sc-title">${pct >= 80 ? 'Excellent!' : pct >= 60 ? 'Session Passed' : 'Keep Practicing'}</div>
+      <div class="sc-title">${title}</div>
       <div class="sc-sub">${msg}</div>
       <div class="sc-stats">
         <div class="sc-stat">
           <div class="sc-n" style="color:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}">${quizCorrect}/${quizQ.length}</div>
-          <div class="sc-l">Quiz Score</div>
+          <div class="sc-l">${t('quizScore')}</div>
         </div>
-        <div class="sc-stat"><div class="sc-n">${pct}%</div><div class="sc-l">Accuracy</div></div>
+        <div class="sc-stat"><div class="sc-n">${pct}%</div><div class="sc-l">${t('accuracy')}</div></div>
       </div>
-      <button class="sc-btn" onclick="goHome()">${pct >= 60 ? 'Next Session →' : 'Back to Plan'}</button>
-      <button class="sc-btn sec" onclick="startSession(${sess.id})">Redo Session</button>
+      <button class="sc-btn" onclick="goHome()">${pct>=60?t('nextSess'):t('backPlan')}</button>
+      <button class="sc-btn sec" onclick="startSession(${sess.id})">${t('redoSess')}</button>
     </div>
   `;
 }
 
 function resetAll() {
-  sessProgress = {};
+  sessProgress={};
   localStorage.removeItem('mdv_progress');
   renderHome();
 }
 
-// ── INIT ───────────────────────────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────────────────────────
+setLang(LANG);
 loadProducts();
 </script>
 </body>
