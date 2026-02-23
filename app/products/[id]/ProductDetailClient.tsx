@@ -194,11 +194,73 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)',
               border: '1px solid rgba(200,169,110,0.25)',
               aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 20,
+              marginBottom: product.video_url ? 12 : 20,
             }}>
               <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} />
             </div>
           )}
+          {(() => {
+            if (!product.video_url) return null
+            const match = product.video_url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
+            const videoId = match?.[1]
+            if (!videoId) return null
+            return (
+              <div style={{ width: '100%', maxWidth: 480, marginBottom: 20 }}>
+                <div style={{
+                  position: 'relative', paddingBottom: '56.25%', height: 0,
+                  borderRadius: 12, overflow: 'hidden',
+                  border: '1px solid rgba(200,169,110,0.25)',
+                  background: '#000',
+                }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${videoId}?rel=0`}
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    loading="lazy"
+                  />
+                </div>
+                <div style={{ marginTop: 8, display: 'flex', gap: 10 }}>
+                  <a
+                    href={product.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '6px 14px', borderRadius: 6,
+                      background: '#ff0000', color: '#fff',
+                      textDecoration: 'none', fontSize: 12, fontWeight: 600,
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    ▶ {t.watchYT}
+                  </a>
+                  <button
+                    onClick={async () => {
+                      const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
+                      if (navigator.share) {
+                        await navigator.share({ title: product.name, text: product.description, url: shareUrl })
+                      } else {
+                        await navigator.clipboard.writeText(shareUrl)
+                        alert('Link copied!')
+                      }
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '6px 14px', borderRadius: 6,
+                      background: 'rgba(255,255,255,0.1)', color: 'var(--cream)',
+                      border: '1px solid rgba(200,169,110,0.3)', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 600,
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    🔗 {lang === 'hi' ? 'शेयर करें' : 'Share'}
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
             <span className="chip" style={{ background: 'rgba(200,169,110,0.12)', color: 'var(--gold-light)', border: '1px solid rgba(200,169,110,0.2)', fontSize: 12 }}>
               {product.packaging}
@@ -301,68 +363,6 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         </div>
 
         <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid #d4c9b0' }}>
-          {(() => {
-            if (!product.video_url) return null
-            const match = product.video_url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
-            const videoId = match?.[1]
-            if (!videoId) return null
-            return (
-              <div style={{ marginBottom: 40 }}>
-                <div className="section-label" style={{ color: '#c8a96e', marginBottom: 12 }}>📹 {t.videoDemo}</div>
-                <div style={{
-                  position: 'relative', paddingBottom: '56.25%', height: 0,
-                  borderRadius: 16, overflow: 'hidden',
-                  border: '1px solid rgba(200,169,110,0.25)',
-                  background: '#000', boxShadow: '0 4px 20px rgba(26,58,42,0.1)',
-                }}>
-                  <iframe
-                    src={`https://www.youtube.com/embed/${videoId}?rel=0`}
-                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    loading="lazy"
-                  />
-                </div>
-                <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <a
-                    href={product.video_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 8,
-                      padding: '8px 20px', borderRadius: 8,
-                      background: '#ff0000', color: '#fff',
-                      textDecoration: 'none', fontSize: 13, fontWeight: 600,
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}
-                  >
-                    ▶ {t.watchYT}
-                  </a>
-                  <button
-                    onClick={async () => {
-                      const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
-                      if (navigator.share) {
-                        await navigator.share({ title: product.name, text: product.description, url: shareUrl })
-                      } else {
-                        await navigator.clipboard.writeText(shareUrl)
-                        alert('Link copied!')
-                      }
-                    }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 8,
-                      padding: '8px 20px', borderRadius: 8,
-                      background: 'var(--forest)', color: 'var(--cream)',
-                      border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}
-                  >
-                    🔗 {lang === 'hi' ? 'शेयर करें' : 'Share Product'}
-                  </button>
-                </div>
-              </div>
-            )
-          })()}
           <Link href="/products" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             padding: '10px 24px', borderRadius: 8, background: 'var(--forest)',

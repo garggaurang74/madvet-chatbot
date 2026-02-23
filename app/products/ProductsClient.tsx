@@ -240,7 +240,7 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
         )}
 
         {/* Footer row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid #ede6d6' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid #ede6d6', gap: 6 }}>
           <button
             onClick={() => setOpen(o => !o)}
             style={{
@@ -255,13 +255,32 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
             {open ? (lang === 'hi' ? 'कम' : 'Less') : (lang === 'hi' ? 'जानकारी' : 'Details')}
           </button>
 
-          {/* Link to full product page */}
-          <Link href={`/products/${p.id}`} style={{
-            fontSize: 11, color: '#c8a96e', fontWeight: 600, textDecoration: 'none',
-            padding: '3px 8px', borderRadius: 4, border: '1px solid rgba(200,169,110,0.3)',
-          }}>
-            {lang === 'hi' ? 'पूरा देखें →' : 'View →'}
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+            {/* Video link */}
+            {p.video_url && (
+              <a
+                href={p.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  fontSize: 11, color: '#fff', fontWeight: 600, textDecoration: 'none',
+                  padding: '3px 8px', borderRadius: 4, background: '#e00000',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}
+              >
+                ▶ {lang === 'hi' ? 'वीडियो' : 'Video'}
+              </a>
+            )}
+
+            {/* Link to full product page */}
+            <Link href={`/products/${p.id}`} style={{
+              fontSize: 11, color: '#c8a96e', fontWeight: 600, textDecoration: 'none',
+              padding: '3px 8px', borderRadius: 4, border: '1px solid rgba(200,169,110,0.3)',
+            }}>
+              {lang === 'hi' ? 'पूरा देखें →' : 'View →'}
+            </Link>
+          </div>
         </div>
       </div>
 
