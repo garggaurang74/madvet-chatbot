@@ -181,14 +181,56 @@ export async function POST(req: NextRequest) {
     const readable = new ReadableStream({
       async start(controller) {
         try {
+          // Buffer to intercept the PRODUCTS: tag before it reaches the user.
+          // GPT always appends it at the very end, but it may arrive split
+          // across several chunks, so we hold back the last N characters.
+          const MARKER      = 'PRODUCTS:'
+          const HOLD_BACK   = MARKER.length - 1  // 8 chars — safe margin
+          let   pendingBuf  = ''
+          let   markerFound = false
+
+          const flushPending = (text: string) => {
+            if (!text) return
+            const safe = text.replace(/\n/g, '\\n')
+            controller.enqueue(encoder.encode(`t:${safe}\n`))
+          }
+
           for await (const chunk of stream) {
             const delta = chunk.choices[0]?.delta?.content
-            if (delta) {
-              fullText += delta
-              // Stream text chunks prefixed with 't:' so frontend can parse
-              const safeChunk = delta.replace(/\n/g, '\\n')
-              controller.enqueue(encoder.encode(`t:${safeChunk}\n`))
+            if (!delta) continue
+
+            fullText   += delta
+            pendingBuf += delta
+
+            // Once the marker is found, stop forwarding chunks to the user
+            if (markerFound) continue
+
+            const markerIdx = pendingBuf.indexOf(MARKER)
+            if (markerIdx !== -1) {
+              // Send everything strictly before the marker (trim trailing newlines)
+              const before = pendingBuf.slice(0, markerIdx).replace(/\n+$/, '')
+              flushPending(before)
+              markerFound = true
+              pendingBuf  = ''
+            } else {
+              // Safe to flush everything except the last HOLD_BACK chars
+              // (they might be the leading bytes of a split marker)
+              if (pendingBuf.length > HOLD_BACK) {
+                flushPending(pendingBuf.slice(0, pendingBuf.length - HOLD_BACK))
+                pendingBuf = pendingBuf.slice(pendingBuf.length - HOLD_BACK)
+              }
             }
+          }
+
+          // After stream ends: flush whatever is left in the buffer
+          // (only the part before the marker, if it arrived in the last chunk)
+          if (!markerFound && pendingBuf) {
+            const markerIdx = pendingBuf.indexOf(MARKER)
+            flushPending(
+              markerIdx !== -1
+                ? pendingBuf.slice(0, markerIdx).replace(/\n+$/, '')
+                : pendingBuf
+            )
           }
 
           // After stream ends, extract product IDs and send as metadata
