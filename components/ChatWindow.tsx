@@ -267,7 +267,7 @@ export default function ChatWindow() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <img src="/madvet-icon.png" alt="Madvet" style={{height:32,width:32,objectFit:"contain",flexShrink:0}} />
+            <img src="/madvet-logo.png" alt="Madvet" style={{height:28,objectFit:"contain",flexShrink:0}} />
             <span className="font-semibold text-sm">Dr. Madvet Assistant</span>
           </div>
           <div className="flex items-center gap-1">
@@ -296,7 +296,7 @@ export default function ChatWindow() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           {isEmpty && (
             <div className="flex flex-col items-center justify-center h-full px-4 text-center">
-              <div style={{background:"#ffffff",borderRadius:14,padding:"14px 28px",marginBottom:20,display:"inline-flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 16px rgba(0,0,0,0.25)"}}><img src="/madvet-logo.png" alt="Madvet Animal Healthcare" style={{height:52,objectFit:"contain",display:"block"}} /></div>
+              <div style={{background:"#ffffff",borderRadius:14,padding:"14px 28px",marginBottom:20,display:"inline-flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 16px rgba(0,0,0,0.25)"}}><img src="/madvet-logo.png" alt="Madvet Animal Healthcare" style={{height:56,objectFit:"contain",display:"block",maxWidth:260}} /></div>
               <h1 className="text-2xl font-semibold mb-2">Dr. Madvet Assistant</h1>
               <p className="text-white/50 text-sm mb-8 max-w-sm">
                 Apne janwar ki koi bhi health problem puchein — Hindi, English, ya Hinglish mein
