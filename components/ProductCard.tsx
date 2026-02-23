@@ -8,35 +8,49 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, dark = false }: ProductCardProps) {
-  const name     = product.product_name ?? 'Unknown Product'
-  const packing  = product.packaging
-  const category = product.category
-  const species  = product.species
-  const benefits = product.usp_benefits
+  const name        = product.product_name ?? 'Unknown Product'
+  const packing     = product.packaging
+  const category    = product.category
+  const species     = product.species
+  const benefits    = product.usp_benefits
   const description = product.description
 
-  // Trim indication to first sentence / first comma-chunk — avoid keyword dumps
+  // Trim indication to first clean chunk only — avoid keyword dumps
   const rawIndication = product.indication ?? ''
   const indication = rawIndication.length > 120
-    ? rawIndication.split(/[,،]/)[0].trim()   // first comma-chunk only
+    ? rawIndication.split(/[,،]/)[0].trim()
     : rawIndication
+
+  const MetaRow = ({ label, value }: { label: string; value: string }) => (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 13 }}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
+        textTransform: 'uppercase', opacity: 0.45, flexShrink: 0, paddingTop: 1,
+      }}>
+        {label}
+      </span>
+      <span style={{ lineHeight: 1.4 }}>{value}</span>
+    </div>
+  )
 
   return (
     <div className={`rounded-xl border-2 p-4 shadow-sm ${
       dark
-        ? 'bg-[#2f2f2f] border-green-700'
+        ? 'bg-[#2a2a2a] border-green-800/50'
         : 'bg-white border-madvet-accent'
     }`}>
 
-      {/* Name + Category badge */}
-      <div className="flex items-start justify-between gap-2">
-        <p className={`font-semibold ${dark ? 'text-green-400' : 'text-madvet-primary'}`}>
+      {/* Name + category badge */}
+      <div className="flex items-start justify-between gap-2 mb-2.5">
+        <p className={`font-semibold text-base leading-snug ${
+          dark ? 'text-green-400' : 'text-madvet-primary'
+        }`}>
           {name}
         </p>
         {category && (
-          <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
+          <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 font-medium ${
             dark
-              ? 'bg-green-700/50 text-green-300'
+              ? 'bg-green-900/50 text-green-300'
               : 'bg-madvet-accent text-madvet-primary'
           }`}>
             {category.split('/')[0].trim()}
@@ -44,34 +58,31 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
         )}
       </div>
 
-      {/* Description (preferred) or trimmed indication */}
+      {/* Description or indication — main body text */}
       {(description || indication) && (
-        <p className={`mt-2 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`text-sm leading-relaxed mb-3 ${
+          dark ? 'text-gray-300' : 'text-gray-600'
+        }`}>
           {description || indication}
         </p>
       )}
 
-      {/* Packing */}
-      {packing && (
-        <p className={`mt-1.5 text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-          📦 <span className="font-medium">Packing:</span> {packing}
-        </p>
-      )}
+      {/* Metadata rows — no emoji prefixes */}
+      <div className={`space-y-1.5 border-t pt-3 ${
+        dark ? 'border-white/10 text-gray-400' : 'border-gray-100 text-gray-500'
+      }`}>
+        {packing  && <MetaRow label="Form"    value={packing} />}
+        {species  && <MetaRow label="For"     value={species} />}
+        {benefits && benefits.length < 120 && <MetaRow label="Note" value={benefits} />}
+      </div>
 
-      {/* Benefits — only if short */}
-      {benefits && benefits.length < 120 && (
-        <p className={`mt-1 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-          ✅ {benefits}
-        </p>
-      )}
-
-      {/* Vet reminder */}
-      <p className={`mt-3 text-xs px-2 py-1.5 rounded-lg ${
+      {/* Vet reminder — ⚕️ is Unicode 2695 (very safe), no 🩺 */}
+      <p className={`mt-3 text-xs px-2.5 py-1.5 rounded-lg ${
         dark
-          ? 'bg-green-900/30 text-green-400'
+          ? 'bg-green-900/25 text-green-400/80'
           : 'bg-green-50 text-green-700'
       }`}>
-        🩺 Sahi dose ke liye apne vet se milein 🙏
+        ⚕️ Sahi dose ke liye apne vet se milein 🙏
       </p>
     </div>
   )

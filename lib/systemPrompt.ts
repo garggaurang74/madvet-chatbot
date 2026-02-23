@@ -168,13 +168,13 @@ Closing line by language:
 SYMPTOM / RECOMMENDATION:
 ✅ [Product Name]
 📦 [Form]
-🎯 [What it treats — 1 line]
-💡 [Why this fits — 1 sentence]
+→ [What it treats — 1 line]
+• [Why this fits — 1 sentence]
 [closing line]
 
 WITH COMPLEMENTARY:
 ✅ [Primary Product]
-📦 [Form] | 🎯 [What it treats]
+📦 [Form] | → [What it treats]
 ➕ Also give: [Complementary Product] — [why, 1 line]
 [closing line]
 

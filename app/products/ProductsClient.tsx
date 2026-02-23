@@ -34,6 +34,43 @@ const FORM_ORDER = [
 
 const SP_ORDER = ['Cattle', 'Buffalo', 'Sheep', 'Goat', 'Dog', 'Cat', 'Poultry', 'Horse']
 
+// ── HINDI TRANSLATIONS ───────────────────────────────────────────────────────
+
+const HI_CATS: Record<string, string> = {
+  'Antibiotic':                    'एंटीबायोटिक (संक्रमण)',
+  'Anti-inflammatory / Analgesic': 'दर्द व बुखार की दवा',
+  'Vitamin Supplement':            'विटामिन / पोषण',
+  'Anthelmintic / Antiparasitic':  'पेट के कीड़े की दवा',
+  'Ectoparasiticide':              'टिक / जूँ की दवा',
+  'Reproductive Hormone':          'प्रजनन हार्मोन',
+  'Probiotic':                     'पेट के अच्छे बैक्टीरिया',
+  'Antidiarrheal':                 'दस्त की दवा',
+  'Antihistamine':                 'एलर्जी की दवा',
+  'Dermatological':                'त्वचा / चमड़ी की दवा',
+  'Udder Care':                    'थन की देखभाल',
+}
+
+const HI_SP: Record<string, string> = {
+  Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी',
+  Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा',
+}
+
+const HI_FORM: Record<string, string> = {
+  'Bolus':         'बोलस (गोली)',
+  'Injection':     'इंजेक्शन',
+  'Liquid':        'तरल (लिक्विड)',
+  'Tablet':        'टैबलेट',
+  'Powder':        'पाउडर',
+  'Spray':         'स्प्रे',
+  'Gel / Ointment':'जेल / मलहम',
+  'Soap':          'साबुन',
+  'Suspension':    'सस्पेंशन',
+  'Pour-On':       'पोर-ऑन',
+  'Other':         'अन्य',
+}
+
+type Lang = 'en' | 'hi'
+
 // ── SEARCH SCORING ────────────────────────────────────────────────────────────
 
 function scoreProduct(p: Product, q: string): number {
@@ -66,16 +103,23 @@ function highlight(text: string, q: string): string {
 
 // ── PRODUCT CARD ──────────────────────────────────────────────────────────────
 
-function ProductCard({ p, q }: { p: Product; q: string }) {
+function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
   const [open, setOpen] = useState(false)
   const color = getColor(p.category)
 
   const shortDesc = p.description.length > 5
     ? (p.description.length > 160 ? p.description.slice(0, 157) + '…' : p.description)
-    : p.indication.split(',').map(s => s.trim()).filter(s => s.length > 10)[0] || ''
+    : p.indication.split(',').map(s => s.trim()).filter(s => s.length > 10 && /^[\x00-\x7F]+$/.test(s))[0] || ''
 
   const indChunks = p.indication.split(',').map(s => s.trim()).filter(s => s.length > 6)
-  const cleanInd  = indChunks.slice(0, 8).join(', ') + (indChunks.length > 8 ? '…' : '')
+  // Hindi mode: prefer Hindi indication terms; English mode: prefer English terms
+  const displayInd = lang === 'hi'
+    ? (indChunks.filter(s => /[^\x00-\x7F]/.test(s)).slice(0, 6).join(', ')
+        || indChunks.filter(s => /^[\x00-\x7F]+$/.test(s)).slice(0, 6).join(', '))
+    : (indChunks.filter(s => /^[\x00-\x7F]+$/.test(s)).slice(0, 8).join(', ')
+        + (indChunks.length > 8 ? '…' : ''))
+
+  const speciesArr = p.species.split(/[,/]/).map(s => s.trim()).filter(Boolean)
 
   const copyComposition = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -88,20 +132,15 @@ function ProductCard({ p, q }: { p: Product; q: string }) {
       document.body.removeChild(ta)
     })
     const btn = e.currentTarget as HTMLButtonElement
-    btn.textContent = 'Copied!'
-    setTimeout(() => { btn.textContent = 'Copy' }, 1800)
+    btn.textContent = lang === 'hi' ? 'हो गया!' : 'Copied!'
+    setTimeout(() => { btn.textContent = lang === 'hi' ? 'कॉपी' : 'Copy' }, 1800)
   }
 
   return (
     <div style={{
-      background: '#fff',
-      border: '1px solid #d4c9b0',
-      borderRadius: 14,
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-      alignSelf: 'start',
+      background: '#fff', border: '1px solid #d4c9b0', borderRadius: 14,
+      overflow: 'hidden', display: 'flex', flexDirection: 'column',
+      transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s', alignSelf: 'start',
     }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLDivElement
@@ -116,10 +155,8 @@ function ProductCard({ p, q }: { p: Product; q: string }) {
         el.style.borderColor = '#d4c9b0'
       }}
     >
-      {/* Accent bar */}
       <div style={{ height: 3, background: color }} />
 
-      {/* Body */}
       <div style={{ padding: '20px 22px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Top row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
@@ -145,14 +182,14 @@ function ProductCard({ p, q }: { p: Product; q: string }) {
           </div>
         )}
 
-        {/* Short description */}
+        {/* Short desc */}
         {shortDesc && (
           <p style={{ fontSize: 13, color: '#5a7060', lineHeight: 1.65, marginBottom: 14, flex: 1 }}
             dangerouslySetInnerHTML={{ __html: q ? highlight(shortDesc, q) : shortDesc }}
           />
         )}
 
-        {/* Footer */}
+        {/* Footer row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid #ede6d6' }}>
           <button
             onClick={() => setOpen(o => !o)}
@@ -165,49 +202,72 @@ function ProductCard({ p, q }: { p: Product; q: string }) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               {open ? <path d="M18 15l-6-6-6 6" /> : <path d="M6 9l6 6 6-6" />}
             </svg>
-            {open ? 'Less' : 'Details'}
+            {open ? (lang === 'hi' ? 'कम' : 'Less') : (lang === 'hi' ? 'जानकारी' : 'Details')}
           </button>
+
+          {/* Link to full product page */}
+          <Link href={`/products/${p.id}`} style={{
+            fontSize: 11, color: '#c8a96e', fontWeight: 600, textDecoration: 'none',
+            padding: '3px 8px', borderRadius: 4, border: '1px solid rgba(200,169,110,0.3)',
+          }}>
+            {lang === 'hi' ? 'पूरा देखें →' : 'View →'}
+          </Link>
         </div>
       </div>
 
-      {/* Expanded detail panel */}
+      {/* Expanded panel */}
       {open && (
         <div style={{ borderTop: '1px solid #ede6d6', background: '#f5f0e8', padding: '16px 22px 20px' }}>
           {p.description && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>Description</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
+                {lang === 'hi' ? 'विवरण' : 'Description'}
+              </div>
               <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{p.description}</div>
             </div>
           )}
           {p.salt && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>Composition</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
+                {lang === 'hi' ? 'संरचना' : 'Composition'}
+              </div>
               <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 <span>{p.salt}</span>
                 <button onClick={copyComposition} style={{
                   padding: '2px 8px', fontSize: 11, fontWeight: 600, borderRadius: 4,
                   border: '1px solid #d4c9b0', background: '#fff', cursor: 'pointer',
                   color: '#5a7060', flexShrink: 0, fontFamily: "'DM Sans', sans-serif",
-                }}>Copy</button>
+                }}>{lang === 'hi' ? 'कॉपी' : 'Copy'}</button>
               </div>
             </div>
           )}
           {p.benefits && p.benefits !== 'N/A' && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>Key Benefits</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
+                {lang === 'hi' ? 'मुख्य फायदे' : 'Key Benefits'}
+              </div>
               <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{p.benefits}</div>
             </div>
           )}
-          {cleanInd && (
+          {displayInd && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>Used For</div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{cleanInd}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
+                {lang === 'hi' ? 'किसके लिए' : 'Used For'}
+              </div>
+              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{displayInd}</div>
             </div>
           )}
-          {p.species && (
+          {speciesArr.length > 0 && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>Species</div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{p.species}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
+                {lang === 'hi' ? 'जानवर' : 'Species'}
+              </div>
+              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>
+                {lang === 'hi'
+                  ? speciesArr.map(s => `${HI_SP[s] || s} (${s})`).join(', ')
+                  : speciesArr.join(', ')
+                }
+              </div>
             </div>
           )}
         </div>
@@ -220,58 +280,72 @@ function ProductCard({ p, q }: { p: Product; q: string }) {
 
 function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: '6px 14px', borderRadius: 20,
-        border: `1px solid ${active ? '#c8a96e' : 'rgba(200,169,110,0.25)'}`,
-        background: active ? '#c8a96e' : 'transparent',
-        color: active ? '#1a3a2a' : 'rgba(245,240,232,0.6)',
-        fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: active ? 600 : 500,
-        cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.18s',
-      }}
-    >{label}</button>
+    <button onClick={onClick} style={{
+      padding: '6px 14px', borderRadius: 20,
+      border: `1px solid ${active ? '#c8a96e' : 'rgba(200,169,110,0.25)'}`,
+      background: active ? '#c8a96e' : 'transparent',
+      color: active ? '#1a3a2a' : 'rgba(245,240,232,0.6)',
+      fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: active ? 600 : 500,
+      cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.18s',
+    }}>{label}</button>
+  )
+}
+
+// ── LANGUAGE TOGGLE ───────────────────────────────────────────────────────────
+
+function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center',
+      background: 'rgba(255,255,255,0.07)', borderRadius: 8,
+      border: '1px solid rgba(200,169,110,0.25)', padding: 3, gap: 2, flexShrink: 0,
+    }}>
+      {(['en', 'hi'] as Lang[]).map(l => (
+        <button key={l} onClick={() => setLang(l)} style={{
+          padding: '5px 13px', borderRadius: 6, border: 'none', cursor: 'pointer',
+          fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600,
+          transition: 'all 0.15s',
+          background: lang === l ? '#c8a96e' : 'transparent',
+          color: lang === l ? '#1a3a2a' : 'rgba(245,240,232,0.5)',
+        }}>
+          {l === 'en' ? 'EN' : 'हिंदी'}
+        </button>
+      ))}
+    </div>
   )
 }
 
 // ── MAIN CLIENT COMPONENT ─────────────────────────────────────────────────────
 
 export default function ProductsClient({ products }: { products: Product[] }) {
-  const [searchText, setSearchText]   = useState('')
-  const [activeCat, setActiveCat]     = useState('all')
-  const [activeSp, setActiveSp]       = useState('all')
-  const [activeForm, setActiveForm]   = useState('all')
+  const [lang, setLang]             = useState<Lang>('en')
+  const [searchText, setSearchText] = useState('')
+  const [activeCat, setActiveCat]   = useState('all')
+  const [activeSp, setActiveSp]     = useState('all')
+  const [activeForm, setActiveForm] = useState('all')
 
-  // Build filter options dynamically from DB data
   const { cats, species, forms } = useMemo(() => {
-    const usedCats  = [...new Set(products.map(p => p.category))].filter(Boolean)
-    const cats      = [...CAT_ORDER.filter(c => usedCats.includes(c)), ...usedCats.filter(c => !CAT_ORDER.includes(c))]
-
-    const allSp = new Set<string>()
-    products.forEach(p => p.species.split(/[,\/]/).map(s => s.trim()).filter(Boolean).forEach(s => allSp.add(s)))
-    const species = [...SP_ORDER.filter(s => allSp.has(s)), ...[...allSp].filter(s => !SP_ORDER.includes(s))]
-
+    const usedCats = [...new Set(products.map(p => p.category))].filter(Boolean)
+    const cats     = [...CAT_ORDER.filter(c => usedCats.includes(c)), ...usedCats.filter(c => !CAT_ORDER.includes(c))]
+    const allSp    = new Set<string>()
+    products.forEach(p => p.species.split(/[,/]/).map(s => s.trim()).filter(Boolean).forEach(s => allSp.add(s)))
+    const species  = [...SP_ORDER.filter(s => allSp.has(s)), ...[...allSp].filter(s => !SP_ORDER.includes(s))]
     const usedForms = [...new Set(products.map(p => p.formulation))].filter(Boolean)
-    const forms     = [...FORM_ORDER.filter(f => usedForms.includes(f)), ...usedForms.filter(f => !FORM_ORDER.includes(f))]
-
+    const forms    = [...FORM_ORDER.filter(f => usedForms.includes(f)), ...usedForms.filter(f => !FORM_ORDER.includes(f))]
     return { cats, species, forms }
   }, [products])
 
   const filtered = useMemo(() => {
     const q = searchText.toLowerCase().trim()
     let base = products
-
     if (activeSp   !== 'all') base = base.filter(p => p.species.toLowerCase().includes(activeSp.toLowerCase()))
     if (activeForm !== 'all') base = base.filter(p => p.formulation === activeForm)
-
     if (q) {
-      return base
-        .map(p => ({ p, score: scoreProduct(p, q) }))
+      return base.map(p => ({ p, score: scoreProduct(p, q) }))
         .filter(({ score }) => score > 0)
         .sort((a, b) => b.score - a.score)
         .map(({ p }) => p)
     }
-
     if (activeCat !== 'all') base = base.filter(p => p.category === activeCat)
     return base
   }, [products, searchText, activeCat, activeSp, activeForm])
@@ -281,7 +355,6 @@ export default function ProductsClient({ products }: { products: Product[] }) {
     if (e.target.value) setActiveCat('all')
   }, [])
 
-  // Group by category for browsing view
   const grouped = useMemo(() => {
     if (searchText.trim()) return null
     const g: Record<string, Product[]> = {}
@@ -299,8 +372,8 @@ export default function ProductsClient({ products }: { products: Product[] }) {
         *, *::before, *::after { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; overflow-x: hidden; max-width: 100%; }
         :root {
-          --forest: #1a3a2a; --forest-mid: #264d39; --forest-light: #3d7a57;
-          --cream: #f5f0e8; --cream-dark: #ede6d6; --gold: #c8a96e; --gold-light: #e8d5a8;
+          --forest: #1a3a2a; --forest-mid: #264d39; --cream: #f5f0e8;
+          --cream-dark: #ede6d6; --gold: #c8a96e; --gold-light: #e8d5a8;
         }
         .products-page { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height: 100vh; color: #1c2b22; width: 100%; overflow-x: hidden; }
         .filter-scroll { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -321,7 +394,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
           .header-title { font-size: 20px !important; }
           .controls-inner { flex-direction: column !important; align-items: stretch !important; padding: 8px 12px !important; gap: 6px !important; width: 100% !important; }
           .search-wrap { width: 100% !important; min-width: unset !important; flex: unset !important; }
-          .filter-scroll { flex-wrap: nowrap !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 6px !important; width: 100%; max-width: 100%; padding-bottom: 2px; }
+          .filter-scroll { flex-wrap: nowrap !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 6px !important; width: 100%; padding-bottom: 2px; }
           .filter-scroll::-webkit-scrollbar { display: none; }
           .filter-label { display: none !important; }
           .main-content { padding: 12px 10px 60px !important; }
@@ -346,20 +419,20 @@ export default function ProductsClient({ products }: { products: Product[] }) {
           }}>
             <span style={{ fontSize: 22 }}>🐄</span> Madvet
           </Link>
-          <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <Link href="/" className="nav-link-item" style={{
               padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)',
               fontSize: 13, fontWeight: 500, textDecoration: 'none',
-            }}>Assistant</Link>
+            }}>{lang === 'hi' ? 'सहायक' : 'Assistant'}</Link>
             <span className="nav-link-item" style={{
               padding: '6px 14px', borderRadius: 6, color: 'var(--gold-light)',
               background: 'rgba(200,169,110,0.1)', fontSize: 13, fontWeight: 500,
-            }}>Products</span>
+            }}>{lang === 'hi' ? 'उत्पाद' : 'Products'}</span>
             <Link href="/madvet-training.html" className="training-btn" style={{
               marginLeft: 12, padding: '7px 16px', background: 'var(--gold)',
               color: 'var(--forest)', borderRadius: 6, fontFamily: "'DM Sans', sans-serif",
               fontSize: 13, fontWeight: 700, textDecoration: 'none',
-            }}>🎓 Training</Link>
+            }}>🎓 {lang === 'hi' ? 'ट्रेनिंग' : 'Training'}</Link>
           </div>
         </nav>
 
@@ -387,20 +460,30 @@ export default function ProductsClient({ products }: { products: Product[] }) {
                 fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(42px, 5vw, 68px)',
                 lineHeight: 1.05, color: 'var(--cream)', letterSpacing: -1, margin: 0,
               }}>
-                Our<br /><em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>Products</em>
+                {lang === 'hi' ? 'हमारे' : 'Our'}<br />
+                <em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>
+                  {lang === 'hi' ? 'उत्पाद' : 'Products'}
+                </em>
               </h1>
-              <p style={{ marginTop: 16, fontSize: 15, color: 'rgba(245,240,232,0.55)', fontWeight: 300, letterSpacing: '0.3px', maxWidth: 420, lineHeight: 1.7 }}>
-                Complete range of Madvet veterinary medicines — antibiotics, supplements, dewormers and more.
+              <p className="header-subtitle" style={{ marginTop: 16, fontSize: 15, color: 'rgba(245,240,232,0.55)', fontWeight: 300, letterSpacing: '0.3px', maxWidth: 420, lineHeight: 1.7 }}>
+                {lang === 'hi'
+                  ? 'Madvet की पूरी दवाओं की सूची — एंटीबायोटिक, विटामिन, कीड़े मारने की दवा और बहुत कुछ।'
+                  : 'Complete range of Madvet veterinary medicines — antibiotics, supplements, dewormers and more.'
+                }
               </p>
             </div>
             <div className="header-stats" style={{ display: 'flex', gap: 40, flexShrink: 0 }}>
               <div style={{ textAlign: 'right' }}>
                 <div className="stat-number" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 38, color: 'var(--gold-light)', lineHeight: 1 }}>{products.length}</div>
-                <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.45)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 4 }}>Products</div>
+                <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.45)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 4 }}>
+                  {lang === 'hi' ? 'उत्पाद' : 'Products'}
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="stat-number" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 38, color: 'var(--gold-light)', lineHeight: 1 }}>{cats.length}</div>
-                <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.45)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 4 }}>Categories</div>
+                <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.45)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 4 }}>
+                  {lang === 'hi' ? 'श्रेणियाँ' : 'Categories'}
+                </div>
               </div>
             </div>
           </div>
@@ -415,6 +498,10 @@ export default function ProductsClient({ products }: { products: Product[] }) {
             maxWidth: 1400, margin: '0 auto', padding: '16px 48px',
             display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
           }}>
+
+            {/* ── LANGUAGE TOGGLE ── */}
+            <LangToggle lang={lang} setLang={setLang} />
+
             {/* Search */}
             <div className="search-wrap" style={{ position: 'relative', flex: 1, minWidth: 220 }}>
               <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', opacity: 0.7, pointerEvents: 'none' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -422,7 +509,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
               </svg>
               <input
                 type="text"
-                placeholder="Search products, composition, indications, species…"
+                placeholder={lang === 'hi' ? 'उत्पाद, संरचना, बीमारी, जानवर खोजें…' : 'Search products, composition, indications, species…'}
                 value={searchText}
                 onChange={handleSearch}
                 autoComplete="off"
@@ -437,33 +524,52 @@ export default function ProductsClient({ products }: { products: Product[] }) {
 
             {/* Category filter */}
             <div className="filter-scroll">
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(200,169,110,0.6)', whiteSpace: 'nowrap' }}>Category</span>
-              <Pill label="All" active={activeCat === 'all'} onClick={() => setActiveCat('all')} />
+              <span className="filter-label" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(200,169,110,0.6)', whiteSpace: 'nowrap' }}>
+                {lang === 'hi' ? 'श्रेणी' : 'Category'}
+              </span>
+              <Pill label={lang === 'hi' ? 'सब' : 'All'} active={activeCat === 'all'} onClick={() => setActiveCat('all')} />
               {cats.map(c => (
-                <Pill key={c} label={c.replace(' / Analgesic', '').replace(' / Antiparasitic', '')} active={activeCat === c} onClick={() => setActiveCat(c)} />
+                <Pill
+                  key={c}
+                  label={lang === 'hi' ? (HI_CATS[c] || c) : c.replace(' / Analgesic', '').replace(' / Antiparasitic', '')}
+                  active={activeCat === c}
+                  onClick={() => setActiveCat(c)}
+                />
               ))}
             </div>
 
             {/* Species filter */}
             <div className="filter-scroll">
-              <Pill label="All Species" active={activeSp === 'all'} onClick={() => setActiveSp('all')} />
+              <Pill label={lang === 'hi' ? 'सभी जानवर' : 'All Species'} active={activeSp === 'all'} onClick={() => setActiveSp('all')} />
               {species.map(s => (
-                <Pill key={s} label={s} active={activeSp === s} onClick={() => setActiveSp(s)} />
+                <Pill
+                  key={s}
+                  label={lang === 'hi' ? (HI_SP[s] || s) : s}
+                  active={activeSp === s}
+                  onClick={() => setActiveSp(s)}
+                />
               ))}
             </div>
 
             {/* Formulation filter */}
             <div className="filter-scroll">
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(200,169,110,0.6)', whiteSpace: 'nowrap' }}>Form</span>
-              <Pill label="All" active={activeForm === 'all'} onClick={() => setActiveForm('all')} />
+              <span className="filter-label" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(200,169,110,0.6)', whiteSpace: 'nowrap' }}>
+                {lang === 'hi' ? 'रूप' : 'Form'}
+              </span>
+              <Pill label={lang === 'hi' ? 'सब' : 'All'} active={activeForm === 'all'} onClick={() => setActiveForm('all')} />
               {forms.map(f => (
-                <Pill key={f} label={f} active={activeForm === f} onClick={() => setActiveForm(f)} />
+                <Pill
+                  key={f}
+                  label={lang === 'hi' ? (HI_FORM[f] || f) : f}
+                  active={activeForm === f}
+                  onClick={() => setActiveForm(f)}
+                />
               ))}
             </div>
 
             {/* Count */}
             <div className="results-count" style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(245,240,232,0.4)', whiteSpace: 'nowrap' }}>
-              <span style={{ color: 'var(--gold-light)', fontWeight: 600 }}>{filtered.length}</span> products
+              <span style={{ color: 'var(--gold-light)', fontWeight: 600 }}>{filtered.length}</span> {lang === 'hi' ? 'उत्पाद' : 'products'}
             </div>
           </div>
         </div>
@@ -473,32 +579,43 @@ export default function ProductsClient({ products }: { products: Product[] }) {
           {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 20px', color: '#5a7060' }}>
               <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>🔍</div>
-              <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: '#1a3a2a', marginBottom: 8 }}>No products found</h3>
-              <p style={{ fontSize: 14 }}>Try a different search or filter.</p>
+              <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: '#1a3a2a', marginBottom: 8 }}>
+                {lang === 'hi' ? 'कोई उत्पाद नहीं मिला' : 'No products found'}
+              </h3>
+              <p style={{ fontSize: 14 }}>{lang === 'hi' ? 'दूसरे शब्द या फ़िल्टर से खोजें।' : 'Try a different search or filter.'}</p>
             </div>
           ) : q ? (
-            // Search results — flat ranked list
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #d4c9b0' }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#c8a96e', flexShrink: 0 }} />
-                <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>Search Results</h2>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>{filtered.length} match{filtered.length !== 1 ? 'es' : ''}</span>
+                <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>
+                  {lang === 'hi' ? 'खोज परिणाम' : 'Search Results'}
+                </h2>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>
+                  {filtered.length} {lang === 'hi' ? 'मिले' : `match${filtered.length !== 1 ? 'es' : ''}`}
+                </span>
               </div>
               <div className="product-grid">
-                {filtered.map(p => <ProductCard key={p.id} p={p} q={q} />)}
+                {filtered.map(p => <ProductCard key={p.id} p={p} q={q} lang={lang} />)}
               </div>
             </div>
           ) : grouped ? (
-            // Grouped by category
             grouped.map(({ cat, prods }) => (
               <div key={cat} style={{ marginBottom: 56 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #d4c9b0' }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: getColor(cat), flexShrink: 0 }} />
-                  <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>{cat}</h2>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>{prods.length} product{prods.length !== 1 ? 's' : ''}</span>
+                  <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>
+                    {lang === 'hi' ? (HI_CATS[cat] || cat) : cat}
+                    {lang === 'hi' && (
+                      <span style={{ fontSize: 13, fontFamily: "'DM Sans', sans-serif", color: '#5a7060', fontWeight: 400, marginLeft: 10 }}>({cat})</span>
+                    )}
+                  </h2>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>
+                    {prods.length} {lang === 'hi' ? 'उत्पाद' : `product${prods.length !== 1 ? 's' : ''}`}
+                  </span>
                 </div>
                 <div className="product-grid">
-                  {prods.map(p => <ProductCard key={p.id} p={p} q="" />)}
+                  {prods.map(p => <ProductCard key={p.id} p={p} q="" lang={lang} />)}
                 </div>
               </div>
             ))
@@ -508,7 +625,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
         <footer style={{ background: '#0f2318', padding: '24px 48px', borderTop: '1px solid rgba(200,169,110,0.1)', textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: 'rgba(245,240,232,0.35)', margin: 0 }}>
             <strong style={{ color: 'rgba(245,240,232,0.6)' }}>Madvet Animal Healthcare</strong>
-            &nbsp;·&nbsp; All products for veterinary use only
+            &nbsp;·&nbsp; {lang === 'hi' ? 'सिर्फ पशु चिकित्सा में उपयोग के लिए' : 'All products for veterinary use only'}
           </p>
         </footer>
       </div>

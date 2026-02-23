@@ -196,13 +196,23 @@ export default function ChatWindow() {
         }
       }
 
-      // Clean display text by removing PRODUCTS tag and unescaping newlines
+      // Clean display text — strip PRODUCTS tag (backup for route.ts),
+      // and any stray card-artifact lines GPT occasionally emits
       const displayText = fullText
         .replace(/\n*PRODUCTS:\s*primary=\[[^\]]*\]\s*complementary=\[[^\]]*\]/gi, '')
+        .replace(/^📦\s*Packing:.*$/gm, '')
+        .replace(/^✅\s*FREE.*$/gm, '')
+        .replace(/^AUR OPTIONS.*$/gim, '')
+        .replace(/\n{3,}/g, '\n\n')
         .replace(/\\n/g, '\n')
         .trim()
 
-      if (convId && fullText) await saveMessage(convId, 'assistant', fullText)
+      // Apply cleaned text to the final rendered message (was dead code before!)
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId ? { ...m, content: displayText } : m
+      ))
+
+      if (convId && displayText) await saveMessage(convId, 'assistant', displayText)
 
     } catch (error) {
       console.error('[ChatWindow] Error:', error)
