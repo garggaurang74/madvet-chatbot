@@ -19,6 +19,7 @@ const EMPTY: ProductData = {
   category:'', species:'', indication:'', aliases:'', dosage:'',
   usp_benefits:'', image_url:'', formulation:''
 }
+// Base lists — new values from DB are merged in dynamically at runtime
 const CATEGORIES = [
   'Antibiotic','Anthelmintic / Antiparasitic','Ectoparasiticide',
   'Anti-inflammatory / Analgesic','Antihistamine','Reproductive Hormone',
@@ -29,6 +30,12 @@ const FORMULATION_OPTIONS = [
   'Bolus','Injection','Liquid','Tablet','Powder',
   'Spray','Gel / Ointment','Soap','Suspension','Pour-On','Other',
 ]
+
+// Merge in any new categories/species/formulations that exist in DB but not in base lists
+function mergeOptions(base: string[], fromDB: string[]): string[] {
+  const s = new Set(base)
+  return [...base, ...fromDB.filter(v => v && !s.has(v))]
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const toBase64  = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res((r.result as string).split(',')[1]); r.onerror=rej; r.readAsDataURL(f) })
@@ -256,7 +263,7 @@ function ReviewForm({ product, setProduct, onSave, onBack, error, imagePreview }
           <select value={product.category} onChange={e=>u('category',e.target.value)}
             className="w-full bg-[#2f2f2f] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-green-500">
             <option value="">Select category</option>
-            {CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+            {((window as any).__madvetCats || CATEGORIES).map((c:string)=><option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
@@ -275,7 +282,7 @@ function ReviewForm({ product, setProduct, onSave, onBack, error, imagePreview }
           <select value={product.formulation} onChange={e=>u('formulation',e.target.value)}
             className="w-full bg-[#2f2f2f] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-green-500">
             <option value="">Select form</option>
-            {FORMULATION_OPTIONS.map(f=><option key={f} value={f}>{f}</option>)}
+            {((window as any).__madvetForms || FORMULATION_OPTIONS).map((f:string)=><option key={f} value={f}>{f}</option>)}
           </select>
         </div>
         {([
@@ -332,6 +339,23 @@ function AddProductMode({ onHome }: { onHome: () => void }) {
 
   const productRef = useRef<HTMLInputElement>(null)
   const saltRef    = useRef<HTMLInputElement>(null)
+
+  // Load dynamic categories/formulations from DB on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !key) return
+    createClient(url, key)
+      .from('products_enriched').select('category,formulation').limit(500)
+      .then(({ data }) => {
+        if (!data) return
+        const dbCats  = [...new Set(data.map((r:any) => r.category).filter(Boolean))]
+        const dbForms = [...new Set(data.map((r:any) => r.formulation).filter(Boolean))]
+        ;(window as any).__madvetCats  = mergeOptions(CATEGORIES, dbCats)
+        ;(window as any).__madvetForms = mergeOptions(FORMULATION_OPTIONS, dbForms)
+      })
+  }, [])
 
   const handleProductPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
@@ -567,6 +591,24 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
       .from('products_enriched').select('id,product_name,image_url')
       .order('product_name',{ascending:true}).limit(500)
       .then(({data}) => { setAllProducts((data||[]) as any); setLoading(false) })
+  }, [])
+
+  // Separately fetch distinct categories/species/formulations from DB
+  // so dropdowns in ReviewForm always reflect what's actually in the database
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !key) return
+    createClient(url, key)
+      .from('products_enriched').select('category,species,formulation').limit(500)
+      .then(({ data }) => {
+        if (!data) return
+        const dbCats  = [...new Set(data.map((r:any) => r.category).filter(Boolean))]
+        const dbForms = [...new Set(data.map((r:any) => r.formulation).filter(Boolean))]
+        // Merge into module-level arrays so ReviewForm picks them up
+        ;(window as any).__madvetCats  = mergeOptions(CATEGORIES, dbCats)
+        ;(window as any).__madvetForms = mergeOptions(FORMULATION_OPTIONS, dbForms)
+      })
   }, [])
 
   const filtered = allProducts.filter(p => p.product_name.toLowerCase().includes(search.toLowerCase()))
