@@ -9,6 +9,7 @@ export interface MadvetProduct {
   product_name?:    string
   salt_ingredient?: string   // canonical — DB column name
   packaging?:       string   // canonical — DB column name
+  formulation?:     string   // Bolus / Liquid / Injection / etc.
   category?:        string
   species?:         string
   indication?:      string
@@ -64,7 +65,7 @@ export async function fetchAllProducts(): Promise<MadvetProduct[]> {
     const { data, error } = await supabase
       .from(table)
       .select(
-        'id, product_name, salt_ingredient, packaging, category, ' +
+        'id, product_name, salt_ingredient, packaging, formulation, category, ' +
         'species, indication, description, usp_benefits, aliases, dosage, image_url'
       )
       .limit(500)
@@ -80,6 +81,7 @@ export async function fetchAllProducts(): Promise<MadvetProduct[]> {
       product_name:    str(row.product_name),
       salt_ingredient: str(row.salt_ingredient),
       packaging:       str(row.packaging),
+      formulation:     str(row.formulation),
       category:        str(row.category),
       species:         str(row.species),
       indication:      str(row.indication),

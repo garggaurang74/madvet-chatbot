@@ -73,32 +73,52 @@ type Lang = 'en' | 'hi'
 
 // ── SEARCH SCORING ────────────────────────────────────────────────────────────
 
-function scoreProduct(p: Product, q: string): number {
+function scoreToken(p: Product, t: string): number {
   let score = 0
   const n = p.name.toLowerCase()
-  if (n === q)           score += 100
-  if (n.startsWith(q))   score += 60
-  if (n.includes(q))     score += 40
-  if (p.aliases.toLowerCase().includes(q))      score += 30
-  if (p.salt.toLowerCase().includes(q))         score += 25
-  if (p.description.toLowerCase().includes(q))  score += 20
-  if (p.benefits.toLowerCase().includes(q))     score += 15
-  if (p.indication.toLowerCase().includes(q))   score += 8
-  if (p.category.toLowerCase().includes(q))     score += 5
-  if (p.species.toLowerCase().includes(q))      score += 5
-  if (p.packaging.toLowerCase().includes(q))    score += 3
+  if (n === t)            score += 100
+  if (n.startsWith(t))    score += 60
+  else if (n.includes(t)) score += 40
+  if (p.aliases.toLowerCase().includes(t))      score += 30
+  if (p.salt.toLowerCase().includes(t))         score += 25
+  if (p.description.toLowerCase().includes(t))  score += 20
+  if (p.benefits.toLowerCase().includes(t))     score += 15
+  if (p.indication.toLowerCase().includes(t))   score += 8
+  if (p.category.toLowerCase().includes(t))     score += 5
+  if (p.species.toLowerCase().includes(t))      score += 5
+  if (p.packaging.toLowerCase().includes(t))    score += 3
+  if (p.formulation.toLowerCase().includes(t))  score += 3
   return score
+}
+
+// Multi-token AND scoring: "vh5 100" matches VH5 in name AND 100ml in packaging
+function scoreProduct(p: Product, q: string): number {
+  const tokens = q.split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return 0
+  let total = 0
+  for (const t of tokens) {
+    const s = scoreToken(p, t)
+    if (s === 0) return 0   // ALL tokens must match (AND logic)
+    total += s
+  }
+  return total
 }
 
 // ── HIGHLIGHT ─────────────────────────────────────────────────────────────────
 
 function highlight(text: string, q: string): string {
   if (!q || !text) return text
-  const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return text.replace(
-    new RegExp(`(${esc})`, 'gi'),
-    '<mark style="background:#fef08a;color:#1a3a2a;border-radius:2px;padding:0 2px;">$1</mark>'
-  )
+  const tokens = q.split(/\s+/).filter(Boolean)
+  let result = text
+  for (const t of tokens) {
+    if (!t) continue
+    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    result = result.replace(
+      new RegExp(`(${esc})`, 'gi'),
+      '<mark style="background:#fef08a;color:#1a3a2a;border-radius:2px;padding:0 2px;">$1</mark>'
+    )
+  }
+  return result
 }
 
 // ── PRODUCT CARD ──────────────────────────────────────────────────────────────

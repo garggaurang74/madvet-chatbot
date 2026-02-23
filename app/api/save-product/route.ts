@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
       'product_name',
       'salt_ingredient',
       'packaging',
+      'formulation',
       'description',
       'category',
       'species',
@@ -94,6 +95,24 @@ export async function POST(req: NextRequest) {
 
     if (!safe.product_name) {
       return Response.json({ error: 'product_name is required' }, { status: 400 })
+    }
+
+    // Infer formulation from packaging if not provided
+    if (!safe.formulation && safe.packaging) {
+      const p = safe.packaging.toLowerCase()
+      if (p.includes('bolus'))                                                    safe.formulation = 'Bolus'
+      else if (p.includes('inj') || p.includes('syringe'))                       safe.formulation = 'Injection'
+      else if (p.includes('tablet') || p.includes(' tab'))                       safe.formulation = 'Tablet'
+      else if (p.includes('spray'))                                               safe.formulation = 'Spray'
+      else if (p.includes('gel') || p.includes('ointment') || p.includes('cream')) safe.formulation = 'Gel / Ointment'
+      else if (p.includes('soap'))                                                safe.formulation = 'Soap'
+      else if (p.includes('powder') || p.includes('sachet') || p.includes(' gm') || p.includes(' kg')) safe.formulation = 'Powder'
+      else if (p.includes('pour-on') || p.includes('pour on'))                   safe.formulation = 'Pour-On'
+      else if (p.includes('suspension'))                                          safe.formulation = 'Suspension'
+      else if (p.includes('syrup') || p.includes('liq') || p.includes('liquid') ||
+               p.includes('solution') || p.includes(' ml') || p.includes(' litre') ||
+               p.includes(' liter'))                                              safe.formulation = 'Liquid'
+      else                                                                        safe.formulation = 'Other'
     }
 
     // Step 1: AI enrichment — generates rich indication + aliases

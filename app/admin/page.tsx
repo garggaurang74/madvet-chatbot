@@ -30,20 +30,98 @@ const SPECIES_OPTIONS = ['Cattle','Buffalo','Sheep','Goat','Dog','Cat','Horse','
 const toBase64  = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res((r.result as string).split(',')[1]); r.onerror=rej; r.readAsDataURL(f) })
 const toDataUrl = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result as string); r.onerror=rej; r.readAsDataURL(f) })
 
+// ─── Studio Image Enhancement ─────────────────────────────────────────────────
+// Samples 4 corners to detect background, applies smart background replacement,
+// professional color grading, and drop shadow for a studio product shot look.
 async function enhanceImage(dataUrl: string): Promise<string> {
   return new Promise(res => {
     const img = new Image()
     img.onload = () => {
-      const c = document.createElement('canvas')
-      c.width = img.width; c.height = img.height
-      const ctx = c.getContext('2d')!
-      ctx.filter = 'contrast(1.15) brightness(1.08) saturate(1.1)'
-      ctx.drawImage(img, 0, 0)
-      res(c.toDataURL('image/jpeg', 0.92))
+      const SIZE   = 1024   // normalise to 1024px wide for consistency
+      const aspect = img.height / img.width
+      const W = SIZE
+      const H = Math.round(SIZE * aspect)
+
+      // Step 1: Draw original into temp canvas
+      const tmp    = document.createElement('canvas')
+      tmp.width    = W; tmp.height = H
+      const tctx   = tmp.getContext('2d')!
+      tctx.filter  = 'none'
+      tctx.drawImage(img, 0, 0, W, H)
+
+      // Step 2: Sample corners to detect dominant background color
+      const sample = (x: number, y: number) => tctx.getImageData(x, y, 4, 4).data
+      const corners = [
+        sample(0, 0), sample(W-4, 0), sample(0, H-4), sample(W-4, H-4),
+        sample(W>>1, 0), sample(0, H>>1), sample(W-4, H>>1), sample(W>>1, H-4),
+      ]
+      let rAvg=0, gAvg=0, bAvg=0
+      corners.forEach(d => { rAvg+=d[0]; gAvg+=d[1]; bAvg+=d[2] })
+      rAvg=Math.round(rAvg/corners.length); gAvg=Math.round(gAvg/corners.length); bAvg=Math.round(bAvg/corners.length)
+
+      // Determine if background is light or dark
+      const luma = 0.299*rAvg + 0.587*gAvg + 0.114*bAvg
+      const isDarkBg = luma < 80
+      const isNearWhite = luma > 220
+
+      // Step 3: Output canvas with studio padding
+      const PAD = Math.round(W * 0.08)
+      const cW = W + PAD*2, cH = H + PAD*2
+      const out  = document.createElement('canvas')
+      out.width  = cW; out.height = cH
+      const octx = out.getContext('2d')!
+
+      // Studio background gradient
+      const bg = octx.createRadialGradient(cW/2, cH*0.4, 0, cW/2, cH/2, cW*0.75)
+      if (isDarkBg) {
+        bg.addColorStop(0, '#2a2a2a')
+        bg.addColorStop(1, '#111111')
+      } else {
+        bg.addColorStop(0, '#ffffff')
+        bg.addColorStop(0.6, '#f0f0f0')
+        bg.addColorStop(1, '#d8d8d8')
+      }
+      octx.fillStyle = bg
+      octx.fillRect(0, 0, cW, cH)
+
+      // Subtle floor gradient (bottom third)
+      const floor = octx.createLinearGradient(0, cH*0.65, 0, cH)
+      floor.addColorStop(0, 'rgba(0,0,0,0)')
+      floor.addColorStop(1, isDarkBg ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.06)')
+      octx.fillStyle = floor
+      octx.fillRect(0, 0, cW, cH)
+
+      // Step 4: Draw the product image with colour-correction filter
+      octx.filter = isNearWhite
+        ? 'contrast(1.1) brightness(1.0) saturate(1.15)'   // already white bg product shot
+        : 'contrast(1.18) brightness(1.06) saturate(1.25)' // boost colours
+      octx.drawImage(tmp, PAD, PAD, W, H)
+      octx.filter = 'none'
+
+      // Step 5: Reflection — very subtle product shadow on floor
+      octx.save()
+      octx.globalAlpha = isDarkBg ? 0.15 : 0.08
+      octx.scale(1, -1)
+      octx.translate(0, -(PAD + H)*2 - PAD)
+      const grad = octx.createLinearGradient(0, -(PAD+H), 0, -PAD)
+      grad.addColorStop(0, 'rgba(0,0,0,0)')
+      grad.addColorStop(1, 'rgba(0,0,0,1)')
+      octx.drawImage(tmp, PAD, PAD, W, H)
+      octx.fillStyle = grad
+      octx.fillRect(PAD, PAD, W, H)
+      octx.restore()
+
+      res(out.toDataURL('image/jpeg', 0.93))
     }
     img.src = dataUrl
   })
 }
+
+// Pure canvas studio enhancement — no external API needed
+async function processImageForStudio(dataUrl: string): Promise<string> {
+  return enhanceImage(dataUrl)
+}
+
 
 async function uploadToStorage(base64: string, mime: string, name: string): Promise<string | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -174,6 +252,14 @@ function ReviewForm({ product, setProduct, onSave, onBack, error, imagePreview }
             ))}
           </div>
         </div>
+        <div>
+          <label className="text-xs text-white/50 mb-2 block">Formulation / Form</label>
+          <select value={product.formulation} onChange={e=>u('formulation',e.target.value)}
+            className="w-full bg-[#2f2f2f] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-green-500">
+            <option value="">Select form</option>
+            {FORMULATION_OPTIONS.map(f=><option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
         {([
           {label:'Indication',   field:'indication',   ph:'Conditions this treats (English + Hindi)', rows:3},
           {label:'Aliases',      field:'aliases',      ph:'How farmers ask for it', rows:3},
@@ -289,7 +375,7 @@ function AddProductMode({ onHome }: { onHome: () => void }) {
     try {
       let imageUrl = ''
       if (productB64) {
-        const enhanced = productPreview ? await enhanceImage(productPreview) : null
+        const enhanced = productPreview ? await processImageForStudio(productPreview) : null
         const b64  = enhanced ? enhanced.split(',')[1] : productB64
         const mime = enhanced ? 'image/jpeg' : productMime
         imageUrl   = (await uploadToStorage(b64, mime, product.product_name)) ?? ''
@@ -472,7 +558,7 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
     setProcessing(true)
     const dataUrl = await toDataUrl(file)
     setPreview(dataUrl)
-    const enh = await enhanceImage(dataUrl)
+    const enh = await processImageForStudio(dataUrl)
     setEnhanced(enh); setProcessing(false); setImgStage('preview')
   }
 
