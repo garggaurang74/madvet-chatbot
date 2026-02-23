@@ -25,6 +25,10 @@ const CATEGORIES = [
   'Probiotic','Vitamin Supplement','Udder Care','Antidiarrheal','Dermatological',
 ]
 const SPECIES_OPTIONS = ['Cattle','Buffalo','Sheep','Goat','Dog','Cat','Horse','Poultry']
+const FORMULATION_OPTIONS = [
+  'Bolus','Injection','Liquid','Tablet','Powder',
+  'Spray','Gel / Ointment','Soap','Suspension','Pour-On','Other',
+]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const toBase64  = (f: File): Promise<string> => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res((r.result as string).split(',')[1]); r.onerror=rej; r.readAsDataURL(f) })
