@@ -186,6 +186,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             fontFamily: "'DM Serif Display', serif", fontSize: 42,
             color: 'var(--cream)', lineHeight: 1.1, marginBottom: 16,
           }}>{product.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
+            {product.image_url && (
+              <div style={{ width: 110, height: 110, flexShrink: 0, borderRadius: 10, overflow: 'hidden', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(200,169,110,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src={product.image_url} alt={product.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              </div>
+            )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span className="chip" style={{ background: 'rgba(200,169,110,0.12)', color: 'var(--gold-light)', border: '1px solid rgba(200,169,110,0.2)', fontSize: 12 }}>
               {product.packaging}
@@ -193,6 +199,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             <span className="chip" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(245,240,232,0.55)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 12 }}>
               {displayForm}
             </span>
+          </div>
           </div>
         </div>
       </header>

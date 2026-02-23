@@ -10,4 +10,5 @@ export interface Product {
   description: string
   benefits: string
   aliases: string
+  image_url: string
 }

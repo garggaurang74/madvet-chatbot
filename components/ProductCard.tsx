@@ -34,11 +34,25 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
   )
 
   return (
-    <div className={`rounded-xl border-2 p-4 shadow-sm ${
+    <div className={`rounded-xl border-2 overflow-hidden shadow-sm ${
       dark
         ? 'bg-[#2a2a2a] border-green-800/50'
         : 'bg-white border-madvet-accent'
     }`}>
+
+      {/* Product Image */}
+      {product.image_url && (
+        <div className="w-full h-32 overflow-hidden bg-gray-100">
+          <img
+            src={product.image_url}
+            alt={name}
+            className="w-full h-full object-contain"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        </div>
+      )}
+
+      <div className="p-4">
 
       {/* Name + category badge */}
       <div className="flex items-start justify-between gap-2 mb-2.5">
@@ -84,6 +98,7 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
       }`}>
         ⚕️ Sahi dose ke liye apne vet se milein 🙏
       </p>
+      </div>
     </div>
   )
 }

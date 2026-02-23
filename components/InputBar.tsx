@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import VoiceButton from './VoiceButton'
 
 interface InputBarProps {
   onSend: (text: string) => void
@@ -61,19 +60,8 @@ export default function InputBar({ onSend, disabled, dark }: InputBarProps) {
           focus:outline-none focus:ring-2 disabled:opacity-60 
           max-h-[120px] overflow-y-auto ${inputClass}`}
       />
-      
-      {/* Voice Button */}
-      <VoiceButton
-        onTranscript={(transcript) => {
-          setValue(transcript)
-          if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto'
-          }
-        }}
-        disabled={disabled}
-        dark={dark}
-      />
-      
+
+      {/* Send Button — upward arrow like ChatGPT/Claude */}
       <button
         onClick={handleSubmit}
         disabled={!value.trim() || disabled}
@@ -83,9 +71,12 @@ export default function InputBar({ onSend, disabled, dark }: InputBarProps) {
           transition-all hover:scale-105 ${sendBtnClass}`}
         aria-label="Send"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" 
-          fill="currentColor" className="w-5 h-5 rotate-90">
-          <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round"
+          className="w-5 h-5">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
         </svg>
       </button>
     </div>

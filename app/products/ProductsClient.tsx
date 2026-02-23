@@ -157,6 +157,18 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
     >
       <div style={{ height: 3, background: color }} />
 
+      {/* Product Image */}
+      {p.image_url && (
+        <div style={{ width: '100%', height: 140, overflow: 'hidden', background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img
+            src={p.image_url}
+            alt={p.name}
+            style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
+            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+          />
+        </div>
+      )}
+
       <div style={{ padding: '20px 22px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Top row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
