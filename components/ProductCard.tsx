@@ -48,8 +48,16 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
             alt={name}
             className="w-full h-full object-contain"
             style={{ padding: '8px' }}
-            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+            loading="lazy"
+            decoding="async"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement
+              img.style.display = 'none'
+              const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
+              if (placeholder) placeholder.style.display = 'flex'
+            }}
           />
+          <div className="img-placeholder" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🐄</div>
         </div>
       )}
 

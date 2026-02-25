@@ -196,7 +196,17 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center',
               marginBottom: product.video_url ? 12 : 20,
             }}>
-              <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
+              <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }}
+                fetchPriority="high"
+                decoding="async"
+                onError={(e) => {
+                  const img = e.target as HTMLImageElement
+                  img.style.display = 'none'
+                  const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
+                  if (placeholder) placeholder.style.display = 'flex'
+                }}
+              />
+              <div className="img-placeholder" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🐄</div>
             </div>
           )}
           {(() => {

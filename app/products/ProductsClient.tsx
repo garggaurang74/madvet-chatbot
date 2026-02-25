@@ -196,12 +196,14 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
 
       {/* Product Image */}
       {p.image_url && (
-        <div style={{ width: '100%', height: 140, overflow: 'hidden', background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: '100%', height: 140, overflow: 'hidden', background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
           <img
             src={p.image_url}
             alt={p.name}
             style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
-            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+            loading="lazy"
+            decoding="async"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         </div>
       )}
