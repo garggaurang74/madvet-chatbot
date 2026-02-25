@@ -399,7 +399,7 @@ let quizAnswered  = false;
 // ── FETCH PRODUCTS ────────────────────────────────────────────────────────────
 async function loadProducts() {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,video_url&order=id.asc&limit=500`;
+    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,video_url,image_url&order=id.asc&limit=500`;
     const res = await fetch(url, { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` }});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -418,6 +418,7 @@ async function loadProducts() {
       description: (r.description||'').trim(),
       benefits: (r.usp_benefits||'').trim(),
       video_url: (r.video_url||'').trim(),
+      image_url: (r.image_url||'').trim(),
     }));
   } catch(e) {
     console.warn('Supabase not configured — demo mode');
@@ -586,6 +587,7 @@ function renderLearn() {
         <div class="form-badge">${p.formulation||p.packaging}</div>
       </div>
       <div class="lc-name">${p.name}</div>
+      ${p.image_url?`<div style="width:100%;max-width:180px;margin:10px auto;aspect-ratio:1/1;background:#f5f0e8;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid #e8dfc8;"><img src="${p.image_url}" alt="${p.name}" style="max-width:100%;max-height:100%;object-fit:contain;padding:8px;" onerror="this.parentElement.style.display='none'"></div>`:''}
       <div class="lc-salt"><span>${saltLabel}</span> ${p.salt||'—'}</div>
       ${p.description?`
         <div class="lc-section">
