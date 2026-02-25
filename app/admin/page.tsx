@@ -363,8 +363,8 @@ function AddProductMode({ onHome }: { onHome: () => void }) {
     const [b64, dataUrl] = await Promise.all([toBase64(file), toDataUrl(file)])
     setProductB64(b64); setProductMime(file.type); setProductPreview(dataUrl)
     setError('')
-    // Auto-extract name+salt+all fields from photo
-    autoExtractFromPhoto(b64, file.type, null, 'image/jpeg')
+    // Auto-extract name+salt+all fields from photo (include salt photo if already added)
+    autoExtractFromPhoto(b64, file.type, saltB64, saltMime)
   }
 
   const handleSaltPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
