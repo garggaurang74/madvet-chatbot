@@ -126,16 +126,16 @@ function scoreProduct(p: Product, q: string): number {
 function highlight(text: string, q: string): string {
   if (!q || !text) return text
   const tokens = q.split(/\s+/).filter(Boolean)
-  let result = text
-  for (const t of tokens) {
-    if (!t) continue
-    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    result = result.replace(
-      new RegExp(`(${esc})`, 'gi'),
-      '<mark style="background:#fef08a;color:#1a3a2a;border-radius:2px;padding:0 2px;">$1</mark>'
-    )
-  }
-  return result
+  if (tokens.length === 0) return text
+  // Single combined regex so inserted <mark> HTML is never scanned again,
+  // preventing CSS style strings from getting corrupted by subsequent token replacements
+  const combined = tokens
+    .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')
+  return text.replace(
+    new RegExp(`(${combined})`, 'gi'),
+    '<mark style="background:#fef08a;color:#1a3a2a;border-radius:2px;padding:0 2px;">$1</mark>'
+  )
 }
 
 // ── PRODUCT CARD ──────────────────────────────────────────────────────────────
@@ -407,6 +407,8 @@ export default function ProductsClient({ products }: { products: Product[] }) {
   const filtered = useMemo(() => {
     const q = searchText.toLowerCase().trim()
     let base = products
+    // All filters apply regardless of whether search is active
+    if (activeCat  !== 'all') base = base.filter(p => p.category === activeCat)
     if (activeSp   !== 'all') base = base.filter(p => p.species.toLowerCase().includes(activeSp.toLowerCase()))
     if (activeForm !== 'all') base = base.filter(p => p.formulation === activeForm)
     if (q) {
@@ -415,13 +417,12 @@ export default function ProductsClient({ products }: { products: Product[] }) {
         .sort((a, b) => b.score - a.score)
         .map(({ p }) => p)
     }
-    if (activeCat !== 'all') base = base.filter(p => p.category === activeCat)
     return base
   }, [products, searchText, activeCat, activeSp, activeForm])
 
   const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchText(e.target.value)
-    if (e.target.value) setActiveCat('all')
+    // Removed: do NOT reset activeCat when typing — category filter should persist during search
   }, [])
 
   const grouped = useMemo(() => {

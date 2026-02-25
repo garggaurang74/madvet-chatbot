@@ -196,7 +196,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center',
               marginBottom: product.video_url ? 12 : 20,
             }}>
-              <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} />
+              <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
             </div>
           )}
           {(() => {
