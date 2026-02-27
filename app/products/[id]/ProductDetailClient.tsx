@@ -492,6 +492,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
   )
 }
 
+
 // ── Share card modal ─────────────────────────────────────────────────────────
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const c = getShareColors(product.id, product.category)
@@ -500,72 +501,17 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const Card = CardMap[tmpl as keyof typeof CardMap]
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
 
-  // Force-load every font weight so html2canvas gets crisp text
-  const ensureFonts = async () => {
-    // Inject stylesheet if not already there
-    const id = 'madvet-share-fonts'
-    if (!document.getElementById(id)) {
-      const link = document.createElement('link')
-      link.id = id; link.rel = 'stylesheet'
-      link.href = 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap'
-      document.head.appendChild(link)
-      // Wait for stylesheet to parse
-      await new Promise(r => setTimeout(r, 300))
-    }
-    // Force the browser to actually load each variant (this is what html2canvas needs)
-    await Promise.allSettled([
-      document.fonts.load('400 16px Oswald'),
-      document.fonts.load('600 16px Oswald'),
-      document.fonts.load('700 16px Oswald'),
-      document.fonts.load('400 16px "Barlow Condensed"'),
-      document.fonts.load('700 16px "Barlow Condensed"'),
-      document.fonts.load('800 16px "Barlow Condensed"'),
-      document.fonts.load('400 16px "Noto Sans Devanagari"'),
-      document.fonts.load('600 16px "Noto Sans Devanagari"'),
-      document.fonts.load('700 16px "Noto Sans Devanagari"'),
-      document.fonts.load('800 16px "Noto Sans Devanagari"'),
-    ])
-    await document.fonts.ready
-  }
-
-  const generatePNG = async (): Promise<Blob> => {
-    await ensureFonts()
-    // Extra wait after fonts load so browser fully paints
-    await new Promise(r => setTimeout(r, 500))
-    const el = document.getElementById('madvet-share-card-inner')
-    if (!el) throw new Error('Card not found')
-    let html2canvas: any
-    try { html2canvas = (await import('html2canvas')).default }
-    catch { html2canvas = (window as any).html2canvas }
-    if (!html2canvas) throw new Error('html2canvas not installed')
-    const canvas = await html2canvas(el, {
-      scale: 3,
-      useCORS: true,
-      allowTaint: false,
-      backgroundColor: '#ffffff',
-      logging: false,
-      imageTimeout: 12000,
-      onclone: (_doc: Document, el: HTMLElement) => {
-        // Force inline all computed font styles so cloned doc inherits them
-        el.querySelectorAll('*').forEach((node) => {
-          const n = node as HTMLElement
-          if (n.style) {
-            const cs = window.getComputedStyle(n)
-            n.style.fontFamily = cs.fontFamily
-            n.style.fontWeight = cs.fontWeight
-          }
-        })
-      },
-    })
-    return new Promise<Blob>((res, rej) =>
-      canvas.toBlob((b: Blob | null) => b ? res(b) : rej(new Error('Blob failed')), 'image/png', 1.0)
-    )
+  // PNG generated server-side — no html2canvas, no font issues ever
+  const fetchPNG = async (): Promise<Blob> => {
+    const res = await fetch(`/api/share-card/${product.id}`)
+    if (!res.ok) throw new Error('Image generation failed')
+    return res.blob()
   }
 
   const handleDownload = async () => {
     setStatus('loading')
     try {
-      const blob = await generatePNG()
+      const blob = await fetchPNG()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
@@ -574,36 +520,28 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     } catch (e: any) {
       alert(e.message || 'Download failed')
       setStatus('error')
-    } finally {
-      setTimeout(() => setStatus('idle'), 2500)
-    }
+    } finally { setTimeout(() => setStatus('idle'), 2500) }
   }
 
   const handleShare = async () => {
     setStatus('loading')
     try {
-      const blob = await generatePNG()
+      const blob = await fetchPNG()
       const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
       const file = new File([blob], filename, { type: 'image/png' })
-
-      // Try sharing with image file (works on iOS Safari 15+ and Android Chrome)
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ title: `${product.name} — Madvet`, files: [file] })
-        setStatus('done')
-        return
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = filename; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 3000)
       }
-      // Fallback: download silently — no alert, user sees the file in downloads
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = filename; a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 3000)
       setStatus('done')
     } catch (e: any) {
-      // AbortError = user dismissed share sheet — that's fine, no alert
       if (e?.name !== 'AbortError') {
-        // Any real error: silently download instead
         try {
-          const blob = await generatePNG()
+          const blob = await fetchPNG()
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
@@ -611,9 +549,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         } catch {}
       }
       setStatus('idle')
-    } finally {
-      setTimeout(() => setStatus('idle'), 2500)
-    }
+    } finally { setTimeout(() => setStatus('idle'), 2500) }
   }
 
   const busy = status === 'loading'
@@ -623,46 +559,28 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)', overflowY: 'auto' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 12px 40px' }}>
         <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 520, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
-
-          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'system-ui,sans-serif', letterSpacing: 1 }}>SHARE CARD</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>SHARE CARD</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{product.name} · {product.category}</div>
             </div>
             <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
-
-          {/* Preview card — scaled to fit phone width.
-              html2canvas captures the inner div at its NATURAL 480px width,
-              so preview and downloaded PNG are pixel-identical. */}
+          {/* Preview — React card scaled to fit phone (preview only, share uses server PNG) */}
           <div style={{ width: '100%', overflow: 'hidden', borderRadius: 8 }}>
-            <div style={{
-              transform: `scale(${cardScale})`,
-              transformOrigin: 'top left',
-              width: 480,
-              marginBottom: `${(cardScale - 1) * 480}px`,
-            }}>
-              {/* This is what gets captured — same element, no hidden duplicate */}
-              <div id="madvet-share-card-inner">
-                <Card p={product} c={c} />
-              </div>
+            <div style={{ transform: `scale(${cardScale})`, transformOrigin: 'top left', width: 480, marginBottom: `${(cardScale - 1) * 480}px` }}>
+              <Card p={product} c={c} />
             </div>
           </div>
-
-          {/* Loading indicator */}
           {busy && (
             <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>
               ⏳ Generating image… please wait
             </div>
           )}
-
-          {/* Action buttons */}
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            <button onClick={handleDownload} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#444' : `linear-gradient(135deg,${c.primary},${c.bright})`, color: '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1, boxShadow: busy ? 'none' : `0 6px 20px ${c.glow}`, transition: 'all 0.2s' }}>
+            <button onClick={handleDownload} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#444' : `linear-gradient(135deg,${c.primary},${c.bright})`, color: '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1, transition: 'all 0.2s' }}>
               {busy ? '⏳' : '↓ DOWNLOAD'}
             </button>
             <button onClick={handleShare} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#bbb' : '#FFE000', color: '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1, transition: 'all 0.2s' }}>
@@ -670,13 +588,14 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             </button>
           </div>
           <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 8 }}>
-            {status === 'done' ? '✅ Done!' : 'Tap SHARE to send the image directly to WhatsApp'}
+            {status === 'done' ? '✅ Done!' : 'Tap SHARE to send via WhatsApp'}
           </p>
         </div>
       </div>
     </div>
   )
 }
+
 
 // ── Lang toggle ──────────────────────────────────────────────────────────────
 function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
