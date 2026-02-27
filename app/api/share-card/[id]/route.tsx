@@ -2,12 +2,15 @@
 // ALSO: run "bash download-fonts.sh" once to put fonts in public/fonts/
 
 import { ImageResponse } from 'next/og'
+import type { ImageResponseOptions } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'
 import path from 'path'
 
 // Node.js runtime — can read files from disk, reliable, no edge CORS issues
 export const runtime = 'nodejs'
+
+type FontOptions = NonNullable<ImageResponseOptions['fonts']>[number]
 
 const CAT_CONFIG: Record<string, {
   h:number; s:number; l:number; accent:string; bgTop:string; bgBot:string
@@ -67,7 +70,6 @@ function splitBenefits(txt='',max=5){
   return txt.split(/[•\n,;|]+/).map((s:string)=>s.trim()).filter((s:string)=>s.length>5).slice(0,max)
 }
 
-// Read font from public/fonts/ — reliable in Node.js runtime
 function readFont(name:string):Buffer|null{
   try{
     return fs.readFileSync(path.join(process.cwd(),'public','fonts',name))
@@ -76,7 +78,6 @@ function readFont(name:string):Buffer|null{
   }
 }
 
-// Fetch image and convert to base64 data URI safely
 async function imgToDataURI(url:string):Promise<string|null>{
   try{
     const res=await fetch(url,{signal:AbortSignal.timeout(5000)})
@@ -103,7 +104,7 @@ export async function GET(
 
     const APP_URL=(process.env.NEXT_PUBLIC_APP_URL??'https://ai.madvet.in').replace(/\/$/,'')
 
-    // ── 1. Read fonts from disk (Node.js can do this) ───────────────────────
+    // ── 1. Read fonts from disk ──────────────────────────────────────────────
     const oswaldBuf  = readFont('oswald-bold.woff')
     const notoBuf    = readFont('noto-devanagari.woff')
     const barlowBuf  = readFont('barlow-condensed.woff')
@@ -142,11 +143,11 @@ export async function GET(
     const modeLabel=cfg?.modeLabel??'Unique Mode of Action'
     const nfs=name.length>18?30:name.length>13?38:name.length>9?46:54
 
-    // ── 4. Build font list ───────────────────────────────────────────────────
-    const fonts=[]
-    if(oswaldBuf) fonts.push({name:'Oswald',   data:oswaldBuf.buffer,  weight:700 as const,style:'normal' as const})
-    if(notoBuf)   fonts.push({name:'NotoHindi',data:notoBuf.buffer,    weight:600 as const,style:'normal' as const})
-    if(barlowBuf) fonts.push({name:'Barlow',   data:barlowBuf.buffer,  weight:400 as const,style:'normal' as const})
+    // ── 4. Build font list with explicit types ───────────────────────────────
+    const fonts: FontOptions[] = []
+    if(oswaldBuf) fonts.push({name:'Oswald',    data: oswaldBuf.buffer  as ArrayBuffer, weight:700, style:'normal'})
+    if(notoBuf)   fonts.push({name:'NotoHindi', data: notoBuf.buffer    as ArrayBuffer, weight:600, style:'normal'})
+    if(barlowBuf) fonts.push({name:'Barlow',    data: barlowBuf.buffer  as ArrayBuffer, weight:400, style:'normal'})
 
     const OW =oswaldBuf ?'"Oswald"'   :'sans-serif'
     const HI =notoBuf   ?'"NotoHindi"':'sans-serif'
