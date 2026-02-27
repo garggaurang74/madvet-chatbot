@@ -1,302 +1,501 @@
 // @ts-nocheck
 // SAVE TO: app/api/share-card/[id]/route.tsx
-// Fonts are fetched from Google at runtime — no local font files needed
 
 import { ImageResponse } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
-// ── Font cache (one fetch per cold start) ────────────────────────────────────
-type FontEntry = { name: string; data: ArrayBuffer; weight: number; style: 'normal' | 'italic' }
-let cachedFonts: FontEntry[] | null = null
-
-async function loadFonts(): Promise<FontEntry[]> {
-  if (cachedFonts) return cachedFonts
+// ── Font loader (cached per cold start) ─────────────────────────────────────
+let _fonts = null
+async function loadFonts() {
+  if (_fonts) return _fonts
   try {
-    const cssResp = await fetch(
-      'https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Noto+Sans+Devanagari:wght@600&family=Barlow+Condensed:wght@400&display=swap',
-      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NextJS/15)' }, signal: AbortSignal.timeout(7000) }
-    )
-    if (!cssResp.ok) return []
-    const css = await cssResp.text()
+    const css = await fetch(
+      'https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700;900&family=Barlow+Condensed:wght@400;600;700&display=swap',
+      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }, signal: AbortSignal.timeout(8000) }
+    ).then(r => r.text())
 
-    // Parse @font-face blocks → extract first URL per family
-    const seen = new Set<string>()
-    const toFetch: { family: string; url: string }[] = []
+    const seen = new Set()
+    const jobs = []
+    const weights = { 'Oswald': [700], 'Noto Sans Devanagari': [700, 900], 'Barlow Condensed': [600, 700] }
+
     for (const block of css.split('@font-face')) {
       const fm = block.match(/font-family:\s*['"]?([^'"\n;]+)['"]?/)
+      const wm = block.match(/font-weight:\s*(\d+)/)
       const um = block.match(/src:[^;]*url\(([^)]+)\)/)
-      if (!fm || !um) continue
-      const family = fm[1].trim()
-      if (seen.has(family)) continue
-      seen.add(family)
-      toFetch.push({ family, url: um[1].trim() })
-    }
-
-    const weightMap: Record<string, number> = {
-      'Oswald': 700,
-      'Noto Sans Devanagari': 600,
-      'Barlow Condensed': 400,
+      if (!fm || !um || !wm) continue
+      const key = `${fm[1].trim()}:${wm[1]}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      jobs.push({ name: fm[1].trim(), weight: parseInt(wm[1]), url: um[1].trim() })
     }
 
     const results = await Promise.allSettled(
-      toFetch.map(async ({ family, url }) => {
-        const r = await fetch(url, { signal: AbortSignal.timeout(7000) })
-        if (!r.ok) throw new Error(`HTTP ${r.status} for ${family}`)
+      jobs.map(async ({ name, weight, url }) => {
+        const r = await fetch(url, { signal: AbortSignal.timeout(8000) })
+        if (!r.ok) throw new Error('HTTP ' + r.status)
         const data = await r.arrayBuffer()
-        // Validate magic bytes — woff/woff2/otf/ttf
-        const bytes = new Uint8Array(data.slice(0, 4))
-        const sig = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3])
-        if (!sig.startsWith('wOFF') && !(bytes[0] === 0 && bytes[1] === 1)) {
-          throw new Error(`Invalid font data for ${family}`)
-        }
-        return { name: family, data, weight: weightMap[family] ?? 400, style: 'normal' as const }
+        const b = new Uint8Array(data.slice(0, 4))
+        if (b[0] !== 0x77 && b[0] !== 0x00 && !(b[0] === 79 && b[1] === 84)) throw new Error('bad font')
+        return { name, data, weight, style: 'normal' }
       })
     )
 
-    cachedFonts = results
-      .filter(r => r.status === 'fulfilled')
-      .map(r => (r as PromiseFulfilledResult<FontEntry>).value)
-
-    console.log('[share-card] fonts loaded:', cachedFonts.map(f => `${f.name}(${f.data.byteLength}b)`))
-    return cachedFonts
-  } catch (e) {
-    console.warn('[share-card] font load failed, using system fonts:', e)
-    return []
-  }
+    _fonts = results.filter(r => r.status === 'fulfilled').map(r => r.value)
+    return _fonts
+  } catch { return [] }
 }
 
-// ── Category config ───────────────────────────────────────────────────────────
-const CAT: Record<string, { bgTop: string; bgBot: string; accent: string; problem: string; solution: string; kills: string[] }> = {
-  'Anthelmintic / Antiparasitic': { bgTop: '#bbf7d0', bgBot: '#f0fdf4', accent: '#16a34a', problem: 'पेट के कीड़ों से\nहै परेशान?', solution: 'करेगा समाधान', kills: ['गोल कीड़े', 'फीताकृमि', 'फेफड़े कीड़े', 'माइट्स'] },
-  'Ectoparasiticide':             { bgTop: '#bae6fd', bgBot: '#e0f2fe', accent: '#0369a1', problem: 'किलनी / चिचड़ी से\nहै परेशान?', solution: 'करेगा समाधान', kills: ['किलनी (Ticks)', 'जूँ (Lice)', 'माइट्स', 'मक्खी'] },
-  'Antibiotic':                   { bgTop: '#bfdbfe', bgBot: '#eff6ff', accent: '#1d4ed8', problem: 'बुखार / संक्रमण से\nहै परेशान?', solution: 'करेगा समाधान', kills: ['बैक्टीरिया', 'संक्रमण', 'बुखार', 'सूजन'] },
-  'Anti-inflammatory / Analgesic':{ bgTop: '#fecdd3', bgBot: '#fff1f2', accent: '#be123c', problem: 'दर्द / सूजन से\nहै परेशान?', solution: 'देगा राहत', kills: ['दर्द', 'सूजन', 'बुखार', 'जकड़न'] },
-  'Vitamin Supplement':           { bgTop: '#fed7aa', bgBot: '#fff7ed', accent: '#c2410c', problem: 'दूध कम / कमज़ोरी\nहै परेशान?', solution: 'करेगा सुधार', kills: ['कमज़ोरी', 'दूध में कमी', 'भूख कम', 'थकान'] },
-  'Vitamin Supplement / Galactogogue': { bgTop: '#bae6fd', bgBot: '#e0f2fe', accent: '#0369a1', problem: 'दूध उत्पादन\nकम हो गया?', solution: 'बढ़ाएगा दूध', kills: ['कम दूध', 'थनेला', 'कमज़ोरी', 'पोषण कमी'] },
-  'Probiotic':                    { bgTop: '#bbf7d0', bgBot: '#f0fdf4', accent: '#15803d', problem: 'पाचन खराब /\nभूख नहीं लगती?', solution: 'करेगा सुधार', kills: ['दस्त', 'कब्ज', 'अफारा', 'खराब पाचन'] },
-  'Dermatological':               { bgTop: '#e9d5ff', bgBot: '#faf5ff', accent: '#7c3aed', problem: 'चमड़ी रोग / खुजली\nसे है परेशान?', solution: 'करेगा ठीक', kills: ['खुजली', 'ज़ख्म', 'फंगल', 'बैक्टीरियल'] },
-  'Reproductive Hormone':         { bgTop: '#f0abfc', bgBot: '#fdf4ff', accent: '#86198f', problem: 'हीट नहीं आती /\nप्रजनन समस्या?', solution: 'करेगा सुधार', kills: ['हीट न आना', 'गर्भधारण', 'हार्मोन असंतुलन', 'बांझपन'] },
-  'Antihistamine':                { bgTop: '#a5f3fc', bgBot: '#ecfeff', accent: '#0e7490', problem: 'एलर्जी / सूजन से\nहै परेशान?', solution: 'देगा राहत', kills: ['एलर्जी', 'सूजन', 'खुजली', 'लाली'] },
-  'Antidiarrheal':                { bgTop: '#99f6e4', bgBot: '#f0fdfa', accent: '#0f766e', problem: 'दस्त / पेचिश से\nहै परेशान?', solution: 'करेगा बंद', kills: ['दस्त', 'पेचिश', 'बैक्टीरिया', 'डिहाइड्रेशन'] },
-  'Udder Care / Herbal Antimicrobial': { bgTop: '#d9f99d', bgBot: '#f7fee7', accent: '#4d7c0f', problem: 'थनेला / थन रोग\nसे है परेशान?', solution: 'करेगा ठीक', kills: ['थनेला', 'सूजन', 'बैक्टीरिया', 'दर्द'] },
-  'Digestive / Antiflatulent':    { bgTop: '#fde68a', bgBot: '#fffbeb', accent: '#b45309', problem: 'अफारा / गैस से\nहै परेशान?', solution: 'देगा राहत', kills: ['अफारा', 'गैस', 'कब्ज', 'पेट दर्द'] },
-}
-
-const SPECIES: Record<string, string> = {
-  Cattle: '🐄 गाय', Buffalo: '🐃 भैंस', Sheep: '🐑 भेड़', Goat: '🐐 बकरी',
-  Dog: '🐕 कुत्ता', Cat: '🐈 बिल्ली', Horse: '🐴 घोड़ा', Poultry: '🐓 मुर्गी', Calf: '🐮 बछड़ा'
-}
-
-function benefits(txt = '', max = 5) {
-  return txt.split(/[•\n,;|]+/).map((s: string) => s.trim()).filter((s: string) => s.length > 5).slice(0, max)
-}
-
-async function toDataURI(url: string): Promise<string | null> {
+// ── Image → base64 with strict validation ────────────────────────────────────
+async function imgURI(url) {
+  if (!url) return null
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) })
     if (!r.ok) return null
     const ct = r.headers.get('content-type') || ''
-    // Reject HTML error pages served as 200
-    if (ct.includes('text/html') || ct.includes('text/plain')) return null
+    if (ct.includes('html') || ct.includes('text')) return null
     const buf = Buffer.from(await r.arrayBuffer())
-    // Validate image magic bytes
-    const sig = buf.slice(0, 4)
-    const isJPG = sig[0] === 0xFF && sig[1] === 0xD8
-    const isPNG = sig[0] === 0x89 && sig[1] === 0x50
-    const isWEBP = sig.toString('ascii', 0, 4) === 'RIFF'
-    const isGIF = sig.toString('ascii', 0, 3) === 'GIF'
-    if (!isJPG && !isPNG && !isWEBP && !isGIF) return null
-    const mimeType = isJPG ? 'image/jpeg' : isPNG ? 'image/png' : isWEBP ? 'image/webp' : 'image/gif'
-    return `data:${mimeType};base64,${buf.toString('base64')}`
+    const b = buf.slice(0, 4)
+    if (b[0] === 0xFF && b[1] === 0xD8) return `data:image/jpeg;base64,${buf.toString('base64')}`
+    if (b[0] === 0x89 && b[1] === 0x50) return `data:image/png;base64,${buf.toString('base64')}`
+    if (b.toString('ascii', 0, 4) === 'RIFF') return `data:image/webp;base64,${buf.toString('base64')}`
+    return null
   } catch { return null }
 }
 
-// ── GET handler ───────────────────────────────────────────────────────────────
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+// ── Category themes ──────────────────────────────────────────────────────────
+const THEMES = {
+  'Anthelmintic / Antiparasitic': {
+    bg1: '#0d4f2e', bg2: '#1a7a44', accent: '#22c55e', pale: '#dcfce7',
+    problem: 'पेट के कीड़े\nपरेशान कर रहे हैं?',
+    hook: 'एक डोज़ में कीड़ों का सफाया',
+    kills: ['गोल कीड़े', 'फीताकृमि', 'फेफड़े कीड़े', 'जिगर कीड़े'],
+  },
+  'Ectoparasiticide': {
+    bg1: '#4a1d00', bg2: '#7c3a00', accent: '#f97316', pale: '#ffedd5',
+    problem: 'किलनी–चिचड़ी से\nजानवर बेहाल है?',
+    hook: 'एक बार लगाएं, लंबे समय तक आराम',
+    kills: ['किलनी (Ticks)', 'जूँ (Lice)', 'माइट्स', 'मक्खी'],
+  },
+  'Antibiotic': {
+    bg1: '#0f2a5e', bg2: '#1e40af', accent: '#60a5fa', pale: '#dbeafe',
+    problem: 'बुखार–संक्रमण से\nजानवर कमज़ोर हो रहा है?',
+    hook: 'तेज़ असर, जल्दी रिकवरी',
+    kills: ['बैक्टीरिया', 'संक्रमण', 'बुखार', 'सूजन'],
+  },
+  'Anti-inflammatory / Analgesic': {
+    bg1: '#5b0a1a', bg2: '#9f1239', accent: '#fb7185', pale: '#ffe4e6',
+    problem: 'दर्द–सूजन से\nजानवर उठ नहीं पा रहा?',
+    hook: 'दर्द मिटाए, काम पर वापस लाए',
+    kills: ['दर्द', 'सूजन', 'बुखार', 'लंगड़ाहट'],
+  },
+  'Vitamin Supplement': {
+    bg1: '#431407', bg2: '#9a3412', accent: '#fb923c', pale: '#ffedd5',
+    problem: 'दूध कम हो गया?\nजानवर कमज़ोर दिखता है?',
+    hook: 'दूध बढ़ाएं, ताकत लाएं',
+    kills: ['कमज़ोरी', 'दूध कमी', 'भूख न लगना', 'थकान'],
+  },
+  'Vitamin Supplement / Galactogogue': {
+    bg1: '#0c3460', bg2: '#0369a1', accent: '#38bdf8', pale: '#e0f2fe',
+    problem: 'दूध उत्पादन\nकम हो गया है?',
+    hook: 'दूध 2 गुना बढ़ाने का सिद्ध फार्मूला',
+    kills: ['कम दूध', 'थनेला', 'कमज़ोरी', 'पोषण कमी'],
+  },
+  'Probiotic': {
+    bg1: '#052e16', bg2: '#166534', accent: '#4ade80', pale: '#dcfce7',
+    problem: 'पाचन खराब?\nभूख नहीं लगती?',
+    hook: 'पेट ठीक तो जानवर ठीक',
+    kills: ['दस्त', 'कब्ज़', 'अफारा', 'खराब पाचन'],
+  },
+  'Dermatological': {
+    bg1: '#2e1065', bg2: '#6d28d9', accent: '#a78bfa', pale: '#f5f3ff',
+    problem: 'खुजली–चमड़ी रोग से\nजानवर तड़प रहा है?',
+    hook: 'जड़ से ठीक करे, दोबारा न हो',
+    kills: ['खुजली', 'ज़ख्म', 'फंगस', 'बैक्टीरियल इन्फेक्शन'],
+  },
+  'Reproductive Hormone': {
+    bg1: '#4a044e', bg2: '#86198f', accent: '#e879f9', pale: '#fdf4ff',
+    problem: 'हीट नहीं आती?\nगाभिन नहीं होती?',
+    hook: 'प्रजनन सुधारे, नुकसान बचाए',
+    kills: ['हीट न आना', 'गर्भधारण में परेशानी', 'हार्मोन असंतुलन', 'बांझपन'],
+  },
+  'Antihistamine': {
+    bg1: '#0c4a6e', bg2: '#0e7490', accent: '#22d3ee', pale: '#ecfeff',
+    problem: 'एलर्जी–सूजन से\nजानवर बेचैन है?',
+    hook: 'एलर्जी पर तुरंत काबू',
+    kills: ['एलर्जी', 'सूजन', 'खुजली', 'लाली'],
+  },
+  'Antidiarrheal': {
+    bg1: '#042f2e', bg2: '#0f766e', accent: '#2dd4bf', pale: '#f0fdfa',
+    problem: 'दस्त–पेचिश से\nजानवर टूट रहा है?',
+    hook: 'दस्त बंद करे, ताकत वापस लाए',
+    kills: ['दस्त', 'पेचिश', 'बैक्टीरिया', 'डिहाइड्रेशन'],
+  },
+  'Udder Care / Herbal Antimicrobial': {
+    bg1: '#1a2e05', bg2: '#365314', accent: '#86efac', pale: '#f7fee7',
+    problem: 'थनेला से दूध\nबंद हो गया है?',
+    hook: 'थन ठीक करे, दूध वापस लाए',
+    kills: ['थनेला', 'सूजन', 'बैक्टीरिया', 'दर्द'],
+  },
+  'Digestive / Antiflatulent': {
+    bg1: '#431407', bg2: '#b45309', accent: '#fbbf24', pale: '#fef9c3',
+    problem: 'अफारा–गैस से\nजानवर दर्द में है?',
+    hook: 'अफारा मिटाए, भूख जगाए',
+    kills: ['अफारा', 'गैस', 'कब्ज़', 'पेट दर्द'],
+  },
+}
+
+const DEFAULT_THEME = {
+  bg1: '#0f172a', bg2: '#1e3a8a', accent: '#60a5fa', pale: '#dbeafe',
+  problem: 'पशु की बीमारी\nठीक करें तुरंत', hook: 'असरदार और भरोसेमंद',
+  kills: ['बीमारी', 'कमज़ोरी', 'संक्रमण', 'दर्द'],
+}
+
+const SPECIES_EMOJI = {
+  Cattle: '🐄', Buffalo: '🐃', Sheep: '🐑', Goat: '🐐',
+  Dog: '🐕', Cat: '🐈', Horse: '🐴', Poultry: '🐓', Calf: '🐮',
+}
+const SPECIES_HI = {
+  Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी',
+  Dog: 'कुत्ता', Cat: 'बिल्ली', Horse: 'घोड़ा', Poultry: 'मुर्गी', Calf: 'बछड़ा',
+}
+
+function parseBenefits(txt, max = 4) {
+  return (txt || '').split(/[•\n,;|]+/).map(s => s.trim()).filter(s => s.length > 6).slice(0, max)
+}
+
+// ── GET ───────────────────────────────────────────────────────────────────────
+export async function GET(_req, { params }) {
   const { id: rawId } = await params
   const id = parseInt(rawId, 10)
   if (isNaN(id)) return new Response('Bad ID', { status: 400 })
 
-  const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ai.madvet.in').replace(/\/$/, '')
-  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const APP = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ai.madvet.in').replace(/\/$/, '')
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const table = (process.env.NEXT_PUBLIC_SUPABASE_TABLE ?? 'products_enriched').trim()
 
-  const [fonts, { data, error }, iconURI] = await Promise.all([
+  const [fonts, { data, error }, logoURI] = await Promise.all([
     loadFonts(),
     sb.from(table).select('*').eq('id', id).single(),
-    toDataURI(`${APP_URL}/madvet-icon.png`),
+    imgURI(`${APP}/madvet-icon.png`),
   ])
 
   if (error || !data) return new Response('Not found', { status: 404 })
 
-  // Sanitize all strings — prevent Satori crashing on special chars or excessive length
-  const clean = (v: unknown, max = 120) => String(v ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, max)
-  const name     = clean(data.product_name ?? data.name, 60)
-  const category = clean(data.category, 80)
-  const salt     = clean(data.salt_ingredient ?? data.salt, 100)
-  const packaging= clean(data.packaging, 40)
-  const form     = clean(data.formulation, 40)
-  const imgUrl   = clean(data.image_url, 500)
-  const bHi      = benefits(clean(data.usp_benefits_hi ?? data.usp_benefits, 800), 5)
-  const bEn      = benefits(clean(data.usp_benefits, 800), 5)
-  const spp      = clean(data.species, 200).split(/[,\/]/).map((s: string) => s.trim()).filter(Boolean).slice(0, 6)
+  const name      = (data.product_name ?? data.name ?? '').trim()
+  const category  = (data.category ?? '').trim()
+  const salt      = (data.salt_ingredient ?? '').trim()
+  const packaging = (data.packaging ?? '').trim()
+  const form      = (data.formulation ?? '').trim()
+  const species   = (data.species ?? '').split(/[,/]/).map(s => s.trim()).filter(Boolean).slice(0, 5)
+  const bEn       = parseBenefits(data.usp_benefits, 4)
+  const bHi       = parseBenefits(data.usp_benefits_hi ?? data.usp_benefits, 4)
+  const indication= (data.indication ?? '').split(/[,;]/).map(s => s.trim()).filter(Boolean).slice(0, 3)
 
-  // Fetch product image — isolated so a failure never crashes the whole card
-  let productURI: string | null = null
-  if (imgUrl) {
-    try { productURI = await toDataURI(imgUrl) } catch { productURI = null }
-  }
+  const productImg = await imgURI(data.image_url)
 
-  const cfg = CAT[category]
-  const bgTop   = cfg?.bgTop   ?? '#bfdbfe'
-  const bgBot   = cfg?.bgBot   ?? '#eff6ff'
-  const accent  = cfg?.accent  ?? '#1d4ed8'
-  const pLines  = (cfg?.problem ?? 'पशु की बीमारी\nसे है परेशान?').split('\n')
-  const solution= cfg?.solution ?? 'करेगा समाधान'
-  const kills   = cfg?.kills ?? bEn.slice(0, 4)
-  const nfs     = name.length > 18 ? 28 : name.length > 13 ? 36 : name.length > 9 ? 44 : 52
+  const T = THEMES[category] ?? DEFAULT_THEME
+  const problemLines = T.problem.split('\n')
+  const nameFontSize = name.length > 16 ? 32 : name.length > 12 ? 40 : name.length > 8 ? 50 : 60
 
-  const OW  = fonts.some(f => f.name === 'Oswald')                ? '"Oswald", sans-serif'                : '"Arial Black", sans-serif'
-  const HI  = fonts.some(f => f.name.includes('Devanagari'))      ? '"Noto Sans Devanagari", sans-serif'  : 'sans-serif'
-  const BAR = fonts.some(f => f.name.includes('Barlow'))          ? '"Barlow Condensed", sans-serif'      : '"Arial Narrow", sans-serif'
+  // font helpers
+  const hasOswald = fonts.some(f => f.name === 'Oswald')
+  const hasNoto   = fonts.some(f => f.name.includes('Devanagari'))
+  const hasBarlow = fonts.some(f => f.name.includes('Barlow'))
+  const OW  = hasOswald ? '"Oswald"'              : 'Arial Black'
+  const HI  = hasNoto   ? '"Noto Sans Devanagari"': 'sans-serif'
+  const BAR = hasBarlow ? '"Barlow Condensed"'    : 'Arial Narrow'
 
   try {
     return new ImageResponse(
       (
-        <div style={{ display: 'flex', flexDirection: 'column', width: 520, backgroundColor: bgBot }}>
+        <div style={{
+          display: 'flex', flexDirection: 'column',
+          width: 540, backgroundColor: '#fff',
+          fontFamily: BAR,
+        }}>
 
-          {/* HEADER */}
-          <div style={{ display: 'flex', flexDirection: 'column', background: `linear-gradient(180deg,${bgTop},${bgBot})`, padding: '16px 20px 12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ background: '#fff', borderRadius: 50, width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #cbd5e1' }}>
-                {iconURI ? <img src={iconURI} width={50} height={50} style={{ objectFit: 'contain' }} /> : <div style={{ display: 'flex', fontSize: 30 }}>🐾</div>}
+          {/* ── HERO BAND ── dark gradient with problem + product name ─────── */}
+          <div style={{
+            display: 'flex', flexDirection: 'column',
+            background: `linear-gradient(160deg, ${T.bg1} 0%, ${T.bg2} 100%)`,
+            padding: '20px 22px 0',
+            position: 'relative',
+          }}>
+            {/* Top row: logo + packaging */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: 'rgba(255,255,255,0.12)', borderRadius: 30,
+                padding: '6px 14px 6px 6px',
+              }}>
+                {logoURI
+                  ? <img src={logoURI} width={32} height={32} style={{ objectFit: 'contain', borderRadius: '50%', background: '#fff' }} />
+                  : <div style={{ display: 'flex', fontSize: 20 }}>🐾</div>
+                }
+                <span style={{ fontFamily: OW, fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: 2 }}>MADVET</span>
               </div>
-              <div style={{ background: '#991b1b', borderRadius: 28, padding: '8px 20px', display: 'flex' }}>
-                <span style={{ fontFamily: OW, fontSize: 16, fontWeight: 700, color: '#fff' }}>{packaging}</span>
+              <div style={{
+                background: T.accent, borderRadius: 20, padding: '6px 16px', display: 'flex',
+              }}>
+                <span style={{ fontFamily: OW, fontSize: 14, fontWeight: 700, color: T.bg1 }}>{packaging}</span>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
-              <span style={{ fontFamily: BAR, fontSize: 13, color: '#1e3a5f', fontWeight: 700 }}>{salt}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
-              <span style={{ fontFamily: OW, fontSize: nfs, fontWeight: 700, color: '#7f1d1d', letterSpacing: 1 }}>{name}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 5 }}>
-              <span style={{ fontFamily: BAR, fontSize: 12, color: '#1e3a5f', fontWeight: 700 }}>{form} · {spp.slice(0, 4).join(', ')}</span>
-            </div>
-          </div>
 
-          {/* BODY */}
-          <div style={{ display: 'flex', background: `linear-gradient(180deg,${bgBot},#f8fafc)`, padding: '16px 18px', gap: 16 }}>
+            {/* Problem statement + product name side by side */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: 18 }}>
+              {/* LEFT: problem in Hindi */}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {problemLines.map((line, i) => (
+                  <span key={i} style={{
+                    fontFamily: HI, fontSize: 26, fontWeight: 900,
+                    color: i === 0 ? '#fff' : T.accent,
+                    lineHeight: 1.2, textShadow: '0 2px 12px rgba(0,0,0,0.4)',
+                  }}>{line}</span>
+                ))}
+                {/* Hook line */}
+                <div style={{
+                  display: 'flex', marginTop: 10,
+                  background: T.accent, borderRadius: 6, padding: '7px 12px',
+                  alignSelf: 'flex-start',
+                }}>
+                  <span style={{ fontFamily: HI, fontSize: 14, fontWeight: 700, color: T.bg1 }}>✓ {T.hook}</span>
+                </div>
+              </div>
 
-            {/* LEFT */}
-            <div style={{ display: 'flex', flexDirection: 'column', width: 188 }}>
-              {pLines.map((line: string, i: number) => (
-                <span key={i} style={{ fontFamily: HI, fontSize: 23, color: '#dc2626', fontWeight: 800, lineHeight: 1.25 }}>{line}</span>
-              ))}
-              <span style={{ fontFamily: HI, fontSize: 21, color: '#dc2626', fontWeight: 800, lineHeight: 1.3, marginTop: 10 }}>{name}</span>
-              <span style={{ fontFamily: HI, fontSize: 21, color: '#dc2626', fontWeight: 800, lineHeight: 1.3 }}>{solution}</span>
-              <div style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 12 }}>
-                {productURI
-                  ? <img src={productURI} width={172} height={172} style={{ objectFit: 'contain' }} />
-                  : <div style={{ display: 'flex', fontSize: 80 }}>{form === 'Injection' ? '💉' : form === 'Bolus' ? '💊' : '🧴'}</div>
+              {/* RIGHT: product image */}
+              <div style={{
+                display: 'flex', width: 150, height: 150,
+                alignItems: 'flex-end', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {productImg
+                  ? <img src={productImg} width={148} height={148} style={{ objectFit: 'contain' }} />
+                  : <div style={{ display: 'flex', fontSize: 90, lineHeight: 1 }}>
+                    {form === 'Injection' ? '💉' : form === 'Bolus' ? '💊' : form === 'Spray' ? '💨' : '🧴'}
+                  </div>
                 }
               </div>
             </div>
 
-            {/* RIGHT */}
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 8 }}>
-              <div style={{ background: '#1e3a8a', borderRadius: 8, padding: '9px 13px', display: 'flex' }}>
-                <span style={{ fontFamily: BAR, fontSize: 14, color: '#fff', fontWeight: 700, fontStyle: 'italic' }}>Unique Mode of Action :</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {bEn.slice(0, 5).map((b: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                    <span style={{ color: '#dc2626', fontSize: 13, flexShrink: 0, marginTop: 2 }}>◆</span>
-                    <span style={{ fontFamily: BAR, fontSize: 12, color: '#1e293b', lineHeight: 1.4, fontWeight: 600 }}>{b}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
-                {kills.slice(0, 4).map((k: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', background: '#fee2e2', borderRadius: 20, padding: '3px 8px', border: '1.5px solid #fca5a5', alignItems: 'center', gap: 3 }}>
-                    <span style={{ fontSize: 10, color: '#dc2626' }}>✕</span>
-                    <span style={{ fontFamily: HI, fontSize: 9, color: '#991b1b', fontWeight: 700 }}>{k}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 }}>
-                {bHi.slice(0, 3).map((b: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', background: 'rgba(255,255,255,0.85)', borderRadius: 6, padding: '5px 9px' }}>
-                    <span style={{ fontFamily: HI, fontSize: 11, color: '#1e3a8a', fontWeight: 700, lineHeight: 1.4 }}>✓ {b}</span>
-                  </div>
-                ))}
-              </div>
+            {/* Product name — massive, straddling the section */}
+            <div style={{
+              display: 'flex', justifyContent: 'center',
+              background: 'rgba(0,0,0,0.25)',
+              margin: '14px -22px 0', padding: '10px 22px',
+              borderTop: `3px solid ${T.accent}`,
+            }}>
+              <span style={{
+                fontFamily: OW, fontSize: nameFontSize, fontWeight: 700,
+                color: '#fff', letterSpacing: 2,
+                textShadow: `0 0 30px ${T.accent}88, 2px 3px 0 rgba(0,0,0,0.5)`,
+                textAlign: 'center',
+              }}>{name}</span>
             </div>
           </div>
 
-          {/* SPECIES */}
-          <div style={{ display: 'flex', alignItems: 'center', background: '#1e3a8a', padding: '9px 20px', gap: 10 }}>
-            <span style={{ fontFamily: HI, fontSize: 10, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>उपयोग :</span>
-            <div style={{ display: 'flex', gap: 10, flex: 1 }}>
-              {spp.map((sp: string, i: number) => (
-                <span key={i} style={{ fontFamily: HI, fontSize: 11, color: '#fff', fontWeight: 700 }}>{SPECIES[sp] ?? sp}</span>
+          {/* Salt + formulation ribbon */}
+          <div style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            background: T.pale, padding: '7px 20px', gap: 12,
+          }}>
+            <span style={{ fontFamily: BAR, fontSize: 11, color: T.bg1, fontWeight: 700, textAlign: 'center' }}>
+              {salt}
+            </span>
+            {form && (
+              <span style={{
+                fontFamily: OW, fontSize: 10, color: T.bg2, fontWeight: 700,
+                background: 'rgba(0,0,0,0.08)', borderRadius: 10, padding: '2px 8px',
+              }}>{form.toUpperCase()}</span>
+            )}
+          </div>
+
+          {/* ── BENEFITS BLOCK ────────────────────────────────────────────── */}
+          <div style={{ display: 'flex', background: '#fff', padding: '16px 20px', gap: 14 }}>
+
+            {/* LEFT col: Unique Mode of Action */}
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1.1 }}>
+              <div style={{
+                display: 'flex', background: T.bg1, borderRadius: 7,
+                padding: '8px 12px', marginBottom: 10,
+              }}>
+                <span style={{ fontFamily: BAR, fontSize: 13, color: T.accent, fontWeight: 700, fontStyle: 'italic' }}>
+                  Unique Mode of Action :
+                </span>
+              </div>
+              {bEn.map((b, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  marginBottom: 8, padding: '7px 10px',
+                  background: i === 0 ? T.pale : '#f8fafc',
+                  borderRadius: 7, borderLeft: `4px solid ${i === 0 ? T.accent : '#e2e8f0'}`,
+                }}>
+                  <span style={{ color: T.bg2, fontSize: 12, flexShrink: 0, fontWeight: 900, marginTop: 1 }}>◆</span>
+                  <span style={{ fontFamily: BAR, fontSize: 12, color: '#1e293b', lineHeight: 1.4, fontWeight: 600 }}>{b}</span>
+                </div>
               ))}
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: '3px 11px', display: 'flex' }}>
-              <span style={{ fontFamily: OW, fontSize: 9, color: '#fff', letterSpacing: 1 }}>{form.toUpperCase()}</span>
+
+            {/* RIGHT col: Hindi benefits */}
+            <div style={{ display: 'flex', flexDirection: 'column', width: 190 }}>
+              <div style={{
+                display: 'flex', background: T.bg2, borderRadius: 7,
+                padding: '8px 12px', marginBottom: 10,
+              }}>
+                <span style={{ fontFamily: HI, fontSize: 12, color: '#fff', fontWeight: 700 }}>
+                  मुख्य फायदे :
+                </span>
+              </div>
+              {bHi.map((b, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 6,
+                  marginBottom: 7, padding: '7px 9px',
+                  background: i % 2 === 0 ? T.pale : '#fff',
+                  borderRadius: 7, border: `1px solid ${T.accent}33`,
+                }}>
+                  <span style={{ color: T.accent, fontSize: 13, flexShrink: 0, fontWeight: 900 }}>✓</span>
+                  <span style={{ fontFamily: HI, fontSize: 11, color: '#1e293b', lineHeight: 1.4, fontWeight: 700 }}>{b}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* CTA */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', padding: '11px 20px' }}>
+          {/* ── KILLS / TARGET STRIP ─────────────────────────────────────── */}
+          <div style={{
+            display: 'flex', background: T.bg1,
+            padding: '10px 20px', gap: 8, alignItems: 'center',
+          }}>
+            <span style={{ fontFamily: HI, fontSize: 11, color: T.accent, fontWeight: 700, flexShrink: 0 }}>
+              इसमें काम करे :
+            </span>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {T.kills.map((k, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  background: 'rgba(255,255,255,0.1)',
+                  border: `1px solid ${T.accent}55`,
+                  borderRadius: 20, padding: '4px 10px',
+                }}>
+                  <span style={{ color: '#ef4444', fontSize: 10 }}>✕</span>
+                  <span style={{ fontFamily: HI, fontSize: 10, color: '#fff', fontWeight: 700 }}>{k}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── SPECIES + INDICATION ─────────────────────────────────────── */}
+          <div style={{
+            display: 'flex', background: T.pale,
+            padding: '10px 20px', gap: 14, alignItems: 'center',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontFamily: BAR, fontSize: 10, color: T.bg2, fontWeight: 700, letterSpacing: 1 }}>
+                FOR ANIMALS :
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {species.map((sp, i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <span style={{ fontSize: 22 }}>{SPECIES_EMOJI[sp] ?? '🐾'}</span>
+                    <span style={{ fontFamily: HI, fontSize: 9, color: T.bg1, fontWeight: 700 }}>
+                      {SPECIES_HI[sp] ?? sp}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {indication.length > 0 && (
+              <div style={{
+                display: 'flex', flexDirection: 'column', flex: 1,
+                borderLeft: `3px solid ${T.accent}`, paddingLeft: 12,
+              }}>
+                <span style={{ fontFamily: BAR, fontSize: 10, color: T.bg2, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>
+                  USE FOR :
+                </span>
+                {indication.slice(0, 2).map((ind, i) => (
+                  <span key={i} style={{ fontFamily: BAR, fontSize: 11, color: '#374151', fontWeight: 600 }}>
+                    • {ind}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── CTA STRIP ────────────────────────────────────────────────── */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            background: T.bg2, padding: '12px 20px',
+          }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontFamily: HI, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>सभी उत्पाद देखें</span>
-              <span style={{ fontFamily: OW, fontSize: 16, color: '#fff', fontWeight: 700 }}>madvet.in/products</span>
+              <span style={{ fontFamily: HI, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>
+                सभी उत्पाद देखें
+              </span>
+              <span style={{ fontFamily: OW, fontSize: 18, color: '#fff', fontWeight: 700, letterSpacing: 1 }}>
+                madvet.in/products
+              </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: accent, borderRadius: 9, padding: '8px 18px' }}>
-              <span style={{ fontFamily: HI, fontSize: 13, color: '#fff', fontWeight: 700 }}>अभी ऑर्डर करें</span>
-              <span style={{ fontFamily: BAR, fontSize: 10, color: 'rgba(255,255,255,0.85)' }}>📞 9935257750</span>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              background: T.accent, borderRadius: 10, padding: '10px 20px',
+            }}>
+              <span style={{ fontFamily: HI, fontSize: 15, color: T.bg1, fontWeight: 900 }}>अभी ऑर्डर करें</span>
+              <span style={{ fontFamily: OW, fontSize: 11, color: T.bg1, fontWeight: 700 }}>📞 9935257750</span>
             </div>
           </div>
 
-          {/* YELLOW FOOTER */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFD700', padding: '13px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ background: '#fff', borderRadius: 8, width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {iconURI ? <img src={iconURI} width={42} height={42} style={{ objectFit: 'contain' }} /> : <div style={{ display: 'flex', fontSize: 26 }}>🐾</div>}
+          {/* ── YELLOW FOOTER ────────────────────────────────────────────── */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            background: '#FFD700', padding: '14px 20px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                background: '#fff', borderRadius: 10, width: 52, height: 52,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              }}>
+                {logoURI
+                  ? <img src={logoURI} width={44} height={44} style={{ objectFit: 'contain' }} />
+                  : <div style={{ display: 'flex', fontSize: 28 }}>🐾</div>
+                }
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontFamily: OW, fontSize: 27, fontWeight: 900, color: '#1a2f8a', letterSpacing: 3, lineHeight: 1 }}>MADVET</span>
-                <span style={{ fontFamily: BAR, fontSize: 10, color: '#1a2f8a', letterSpacing: 1.5, fontWeight: 700 }}>Animal Healthcare</span>
+                <span style={{ fontFamily: OW, fontSize: 30, fontWeight: 900, color: '#1a2f8a', letterSpacing: 3, lineHeight: 1 }}>
+                  MADVET
+                </span>
+                <span style={{ fontFamily: BAR, fontSize: 11, color: '#1a2f8a', fontWeight: 700, letterSpacing: 1.5 }}>
+                  Animal Healthcare
+                </span>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ fontFamily: BAR, fontSize: 9, color: '#111' }}>Ghaziabad (U.P.) | I.S.O. 9001:2013 COMPANY</span>
-              <span style={{ fontFamily: BAR, fontSize: 9, color: '#333' }}>Email: madvet.animal@gmail.com</span>
+              <span style={{ fontFamily: BAR, fontSize: 9, color: '#1a2a5e', fontWeight: 700 }}>
+                Ghaziabad (U.P.) | I.S.O. 9001:2013 COMPANY
+              </span>
+              <span style={{ fontFamily: BAR, fontSize: 9, color: '#333' }}>madvet.animal@gmail.com</span>
               <span style={{ fontFamily: BAR, fontSize: 9, color: '#333' }}>www.madvet.in | support@madvet.in</span>
-              <span style={{ fontFamily: OW, fontSize: 11, fontWeight: 800, color: '#1a2f8a', marginTop: 2 }}>Customer Care: 9935257750</span>
+              <span style={{ fontFamily: OW, fontSize: 12, fontWeight: 800, color: '#1a2f8a', marginTop: 2 }}>
+                Customer Care: 9935257750
+              </span>
             </div>
           </div>
 
         </div>
       ),
-      { width: 520, height: 860, fonts: fonts as Parameters<typeof ImageResponse>[1]['fonts'] }
+      { width: 540, height: 920, fonts }
     )
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[share-card] render error:', msg)
+    const msg = String(err?.message ?? err).slice(0, 200)
+    console.error('[share-card] crash:', msg)
     return new ImageResponse(
       (
-        <div style={{ display: 'flex', width: 520, height: 200, background: '#fee2e2', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <span style={{ fontSize: 13, color: '#991b1b', fontFamily: 'sans-serif', lineHeight: 1.6 }}>
-            Render error (check Vercel logs): {msg.slice(0, 220)}
+        <div style={{ display: 'flex', width: 540, height: 160, background: '#fee2e2', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <span style={{ fontSize: 13, color: '#991b1b', fontFamily: 'sans-serif' }}>
+            Error: {msg}
           </span>
         </div>
       ),
-      { width: 520, height: 200 }
+      { width: 540, height: 160 }
     )
   }
 }
