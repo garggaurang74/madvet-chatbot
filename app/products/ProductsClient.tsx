@@ -144,8 +144,9 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
   const [open, setOpen] = useState(false)
   const color = getColor(p.category)
 
-  const shortDesc = p.description.length > 5
-    ? (p.description.length > 160 ? p.description.slice(0, 157) + '…' : p.description)
+  const activeDesc = (lang === 'hi' && p.description_hi) ? p.description_hi : p.description
+  const shortDesc = activeDesc.length > 5
+    ? (activeDesc.length > 160 ? activeDesc.slice(0, 157) + '…' : activeDesc)
     : p.indication.split(',').map(s => s.trim()).filter(s => s.length > 10 && /^[\x00-\x7F]+$/.test(s))[0] || ''
 
   const indChunks = p.indication.split(',').map(s => s.trim()).filter(s => s.length > 6)
@@ -196,14 +197,12 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
 
       {/* Product Image */}
       {p.image_url && (
-        <div style={{ width: '100%', height: 140, overflow: 'hidden', background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <div style={{ width: '100%', height: 140, overflow: 'hidden', background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img
             src={p.image_url}
             alt={p.name}
             style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
-            loading="lazy"
-            decoding="async"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
           />
         </div>
       )}
@@ -294,7 +293,7 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
                 {lang === 'hi' ? 'विवरण' : 'Description'}
               </div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{p.description}</div>
+              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{(lang === 'hi' && p.description_hi) ? p.description_hi : p.description}</div>
             </div>
           )}
           {p.salt && (
@@ -317,7 +316,7 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
                 {lang === 'hi' ? 'मुख्य फायदे' : 'Key Benefits'}
               </div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{p.benefits}</div>
+              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{(lang === 'hi' && p.usp_benefits_hi) ? p.usp_benefits_hi : p.benefits}</div>
             </div>
           )}
           {displayInd && (
