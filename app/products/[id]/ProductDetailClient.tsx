@@ -196,17 +196,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center',
               marginBottom: product.video_url ? 12 : 20,
             }}>
-              <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }}
-                fetchPriority="high"
-                decoding="async"
-                onError={(e) => {
-                  const img = e.target as HTMLImageElement
-                  img.style.display = 'none'
-                  const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
-                  if (placeholder) placeholder.style.display = 'flex'
-                }}
-              />
-              <div className="img-placeholder" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🐄</div>
+              <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
             </div>
           )}
           {(() => {
@@ -293,13 +283,13 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             {product.description && (
               <div className="card">
                 <div className="section-label">{t.about}</div>
-                <p style={{ fontSize: 15, lineHeight: 1.75, color: '#1c2b22' }}>{product.description}</p>
+                <p style={{ fontSize: 15, lineHeight: 1.75, color: '#1c2b22' }}>{lang === 'hi' && product.description_hi ? product.description_hi : product.description}</p>
               </div>
             )}
             {product.benefits && product.benefits !== 'N/A' && (
               <div className="card">
                 <div className="section-label">{t.benefits}</div>
-                <p style={{ fontSize: 15, lineHeight: 1.75, color: '#1c2b22' }}>{product.benefits}</p>
+                <p style={{ fontSize: 15, lineHeight: 1.75, color: '#1c2b22' }}>{lang === 'hi' && product.usp_benefits_hi ? product.usp_benefits_hi : product.benefits}</p>
               </div>
             )}
             {displayInd.length > 0 && (

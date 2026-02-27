@@ -9,6 +9,8 @@ export interface Product {
   indication: string
   description: string
   benefits: string
+  description_hi: string
+  usp_benefits_hi: string
   aliases: string
   image_url: string
   video_url: string

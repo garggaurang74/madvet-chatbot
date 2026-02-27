@@ -399,7 +399,7 @@ let quizAnswered  = false;
 // ── FETCH PRODUCTS ────────────────────────────────────────────────────────────
 async function loadProducts() {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,video_url,image_url&order=id.asc&limit=500`;
+    const url = `${SUPABASE_URL}/rest/v1/products_enriched?select=id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,description_hi,usp_benefits_hi,video_url,image_url&order=id.asc&limit=500`;
     const res = await fetch(url, { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` }});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -416,6 +416,8 @@ async function loadProducts() {
       // Hindi uses — only Hindi/Hinglish terms
       usesHi: (r.indication||'').split(',').map(s=>s.trim()).filter(s=>s.length>2 && /[\u0900-\u097F]/.test(s)).slice(0,4),
       description: (r.description||'').trim(),
+      description_hi: (r.description_hi||'').trim(),
+      usp_benefits_hi: (r.usp_benefits_hi||'').trim(),
       benefits: (r.usp_benefits||'').trim(),
       video_url: (r.video_url||'').trim(),
       image_url: (r.image_url||'').trim(),
@@ -592,7 +594,7 @@ function renderLearn() {
       ${p.description?`
         <div class="lc-section">
           <div class="lc-label">${aboutLabel}</div>
-          <div style="font-size:13px;color:#1c2b22;line-height:1.6;background:#fff;border:1px solid #e8dfc8;border-radius:10px;padding:10px 14px;">${p.description}</div>
+          <div style="font-size:13px;color:#1c2b22;line-height:1.6;background:#fff;border:1px solid #e8dfc8;border-radius:10px;padding:10px 14px;">${LANG==='hi' && p.description_hi ? p.description_hi : p.description}</div>
         </div>`:''}
       ${displayUses.length?`
         <div class="lc-section">
@@ -606,7 +608,7 @@ function renderLearn() {
       ${p.benefits?`
         <div class="lc-section">
           <div class="lc-label">${benefitsLabel}</div>
-          <div style="font-size:12px;color:#3d7a57;line-height:1.6;">${p.benefits}</div>
+          <div style="font-size:12px;color:#3d7a57;line-height:1.6;">${LANG==='hi' && p.usp_benefits_hi ? p.usp_benefits_hi : p.benefits}</div>
         </div>`:''}
       <div class="lc-section">
         <div class="lc-label">${speciesLabel}</div>

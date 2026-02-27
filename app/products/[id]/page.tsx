@@ -48,7 +48,7 @@ async function fetchProduct(id: number): Promise<Product | null> {
   const supabase = createClient(url, key)
   const { data, error } = await supabase
     .from(table)
-    .select('id, product_name, salt_ingredient, packaging, formulation, category, species, indication, description, usp_benefits, aliases, image_url, video_url')
+    .select('id, product_name, salt_ingredient, packaging, formulation, category, species, indication, description, usp_benefits, description_hi, usp_benefits_hi, aliases, image_url, video_url')
     .eq('id', id)
     .single()
 
@@ -68,6 +68,8 @@ async function fetchProduct(id: number): Promise<Product | null> {
     indication:  (data.indication      || '').trim(),
     description: (data.description     || '').trim(),
     benefits:    (data.usp_benefits    || '').trim(),
+    description_hi:  (data.description_hi  || '').trim(),
+    usp_benefits_hi: (data.usp_benefits_hi || '').trim(),
     aliases:     (data.aliases         || '').trim(),
     image_url:   (data.image_url       || '').trim(),
     video_url:   (data.video_url       || '').trim(),
