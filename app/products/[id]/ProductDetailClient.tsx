@@ -189,8 +189,10 @@ function ShareFooter({ c }: { c: ReturnType<typeof getShareColors> }) {
         <div style={{ position: 'absolute', bottom: -20, left: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.10)' }} />
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Real logo image — no filter so colours show correctly on yellow */}
-            <img src="/madvet-icon.png" alt="Madvet" style={{ height: 52, width: 52, objectFit: 'contain' }} crossOrigin="anonymous" />
+            {/* Real logo icon in white bg box, exactly like physical flyers */}
+            <div style={{ background: '#fff', borderRadius: 8, padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/madvet-icon.png" alt="Madvet" style={{ height: 44, width: 44, objectFit: 'contain' }} crossOrigin="anonymous" />
+            </div>
             <div>
               <div style={{ fontFamily: "'Oswald','Arial Black',sans-serif", fontSize: 28, fontWeight: 900, color: '#1a2f8a', letterSpacing: 3, lineHeight: 1 }}>MADVET</div>
               <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", fontSize: 10, color: '#1a2f8a', letterSpacing: 1.5, marginTop: 1, fontWeight: 700 }}>ANIMAL HEALTH CARE</div>
@@ -498,42 +500,60 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const Card = CardMap[tmpl as keyof typeof CardMap]
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
 
-  // Inject Google Fonts into <head> so html2canvas can find them
-  const ensureFonts = () => {
+  // Force-load every font weight so html2canvas gets crisp text
+  const ensureFonts = async () => {
+    // Inject stylesheet if not already there
     const id = 'madvet-share-fonts'
     if (!document.getElementById(id)) {
       const link = document.createElement('link')
-      link.id = id
-      link.rel = 'stylesheet'
+      link.id = id; link.rel = 'stylesheet'
       link.href = 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap'
       document.head.appendChild(link)
+      // Wait for stylesheet to parse
+      await new Promise(r => setTimeout(r, 300))
     }
-    return document.fonts.ready
+    // Force the browser to actually load each variant (this is what html2canvas needs)
+    await Promise.allSettled([
+      document.fonts.load('400 16px Oswald'),
+      document.fonts.load('600 16px Oswald'),
+      document.fonts.load('700 16px Oswald'),
+      document.fonts.load('400 16px "Barlow Condensed"'),
+      document.fonts.load('700 16px "Barlow Condensed"'),
+      document.fonts.load('800 16px "Barlow Condensed"'),
+      document.fonts.load('400 16px "Noto Sans Devanagari"'),
+      document.fonts.load('600 16px "Noto Sans Devanagari"'),
+      document.fonts.load('700 16px "Noto Sans Devanagari"'),
+      document.fonts.load('800 16px "Noto Sans Devanagari"'),
+    ])
+    await document.fonts.ready
   }
 
   const generatePNG = async (): Promise<Blob> => {
     await ensureFonts()
-    // Wait for fonts AND images to paint on the visible card
-    await new Promise(r => setTimeout(r, 800))
-    // Capture the visible inner card (html2canvas ignores CSS transform scale,
-    // so it renders at the full 480px natural width — identical to what you see)
+    // Extra wait after fonts load so browser fully paints
+    await new Promise(r => setTimeout(r, 500))
     const el = document.getElementById('madvet-share-card-inner')
     if (!el) throw new Error('Card not found')
     let html2canvas: any
     try { html2canvas = (await import('html2canvas')).default }
     catch { html2canvas = (window as any).html2canvas }
-    if (!html2canvas) throw new Error('html2canvas missing — run: npm install html2canvas')
+    if (!html2canvas) throw new Error('html2canvas not installed')
     const canvas = await html2canvas(el, {
       scale: 3,
       useCORS: true,
       allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
-      imageTimeout: 10000,
-      onclone: (doc: Document) => {
-        // Ensure all images load in the cloned document
-        doc.querySelectorAll('img').forEach((img: HTMLImageElement) => {
-          img.crossOrigin = 'anonymous'
+      imageTimeout: 12000,
+      onclone: (_doc: Document, el: HTMLElement) => {
+        // Force inline all computed font styles so cloned doc inherits them
+        el.querySelectorAll('*').forEach((node) => {
+          const n = node as HTMLElement
+          if (n.style) {
+            const cs = window.getComputedStyle(n)
+            n.style.fontFamily = cs.fontFamily
+            n.style.fontWeight = cs.fontWeight
+          }
         })
       },
     })
@@ -548,36 +568,52 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       const blob = await generatePNG()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = `${product.name.replace(/\s+/g,'-')}-madvet.png`; a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 2000)
+      a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 3000)
       setStatus('done')
-    } catch(e: any) { alert(e.message || 'Download failed'); setStatus('error') }
-    finally { setTimeout(() => setStatus('idle'), 2500) }
+    } catch (e: any) {
+      alert(e.message || 'Download failed')
+      setStatus('error')
+    } finally {
+      setTimeout(() => setStatus('idle'), 2500)
+    }
   }
 
   const handleShare = async () => {
     setStatus('loading')
     try {
       const blob = await generatePNG()
-      const file = new File([blob], `${product.name.replace(/\s+/g,'-')}-madvet.png`, { type: 'image/png' })
+      const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
+      const file = new File([blob], filename, { type: 'image/png' })
+
+      // Try sharing with image file (works on iOS Safari 15+ and Android Chrome)
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: `${product.name} — Madvet`, files: [file], url: 'https://madvet.in/products' })
-      } else if (navigator.share) {
-        await navigator.share({ title: product.name, url: 'https://madvet.in/products' })
-      } else {
-        // Fallback: download the image
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url; a.download = file.name; a.click()
-        setTimeout(() => URL.revokeObjectURL(url), 2000)
-        alert('Image downloaded! You can now share it.')
+        await navigator.share({ title: `${product.name} — Madvet`, files: [file] })
+        setStatus('done')
+        return
       }
+      // Fallback: download silently — no alert, user sees the file in downloads
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = filename; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 3000)
       setStatus('done')
-    } catch(e: any) {
-      if ((e as any)?.name !== 'AbortError') { alert('Share failed — image downloaded instead'); setStatus('error') }
-      else setStatus('idle')
+    } catch (e: any) {
+      // AbortError = user dismissed share sheet — that's fine, no alert
+      if (e?.name !== 'AbortError') {
+        // Any real error: silently download instead
+        try {
+          const blob = await generatePNG()
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
+          setTimeout(() => URL.revokeObjectURL(url), 3000)
+        } catch {}
+      }
+      setStatus('idle')
+    } finally {
+      setTimeout(() => setStatus('idle'), 2500)
     }
-    finally { setTimeout(() => setStatus('idle'), 2500) }
   }
 
   const busy = status === 'loading'
@@ -724,11 +760,6 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LangToggle lang={lang} setLang={setLang} />
-          <button
-            onClick={() => setShowShare(true)}
-            style={{ padding: '7px 14px', borderRadius: 6, background: '#FFE000', color: '#1a2f8a', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
-            ↗ {lang === 'hi' ? 'शेयर' : 'Share'}
-          </button>
           <Link href="/products" style={{ padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}>
             ← {t.allProducts}
           </Link>
