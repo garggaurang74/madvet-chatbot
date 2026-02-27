@@ -517,10 +517,9 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
       setTimeout(() => URL.revokeObjectURL(url), 3000)
       setStatus('done')
-    } catch (e: any) {
-      alert(e.message || 'Download failed')
+    } catch {
       setStatus('error')
-    } finally { setTimeout(() => setStatus('idle'), 2500) }
+    } finally { setTimeout(() => setStatus('idle'), 3000) }
   }
 
   const handleShare = async () => {
@@ -531,25 +530,22 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       const file = new File([blob], filename, { type: 'image/png' })
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ title: `${product.name} — Madvet`, files: [file] })
+        setStatus('done')
       } else {
+        // Fallback: download
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url; a.download = filename; a.click()
         setTimeout(() => URL.revokeObjectURL(url), 3000)
+        setStatus('done')
       }
-      setStatus('done')
     } catch (e: any) {
-      if (e?.name !== 'AbortError') {
-        try {
-          const blob = await fetchPNG()
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
-          setTimeout(() => URL.revokeObjectURL(url), 3000)
-        } catch {}
+      if (e?.name === 'AbortError') {
+        setStatus('idle') // user cancelled — no error
+      } else {
+        setStatus('error')
       }
-      setStatus('idle')
-    } finally { setTimeout(() => setStatus('idle'), 2500) }
+    } finally { setTimeout(() => setStatus('idle'), 3000) }
   }
 
   const busy = status === 'loading'
@@ -587,8 +583,8 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
               {busy ? '⏳' : '↗ SHARE'}
             </button>
           </div>
-          <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 8 }}>
-            {status === 'done' ? '✅ Done!' : 'Tap SHARE to send via WhatsApp'}
+          <p style={{ textAlign: 'center', fontSize: 11, color: status === 'error' ? '#ff6b6b' : '#aaa', marginTop: 8 }}>
+            {status === 'done' ? '✅ Done!' : status === 'error' ? '❌ Failed — try again' : 'Tap SHARE to send via WhatsApp'}
           </p>
         </div>
       </div>
