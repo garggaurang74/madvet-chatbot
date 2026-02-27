@@ -1,4 +1,4 @@
-// app/api/share-card/[id]/route.ts
+// app/products/[id]/share-card/route.tsx
 // Generates product share card as PNG server-side using @vercel/og
 // Fonts are fetched server-side — no CORS issues, no garbled text
 
@@ -58,9 +58,10 @@ function splitSpecies(sp = '') {
 // ── GET handler ──────────────────────────────────────────────────────────────
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = parseInt(params.id, 10)
+  const { id: rawId } = await params
+  const id = parseInt(rawId, 10)
   if (isNaN(id)) return new Response('Invalid ID', { status: 400 })
 
   // Fetch product from Supabase
@@ -73,16 +74,17 @@ export async function GET(
   if (error || !data) return new Response('Product not found', { status: 404 })
 
   const p = data
-  const name      = p.product_name ?? p.name ?? ''
-  const category  = p.category ?? ''
-  const salt      = p.salt_ingredient ?? p.salt ?? ''
-  const packaging = p.packaging ?? ''
-  const form      = p.formulation ?? ''
-  const imageUrl  = p.image_url ?? ''
-  const benefitsHi = splitBenefits(p.usp_benefits_hi ?? p.usp_benefits ?? p.benefits ?? '')
-  const benefitsEn = splitBenefits(p.usp_benefits ?? p.benefits ?? '')
-  const species    = splitSpecies(p.species ?? '')
-  const c = getColors(id, category)
+  const name        = p.product_name ?? p.name ?? ''
+  const category    = p.category ?? ''
+  const salt        = p.salt_ingredient ?? p.salt ?? ''
+  const packaging   = p.packaging ?? ''
+  const form        = p.formulation ?? ''
+  const imageUrl    = p.image_url ?? ''
+  const benefitsHi  = splitBenefits(p.usp_benefits_hi ?? p.usp_benefits ?? p.benefits ?? '')
+  const benefitsEn  = splitBenefits(p.usp_benefits ?? p.benefits ?? '')
+  const species     = splitSpecies(p.species ?? '')
+  const c           = getColors(id, category)
+  const APP_URL     = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ai.madvet.in'
 
   // Fetch fonts server-side (no CORS issues here)
   const [oswaldBold, notoDevanagari, barlowCondensed] = await Promise.all([
@@ -90,6 +92,8 @@ export async function GET(
     fetch('https://fonts.gstatic.com/s/notosansdevanagari/v26/TuGOUUFzXI5FBtUq5a8bjKYTZjtRU6Sgv3NaV_SNmI0b6RFZz-SyFsRGMxDwF4FqhCO.woff').then(r => r.arrayBuffer()),
     fetch('https://fonts.gstatic.com/s/barlowcondensed/v12/HTxwL3I-JCGChYJ8VI-L6OO_au7B467nGYUAuAU.woff').then(r => r.arrayBuffer()),
   ])
+
+  const catH = CAT_PALETTES[category]?.h ?? 220
 
   // Build the card as JSX (Satori-compatible — flexbox only, no CSS grid)
   const card = (
@@ -107,9 +111,8 @@ export async function GET(
         {/* Logo row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* White box around icon */}
             <div style={{ background: '#fff', borderRadius: 6, padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
-              <img src={`${process.env.NEXT_PUBLIC_APP_URL ?? 'https://ai.madvet.in'}/madvet-icon.png`}
+              <img src={`${APP_URL}/madvet-icon.png`}
                 width={36} height={36} style={{ objectFit: 'contain' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -168,10 +171,9 @@ export async function GET(
 
       {/* ── BENEFITS ── */}
       <div style={{ display: 'flex', flexDirection: 'column', padding: '14px 18px 8px', background: '#fff' }}>
-        {/* Section heading */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ fontFamily: '"NotoDevanagari"', fontSize: 14, fontWeight: 800, color: c.primary }}>प्रमुख लाभ</span>
-          <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg,${c.primary}50,transparent)`, margin: '0 8px' }} />
+          <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg,${c.primary}50,transparent)`, margin: '0 8px', display: 'flex' }} />
           <span style={{ fontSize: 9.5, color: '#aaa', fontStyle: 'italic' }}>Key Benefits</span>
         </div>
 
@@ -179,7 +181,7 @@ export async function GET(
           <div key={i} style={{
             display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7,
             padding: '8px 12px', borderRadius: 8,
-            background: i === 0 ? `hsl(${CAT_PALETTES[category]?.h ?? 220},30%,95%)` : i === 1 ? `hsl(${CAT_PALETTES[category]?.h ?? 220},20%,97%)` : '#fafafa',
+            background: i === 0 ? `hsl(${catH},30%,95%)` : i === 1 ? `hsl(${catH},20%,97%)` : '#fafafa',
             border: `1px solid ${i < 2 ? c.primary + '30' : '#eeeeee'}`,
           }}>
             <div style={{
@@ -204,7 +206,7 @@ export async function GET(
         {species.map((emoji: string, i: number) => (
           <div key={i} style={{
             width: 30, height: 30, borderRadius: '50%',
-            background: `hsl(${CAT_PALETTES[category]?.h ?? 220},30%,93%)`,
+            background: `hsl(${catH},30%,93%)`,
             border: `1.5px solid ${c.primary}44`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
           }}>{emoji}</div>
@@ -246,7 +248,7 @@ export async function GET(
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: '4px 6px', display: 'flex', alignItems: 'center' }}>
-            <img src={`${process.env.NEXT_PUBLIC_APP_URL ?? 'https://ai.madvet.in'}/madvet-icon.png`}
+            <img src={`${APP_URL}/madvet-icon.png`}
               width={44} height={44} style={{ objectFit: 'contain' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -269,7 +271,7 @@ export async function GET(
     width: 480,
     height: 720,
     fonts: [
-      { name: 'Oswald',          data: oswaldBold,        weight: 700, style: 'normal' },
+      { name: 'Oswald',          data: oswaldBold,       weight: 700, style: 'normal' },
       { name: 'BarlowCondensed', data: barlowCondensed,  weight: 400, style: 'normal' },
       { name: 'NotoDevanagari',  data: notoDevanagari,   weight: 600, style: 'normal' },
     ],
