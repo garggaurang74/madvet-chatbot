@@ -161,7 +161,8 @@ export async function GET(
     barlowData = results[2].status === 'fulfilled' ? results[2].value : null
   } catch { /* fonts unavailable — render with system fonts */ }
 
-  const fonts: ConstructorParameters<typeof ImageResponse>[1]['fonts'] = []
+  type FontEntry = { name: string; data: ArrayBuffer; weight: number; style: 'normal' | 'italic' }
+  const fonts: FontEntry[] = []
   if (oswaldData)  fonts.push({ name: 'Oswald',    data: oswaldData,  weight: 700, style: 'normal' })
   if (notoData)    fonts.push({ name: 'NotoHindi', data: notoData,    weight: 600, style: 'normal' })
   if (barlowData)  fonts.push({ name: 'Barlow',    data: barlowData,  weight: 400, style: 'normal' })
