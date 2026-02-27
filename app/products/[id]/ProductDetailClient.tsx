@@ -124,7 +124,7 @@ function ShareMadvetLogoLight({ size = 1 }: { size?: number }) {
 
 function ShareImgBox({ url, w, h, c, emoji = '🧴', round = false }: { url: string; w: number; h: number; c: ReturnType<typeof getShareColors>; emoji?: string; round?: boolean }) {
   const [err, setErr] = useState(false)
-  const style: React.CSSProperties = {
+  const style: { width: number; height: number; flexShrink: number; overflow: string; borderRadius: number | string; background: string; border: string; display: string; alignItems: string; justifyContent: string; boxShadow: string } = {
     width: w, height: h, flexShrink: 0, overflow: 'hidden',
     borderRadius: round ? '50%' : 12,
     background: `linear-gradient(145deg,${c.pale},white)`,
@@ -524,7 +524,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     catch { html2canvas = (window as any).html2canvas }
     if (!html2canvas) throw new Error('html2canvas missing — run: npm install html2canvas')
     const canvas = await html2canvas(el, {
-      scale: 2.5,
+      scale: 3,
       useCORS: true,
       allowTaint: false,
       backgroundColor: '#ffffff',
@@ -538,7 +538,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       },
     })
     return new Promise<Blob>((res, rej) =>
-      canvas.toBlob(b => b ? res(b) : rej(new Error('Blob failed')), 'image/png')
+      canvas.toBlob((b: Blob | null) => b ? res(b) : rej(new Error('Blob failed')), 'image/png', 1.0)
     )
   }
 
@@ -779,7 +779,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             return (
               <div style={{ width: '100%', maxWidth: 480, marginBottom: 20 }}>
                 <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(200,169,110,0.25)', background: '#000' }}>
-                  <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />
+                  <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />
                 </div>
                 <div style={{ marginTop: 8, display: 'flex', gap: 10 }}>
                   <a href={product.video_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, background: '#ff0000', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
