@@ -520,57 +520,118 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const tmpl = getTemplate(product.category)
   const CardMap = { vitality: ShareCardVitality, digest: ShareCardDigest, herbal: ShareCardHerbal, shield: ShareCardShield, clinical: ShareCardClinical }
   const Card = CardMap[tmpl as keyof typeof CardMap]
+  const [sharing, setSharing] = useState(false)
+
+  const generateCanvas = async () => {
+    const el = document.getElementById('madvet-share-card')
+    if (!el) throw new Error('Card element not found')
+    // Try dynamic import first, then window fallback
+    let html2canvas: any
+    try {
+      html2canvas = (await import('html2canvas')).default
+    } catch {
+      html2canvas = (window as any).html2canvas
+    }
+    if (!html2canvas) throw new Error('html2canvas not available')
+    return html2canvas(el, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff' })
+  }
 
   const handleDownload = async () => {
+    setSharing(true)
     try {
-      const el = document.getElementById('madvet-share-card')
-      if (!el) return
-      // @ts-ignore — html2canvas loaded globally or imported
-      const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, allowTaint: true })
+      const canvas = await generateCanvas()
       const link = document.createElement('a')
       link.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`
       link.href = canvas.toDataURL('image/png')
       link.click()
     } catch {
-      alert('Install html2canvas: npm install html2canvas')
+      alert('Please run: npm install html2canvas')
+    } finally {
+      setSharing(false)
     }
   }
 
   const handleNativeShare = async () => {
-    if (navigator.share) {
-      await navigator.share({ title: product.name, text: `${product.name} — ${product.benefits?.slice(0, 80)}`, url: 'https://madvet.in/products' })
-    } else {
-      await navigator.clipboard.writeText('https://madvet.in/products')
-      alert('Link copied!')
+    setSharing(true)
+    try {
+      // Generate PNG first, then share with image
+      const canvas = await generateCanvas()
+      const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+      const file = new File([blob], `${product.name.replace(/\s+/g, '-')}-madvet.png`, { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: `${product.name} — Madvet Animal Healthcare`,
+          text: `Check out ${product.name} by Madvet`,
+          url: 'https://madvet.in/products',
+          files: [file],
+        })
+      } else if (navigator.share) {
+        // Share URL if file sharing not supported
+        await navigator.share({ title: product.name, url: 'https://madvet.in/products' })
+      } else {
+        // Fallback: download + copy link
+        const link = document.createElement('a')
+        link.download = file.name
+        link.href = canvas.toDataURL('image/png')
+        link.click()
+        await navigator.clipboard.writeText('https://madvet.in/products')
+        alert('Image downloaded & link copied!')
+      }
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') {
+        // Fallback to URL-only share
+        try {
+          if (navigator.share) await navigator.share({ title: product.name, url: 'https://madvet.in/products' })
+          else { await navigator.clipboard.writeText('https://madvet.in/products'); alert('Link copied!') }
+        } catch {}
+      }
+    } finally {
+      setSharing(false)
     }
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16, overflowY: 'auto' }}
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.82)', overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap');`}</style>
 
-      <div style={{ background: '#1a1e2a', borderRadius: 16, padding: 24, maxWidth: 540, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
-        {/* Modal header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: "'Oswald',sans-serif", letterSpacing: 1 }}>SHARE CARD</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5, marginTop: 1 }}>{product.name} · {product.category}</div>
+      <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '20px 12px 40px' }}>
+        <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 520, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+          {/* Modal header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: "'Oswald',sans-serif", letterSpacing: 1 }}>SHARE CARD</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5, marginTop: 1 }}>{product.name} · {product.category}</div>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-        </div>
 
-        {/* Card */}
-        <div id="madvet-share-card" style={{ borderRadius: 8, overflow: 'hidden' }}>
-          <Card p={product} c={c} />
-        </div>
+          {/* Card — scaled to fit screen width */}
+          <div style={{ width: '100%', overflowX: 'hidden' }}>
+            <div id="madvet-share-card" style={{
+              borderRadius: 8, overflow: 'hidden',
+              transformOrigin: 'top left',
+              // Scale card to fit available width
+              transform: `scale(${Math.min(1, (Math.min(window.innerWidth, 520) - 28) / 480)})`,
+              width: 480,
+              marginBottom: `${(Math.min(1, (Math.min(window.innerWidth, 520) - 28) / 480) - 1) * 100}%`,
+            }}>
+              <Card p={product} c={c} />
+            </div>
+          </div>
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button onClick={handleDownload} style={{ flex: 1, padding: '11px 0', borderRadius: 8, background: `linear-gradient(135deg,${c.primary},${c.bright})`, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: "'Oswald',sans-serif", letterSpacing: 1.5, boxShadow: `0 6px 20px ${c.glow}` }}>↓ DOWNLOAD PNG</button>
-          <button onClick={handleNativeShare} style={{ flex: 1, padding: '11px 0', borderRadius: 8, background: '#FFE000', color: '#1a2f8a', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: "'Oswald',sans-serif", letterSpacing: 1.5 }}>↗ SHARE</button>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <button onClick={handleDownload} disabled={sharing} style={{ flex: 1, padding: '12px 0', borderRadius: 8, background: sharing ? '#666' : `linear-gradient(135deg,${c.primary},${c.bright})`, color: '#fff', border: 'none', cursor: sharing ? 'wait' : 'pointer', fontSize: 13, fontWeight: 700, fontFamily: "'Oswald',sans-serif", letterSpacing: 1.5, boxShadow: `0 6px 20px ${c.glow}`, transition: 'all 0.2s' }}>
+              {sharing ? '⏳ ...' : '↓ DOWNLOAD PNG'}
+            </button>
+            <button onClick={handleNativeShare} disabled={sharing} style={{ flex: 1, padding: '12px 0', borderRadius: 8, background: sharing ? '#ccc' : '#FFE000', color: '#1a2f8a', border: 'none', cursor: sharing ? 'wait' : 'pointer', fontSize: 13, fontWeight: 700, fontFamily: "'Oswald',sans-serif", letterSpacing: 1.5, transition: 'all 0.2s' }}>
+              {sharing ? '⏳ ...' : '↗ SHARE'}
+            </button>
+          </div>
         </div>
-        <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 10, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5 }}>Requires html2canvas for PNG download · npm install html2canvas</p>
       </div>
     </div>
   )
@@ -658,12 +719,6 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LangToggle lang={lang} setLang={setLang} />
-          {/* Share Card button */}
-          <button
-            onClick={() => setShowShare(true)}
-            style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(200,169,110,0.15)', color: 'var(--gold-light)', border: '1px solid rgba(200,169,110,0.3)', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
-            {t.shareCard}
-          </button>
           <Link href="/products" style={{ padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}>
             ← {t.allProducts}
           </Link>
@@ -687,9 +742,35 @@ export default function ProductDetailClient({ product }: { product: Product }) {
           </div>
           <h1 className="hero-title" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 42, color: 'var(--cream)', lineHeight: 1.1, marginBottom: 16 }}>{product.name}</h1>
           {product.image_url && (
-            <div style={{ width: '100%', maxWidth: 320, borderRadius: 16, overflow: 'hidden', background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', border: '1px solid rgba(200,169,110,0.25)', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: product.video_url ? 12 : 20 }}>
-              <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
+            <div style={{ position: 'relative', width: '100%', maxWidth: 320, marginBottom: product.video_url ? 12 : 20, display: 'inline-block' }}>
+              <div style={{ borderRadius: 16, overflow: 'hidden', background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', border: '1px solid rgba(200,169,110,0.25)', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
+              </div>
+              {/* Floating share button — top right of image */}
+              <button
+                onClick={() => setShowShare(true)}
+                title={t.shareCard}
+                style={{
+                  position: 'absolute', top: 10, right: 10,
+                  width: 40, height: 40, borderRadius: '50%',
+                  background: '#FFE000',
+                  border: '2px solid rgba(255,255,255,0.6)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+                  fontSize: 18, zIndex: 10,
+                  transition: 'transform 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+              >↗</button>
             </div>
+          )}
+          {/* Share button when no image */}
+          {!product.image_url && (
+            <button
+              onClick={() => setShowShare(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 16, padding: '8px 18px', borderRadius: 8, background: '#FFE000', color: '#1a2f8a', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}
+            >↗ {t.shareCard}</button>
           )}
           {(() => {
             if (!product.video_url) return null
