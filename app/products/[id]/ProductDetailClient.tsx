@@ -495,17 +495,15 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
 
 // ── Share card modal ─────────────────────────────────────────────────────────
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
-  const c = getShareColors(product.id, product.category)
-  const tmpl = getTemplate(product.category)
-  const CardMap = { vitality: ShareCardVitality, digest: ShareCardDigest, herbal: ShareCardHerbal, shield: ShareCardShield, clinical: ShareCardClinical }
-  const Card = CardMap[tmpl as keyof typeof CardMap]
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const cardUrl = `/api/share-card/${product.id}`
 
-  // PNG generated server-side — no html2canvas, no font issues ever
   const fetchPNG = async (): Promise<Blob> => {
-    const res = await fetch(`/api/share-card/${product.id}`)
-    if (!res.ok) throw new Error('Image generation failed')
-    return res.blob()
+    const res = await fetch(cardUrl, { cache: 'no-store' })
+    if (!res.ok) throw new Error(`Server returned ${res.status}`)
+    const blob = await res.blob()
+    if (blob.size === 0) throw new Error('Empty image received')
+    return blob
   }
 
   const handleDownload = async () => {
@@ -517,9 +515,8 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
       setTimeout(() => URL.revokeObjectURL(url), 3000)
       setStatus('done')
-    } catch {
-      setStatus('error')
-    } finally { setTimeout(() => setStatus('idle'), 3000) }
+    } catch { setStatus('error') }
+    finally { setTimeout(() => setStatus('idle'), 3000) }
   }
 
   const handleShare = async () => {
@@ -532,7 +529,6 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         await navigator.share({ title: `${product.name} — Madvet`, files: [file] })
         setStatus('done')
       } else {
-        // Fallback: download
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url; a.download = filename; a.click()
@@ -540,23 +536,18 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         setStatus('done')
       }
     } catch (e: any) {
-      if (e?.name === 'AbortError') {
-        setStatus('idle') // user cancelled — no error
-      } else {
-        setStatus('error')
-      }
+      if (e?.name === 'AbortError') { setStatus('idle') }
+      else { setStatus('error') }
     } finally { setTimeout(() => setStatus('idle'), 3000) }
   }
 
   const busy = status === 'loading'
-  const screenW = typeof window !== 'undefined' ? window.innerWidth : 400
-  const cardScale = Math.min(1, (Math.min(screenW, 500) - 32) / 480)
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)', overflowY: 'auto' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 12px 40px' }}>
-        <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 520, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+        <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>SHARE CARD</div>
@@ -564,35 +555,27 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             </div>
             <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
-          {/* Preview — React card scaled to fit phone (preview only, share uses server PNG) */}
-          <div style={{ width: '100%', overflow: 'hidden', borderRadius: 8 }}>
-            <div style={{ transform: `scale(${cardScale})`, transformOrigin: 'top left', width: 480, marginBottom: `${(cardScale - 1) * 480}px` }}>
-              <Card p={product} c={c} />
-            </div>
+          {/* Preview = actual server PNG — what you see is exactly what gets shared */}
+          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#111', minHeight: 200 }}>
+            <img src={cardUrl} alt={product.name} style={{ width: '100%', height: 'auto', display: 'block' }} />
           </div>
-          {busy && (
-            <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>
-              ⏳ Generating image… please wait
-            </div>
-          )}
+          {busy && <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>⏳ Preparing…</div>}
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            <button onClick={handleDownload} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#444' : `linear-gradient(135deg,${c.primary},${c.bright})`, color: '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1, transition: 'all 0.2s' }}>
+            <button onClick={handleDownload} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#444' : '#1d4ed8', color: '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
               {busy ? '⏳' : '↓ DOWNLOAD'}
             </button>
-            <button onClick={handleShare} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#bbb' : '#FFE000', color: '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1, transition: 'all 0.2s' }}>
+            <button onClick={handleShare} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#bbb' : '#FFE000', color: '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
               {busy ? '⏳' : '↗ SHARE'}
             </button>
           </div>
           <p style={{ textAlign: 'center', fontSize: 11, color: status === 'error' ? '#ff6b6b' : '#aaa', marginTop: 8 }}>
-            {status === 'done' ? '✅ Done!' : status === 'error' ? '❌ Failed — try again' : 'Tap SHARE to send via WhatsApp'}
+            {status === 'done' ? '✅ Done!' : status === 'error' ? '❌ Failed — check Vercel logs' : 'Tap SHARE to send via WhatsApp'}
           </p>
         </div>
       </div>
     </div>
   )
 }
-
-
 // ── Lang toggle ──────────────────────────────────────────────────────────────
 function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   return (

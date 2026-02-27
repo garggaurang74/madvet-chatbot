@@ -97,8 +97,19 @@ async function toDataURI(url: string): Promise<string | null> {
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(5000) })
     if (!r.ok) return null
+    const ct = r.headers.get('content-type') || ''
+    // Reject HTML error pages served as 200
+    if (ct.includes('text/html') || ct.includes('text/plain')) return null
     const buf = Buffer.from(await r.arrayBuffer())
-    return `data:${r.headers.get('content-type') || 'image/jpeg'};base64,${buf.toString('base64')}`
+    // Validate image magic bytes
+    const sig = buf.slice(0, 4)
+    const isJPG = sig[0] === 0xFF && sig[1] === 0xD8
+    const isPNG = sig[0] === 0x89 && sig[1] === 0x50
+    const isWEBP = sig.toString('ascii', 0, 4) === 'RIFF'
+    const isGIF = sig.toString('ascii', 0, 3) === 'GIF'
+    if (!isJPG && !isPNG && !isWEBP && !isGIF) return null
+    const mimeType = isJPG ? 'image/jpeg' : isPNG ? 'image/png' : isWEBP ? 'image/webp' : 'image/gif'
+    return `data:${mimeType};base64,${buf.toString('base64')}`
   } catch { return null }
 }
 
@@ -120,17 +131,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   if (error || !data) return new Response('Not found', { status: 404 })
 
-  const name     = (data.product_name ?? data.name ?? '') as string
-  const category = (data.category ?? '') as string
-  const salt     = (data.salt_ingredient ?? data.salt ?? '') as string
-  const packaging= (data.packaging ?? '') as string
-  const form     = (data.formulation ?? '') as string
-  const imgUrl   = (data.image_url ?? '') as string
-  const bHi      = benefits(data.usp_benefits_hi ?? data.usp_benefits ?? '', 5)
-  const bEn      = benefits(data.usp_benefits ?? '', 5)
-  const spp      = (data.species ?? '').split(/[,/]/).map((s: string) => s.trim()).filter(Boolean).slice(0, 6)
+  // Sanitize all strings — prevent Satori crashing on special chars or excessive length
+  const clean = (v: unknown, max = 120) => String(v ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, max)
+  const name     = clean(data.product_name ?? data.name, 60)
+  const category = clean(data.category, 80)
+  const salt     = clean(data.salt_ingredient ?? data.salt, 100)
+  const packaging= clean(data.packaging, 40)
+  const form     = clean(data.formulation, 40)
+  const imgUrl   = clean(data.image_url, 500)
+  const bHi      = benefits(clean(data.usp_benefits_hi ?? data.usp_benefits, 800), 5)
+  const bEn      = benefits(clean(data.usp_benefits, 800), 5)
+  const spp      = clean(data.species, 200).split(/[,\/]/).map((s: string) => s.trim()).filter(Boolean).slice(0, 6)
 
-  const productURI = imgUrl ? await toDataURI(imgUrl) : null
+  // Fetch product image — isolated so a failure never crashes the whole card
+  let productURI: string | null = null
+  if (imgUrl) {
+    try { productURI = await toDataURI(imgUrl) } catch { productURI = null }
+  }
 
   const cfg = CAT[category]
   const bgTop   = cfg?.bgTop   ?? '#bfdbfe'
