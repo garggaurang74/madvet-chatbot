@@ -2,7 +2,6 @@
 // ALSO: run "bash download-fonts.sh" once to put fonts in public/fonts/
 
 import { ImageResponse } from 'next/og'
-import type { ImageResponseOptions } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'
 import path from 'path'
@@ -10,7 +9,12 @@ import path from 'path'
 // Node.js runtime — can read files from disk, reliable, no edge CORS issues
 export const runtime = 'nodejs'
 
-type FontOptions = NonNullable<ImageResponseOptions['fonts']>[number]
+type FontOptions = {
+  name: string
+  data: ArrayBuffer
+  weight?: 100|200|300|400|500|600|700|800|900
+  style?: 'normal'|'italic'
+}
 
 const CAT_CONFIG: Record<string, {
   h:number; s:number; l:number; accent:string; bgTop:string; bgBot:string
