@@ -24,7 +24,7 @@ const CAT_PALETTES = {
   "Digestive / Antiflatulent":         { h: 33,  s: 78, l: 30, name: "Copper"          },
 };
 
-function getColors(id, category) {
+function getColors(id: number, category: string) {
   const base = CAT_PALETTES[category] ?? { h: 220, s: 70, l: 28 };
   const shift = ((id * 37 + 13) % 41) - 20;
   const h = (base.h + shift + 360) % 360;
