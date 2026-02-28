@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import type { Product } from '../types'
 
 type Lang = 'en' | 'hi'
@@ -505,39 +505,60 @@ const SHARE_CARD_TEMPLATES: Record<string, any> = {
 // ── Share card modal ─────────────────────────────────────────────────────────
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
-  const cardUrl = `/api/share-card/${product.id}`
+  // Hidden full-size card ref for html2canvas capture
+  const captureRef = useRef<HTMLDivElement>(null)
 
-  const fetchPNG = async (): Promise<Blob> => {
-    const res = await fetch(cardUrl, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`Server returned ${res.status}`)
-    const blob = await res.blob()
-    if (blob.size === 0) throw new Error('Empty image received')
-    return blob
+  // Capture the hidden full-size card as a PNG blob using html2canvas
+  const captureCard = async (): Promise<Blob> => {
+    const el = captureRef.current
+    if (!el) throw new Error('Card element not ready')
+    // Dynamically import html2canvas (already in package.json)
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      // Capture exactly the card width
+      width: 480,
+      windowWidth: 480,
+    })
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('No blob')), 'image/png')
+    })
   }
 
   const handleDownload = async () => {
     setStatus('loading')
     try {
-      const blob = await fetchPNG()
+      const blob = await captureCard()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
+      a.href = url
+      a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`
+      a.click()
       setTimeout(() => URL.revokeObjectURL(url), 3000)
       setStatus('done')
-    } catch { setStatus('error') }
-    finally { setTimeout(() => setStatus('idle'), 3000) }
+    } catch (e) {
+      console.error('[ShareCard] download error:', e)
+      setStatus('error')
+    } finally {
+      setTimeout(() => setStatus('idle'), 3000)
+    }
   }
 
   const handleShare = async () => {
     setStatus('loading')
     try {
-      const blob = await fetchPNG()
+      const blob = await captureCard()
       const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
       const file = new File([blob], filename, { type: 'image/png' })
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: `${product.name} — Madvet`, files: [file] })
+        await navigator.share({ title: `${product.name} — Madvet`, text: `Check out ${product.name} by Madvet Animal Healthcare`, files: [file] })
         setStatus('done')
       } else {
+        // Fallback: download
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url; a.download = filename; a.click()
@@ -546,15 +567,26 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') { setStatus('idle') }
-      else { setStatus('error') }
-    } finally { setTimeout(() => setStatus('idle'), 3000) }
+      else { console.error('[ShareCard] share error:', e); setStatus('error') }
+    } finally {
+      setTimeout(() => setStatus('idle'), 3000)
+    }
   }
 
   const busy = status === 'loading'
+  const tmpl = getTemplate(product.category)
+  const c = getShareColors(product.id, product.category)
+  const CardComp = SHARE_CARD_TEMPLATES[tmpl]
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)', overflowY: 'auto' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+
+      {/* Hidden full-size card for html2canvas capture — off screen */}
+      <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 480, zIndex: -1 }} ref={captureRef}>
+        <CardComp p={product} c={c} />
+      </div>
+
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 12px 40px' }}>
         <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -564,28 +596,31 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             </div>
             <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
-          {/* Live React preview — instant, no API needed */}
-          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#0e1117' }}>
-            <div style={{ transform: 'scale(0.72)', transformOrigin: 'top left', width: `${100 / 0.72}%`, pointerEvents: 'none' }}>
-              {(() => {
-                const tmpl = getTemplate(product.category)
-                const c = getShareColors(product.id, product.category)
-                const CardComp = SHARE_CARD_TEMPLATES[tmpl]
-                return <CardComp p={product} c={c} />
-              })()}
+
+          {/* Live React preview — scaled to fit modal */}
+          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#0e1117', position: 'relative', height: `calc(480px * 0.72 * 1.4)` }}>
+            <div style={{ transform: 'scale(0.72)', transformOrigin: 'top left', width: `${Math.round(100 / 0.72)}%`, pointerEvents: 'none', position: 'absolute', top: 0, left: 0 }}>
+              <CardComp p={product} c={c} />
             </div>
           </div>
-          {busy && <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>⏳ Preparing…</div>}
+
+          {busy && (
+            <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>
+              ⏳ Rendering card…
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
             <button onClick={handleDownload} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#444' : '#1d4ed8', color: '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
-              {busy ? '⏳' : '↓ DOWNLOAD'}
+              {busy ? '⏳' : '↓ DOWNLOAD PNG'}
             </button>
-            <button onClick={handleShare} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#bbb' : '#FFE000', color: '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
+            <button onClick={handleShare} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#555' : '#FFE000', color: busy ? '#aaa' : '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
               {busy ? '⏳' : '↗ SHARE'}
             </button>
           </div>
-          <p style={{ textAlign: 'center', fontSize: 11, color: status === 'error' ? '#ff6b6b' : '#aaa', marginTop: 8 }}>
-            {status === 'done' ? '✅ Done!' : status === 'error' ? '❌ Failed — check Vercel logs' : 'Tap SHARE to send via WhatsApp'}
+
+          <p style={{ textAlign: 'center', fontSize: 11, color: status === 'error' ? '#ff6b6b' : status === 'done' ? '#4ade80' : '#888', marginTop: 8 }}>
+            {status === 'done' ? '✅ Done!' : status === 'error' ? '❌ Capture failed — try again' : 'PNG generated from live card preview'}
           </p>
         </div>
       </div>
