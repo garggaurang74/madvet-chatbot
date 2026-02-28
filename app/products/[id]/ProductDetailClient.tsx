@@ -564,8 +564,53 @@ const SHARE_CARD_TEMPLATES: Record<string, any> = {
 }
 
 // ── Share card modal ───────────────────────────────────────────────────────────────────────────
-const MADVET_FONTS_URL =
-  'https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700;900&family=Barlow+Condensed:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&display=swap'
+// ── Google Fonts URL for all 3 madvet card fonts
+const MADVET_GF_URL =
+  'https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700;900&family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&display=swap'
+
+let _fontsPromise: Promise<void> | null = null
+
+// Load fonts via FontFace API by fetching Google Fonts CSS to get real woff2 URLs.
+// This is the ONLY approach that reliably works with html2canvas.
+async function ensureMadvetFonts(): Promise<void> {
+  if (_fontsPromise) return _fontsPromise
+  _fontsPromise = (async () => {
+    try {
+      // Fetch the font CSS (browser context — no CORS issue with Google Fonts)
+      const css = await fetch(MADVET_GF_URL, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120' }
+      }).then(r => r.text())
+
+      // Extract every @font-face block and load via FontFace API
+      const faceBlocks = css.match(/@font-face[^{]*\{[^}]+\}/g) || []
+      const loads: Promise<void>[] = []
+
+      for (const block of faceBlocks) {
+        const familyM = block.match(/font-family:\s*['"]?([^'";\}]+)['"]?/)
+        const weightM = block.match(/font-weight:\s*(\d+)/)
+        const urlM    = block.match(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.woff2)\)/)
+        if (!familyM || !weightM || !urlM) continue
+        const family = familyM[1].trim().replace(/['"]/g, '')
+        const weight = weightM[1]
+        const url    = urlM[1]
+        const alreadyLoaded = [...document.fonts].some(
+          f => f.family.replace(/['"]/g, '') === family && f.weight === weight && f.status === 'loaded'
+        )
+        if (alreadyLoaded) continue
+        loads.push((async () => {
+          try {
+            const face = new FontFace(family, `url(${url}) format('woff2')`, { weight, style: 'normal' })
+            document.fonts.add(await face.load())
+          } catch (e) { console.warn('Font load failed:', family, weight, e) }
+        })())
+      }
+      await Promise.allSettled(loads)
+    } catch (e) {
+      console.warn('ensureMadvetFonts error:', e)
+    }
+  })()
+  return _fontsPromise
+}
 
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
@@ -575,18 +620,9 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const [previewW, setPreviewW] = useState(340)
   const previewContainerRef = useRef<HTMLDivElement>(null)
 
-  // ── Inject Google Fonts into the page so the preview renders correctly
+  // ── Load fonts via FontFace API on mount (works in all browsers + html2canvas)
   useEffect(() => {
-    const id = 'madvet-share-fonts'
-    if (!document.getElementById(id)) {
-      const link = document.createElement('link')
-      link.id = id
-      link.rel = 'stylesheet'
-      link.href = MADVET_FONTS_URL
-      document.head.appendChild(link)
-    }
-    // Wait for fonts to be loaded before allowing capture
-    document.fonts.ready.then(() => setFontsReady(true))
+    ensureMadvetFonts().then(() => setFontsReady(true))
   }, [])
 
   useEffect(() => {
@@ -614,21 +650,19 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
 
   // ── Capture: mount card fresh into a body-appended div (escapes all stacking contexts)
   const captureCard = async (): Promise<Blob> => {
+    // Ensure fonts are in document.fonts (FontFace API) before capture
+    await ensureMadvetFonts()
+
     const container = document.createElement('div')
     container.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;background:#fff;z-index:2147483647;overflow:visible'
-    // Inject font stylesheet so html2canvas captures correct fonts
-    const styleEl = document.createElement('style')
-    styleEl.textContent = `@import url('${MADVET_FONTS_URL}');`
-    container.appendChild(styleEl)
     document.body.appendChild(container)
     try {
       const ReactDOMClient = await import('react-dom/client')
       const root = ReactDOMClient.createRoot(container)
       root.render(<CardComp p={product} c={c} />)
 
-      // Wait for all fonts to load, then extra paint time
-      await document.fonts.ready
-      await new Promise<void>(r => setTimeout(r, 700))
+      // Wait for React paint + font rendering
+      await new Promise<void>(r => setTimeout(r, 800))
 
       // Wait for all images inside the container to fully load
       const imgs = Array.from(container.querySelectorAll('img')) as HTMLImageElement[]
