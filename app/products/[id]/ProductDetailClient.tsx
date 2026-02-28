@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import type { Product } from '../types'
 
 type Lang = 'en' | 'hi'
@@ -103,6 +103,47 @@ function getTemplate(category: string) {
 
 function splitBenefits(txt = '') {
   return txt.split(/[•\n,;|]+/).map(s => s.trim()).filter(s => s.length > 3).slice(0, 8)
+}
+
+// ── Description / indication helpers ────────────────────────────────────────
+function getDescExcerpt(desc = '', maxLen = 145) {
+  if (!desc) return ''
+  const first = desc.split(/\.\s+/)[0]
+  const t = first.length <= maxLen ? first : first.slice(0, maxLen).replace(/\s\S+$/, '') + '…'
+  return t.endsWith('.') ? t : t + '.'
+}
+
+function getIndicationTags(indication = '') {
+  return indication
+    .split(/[,،]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 2 && s.length < 28 && /^[a-zA-Z\s\/\-]+$/.test(s))
+    .slice(0, 4)
+}
+
+function ShareDescBar({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
+  const desc = getDescExcerpt(p.description)
+  const tags = getIndicationTags(p.indication)
+  if (!desc && tags.length === 0) return null
+  return (
+    <div style={{ margin: '0', padding: '10px 18px 8px', background: c.pale, borderBottom: `1.5px solid ${c.primary}18` }}>
+      {desc && (
+        <p style={{ margin: '0 0 6px', fontSize: 10.5, color: '#2a2a2a', lineHeight: 1.5, fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 500, fontStyle: 'italic' }}>
+          {desc}
+        </p>
+      )}
+      {tags.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 8.5, color: c.primary, fontWeight: 800, letterSpacing: 1, fontFamily: "'Oswald',sans-serif" }}>TREATS:</span>
+          {tags.map((t, i) => (
+            <span key={i} style={{ fontSize: 9, color: c.dark, background: `${c.primary}14`, border: `1px solid ${c.primary}25`, borderRadius: 20, padding: '2px 8px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, letterSpacing: 0.3 }}>
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Shared share-card sub-components ────────────────────────────────────────
@@ -251,6 +292,7 @@ function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShare
           <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontWeight: 800, fontSize: 14, color: c.darkest }}>{hi[0] || p.name}</span>
         </div>
       </div>
+      <ShareDescBar p={p} c={c} />
       <div style={{ display: 'flex', padding: '16px 16px 6px', gap: 14 }}>
         <div style={{ flex: 1 }}>
           {hi.slice(0, 7).map((b, i) => <ArrowSlab key={i} text={b} enText={en[i] || ''} c={c} big={i === 0 || i === 1 || i === 3 || i === 5} />)}
@@ -289,6 +331,7 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
         </div>
       </div>
       <div style={{ height: 3, background: `linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest}20)`, margin: '12px 0 0' }} />
+      <ShareDescBar p={p} c={c} />
       <div style={{ padding: '12px 20px', display: 'flex', gap: 14 }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -359,7 +402,8 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
           <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रमुख लाभ एवं उपयोग :</span>
           <div style={{ flex: 1, height: 1, background: `${c.primary}20` }} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+        <ShareDescBar p={p} c={c} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 8 }}>
           {hi.slice(0, 6).map((b, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 10px', background: i < 2 ? c.pale : '#fafafa', borderRadius: 7, border: `1px solid ${i < 2 ? c.primary + '33' : '#eeeeee'}`, alignItems: 'flex-start' }}>
               <span style={{ color: c.primary, fontSize: 15, fontWeight: 900, flexShrink: 0, lineHeight: 1.2 }}>►</span>
@@ -413,7 +457,8 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
         </div>
       </div>
       <div style={{ padding: '14px 18px 6px' }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: c.primary, fontFamily: "'Noto Sans Devanagari',sans-serif", marginBottom: 10 }}>लाभ एवं उपयोग :</div>
+        <ShareDescBar p={p} c={c} />
+        <div style={{ fontSize: 13, fontWeight: 800, color: c.primary, fontFamily: "'Noto Sans Devanagari',sans-serif", marginBottom: 10, marginTop: 8 }}>लाभ एवं उपयोग :</div>
         {hi.slice(0, 5).map((b, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 7, background: `linear-gradient(90deg,${c.pale},white)`, border: `1px solid ${c.primary}25`, borderLeft: `4px solid ${i === 0 ? c.primary : c.bright}`, boxShadow: i === 0 ? `2px 2px 12px ${c.glow}` : 'none' }}>
             <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 8px ${c.glow}` }}>
@@ -467,6 +512,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
         </div>
       </div>
       <div style={{ height: 4, background: `linear-gradient(90deg,${c.darkest},${c.bright},hsl(${(c.h + 35) % 360},90%,52%))` }} />
+      <ShareDescBar p={p} c={c} />
       <div style={{ padding: '14px 18px 6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <div style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रमुख लाभ</div>
@@ -505,122 +551,218 @@ const SHARE_CARD_TEMPLATES: Record<string, any> = {
 // ── Share card modal ─────────────────────────────────────────────────────────
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
-  // Hidden full-size card ref for html2canvas capture
-  const captureRef = useRef<HTMLDivElement>(null)
+  const [errMsg, setErrMsg] = useState('')
 
-  // Capture the hidden full-size card as a PNG blob using html2canvas
+  const tmpl = getTemplate(product.category)
+  const c = getShareColors(product.id, product.category)
+  const CardComp = SHARE_CARD_TEMPLATES[tmpl]
+
+  /**
+   * Capture strategy:
+   * 1. Dynamically create a div, append it directly to document.body (no overflow/z-index parent issues)
+   * 2. Use ReactDOM.createRoot to render the full-size card into that div
+   * 3. Wait 700ms for React render + Google Fonts to load
+   * 4. Capture with html2canvas at 2× scale
+   * 5. Tear down and return blob
+   *
+   * Why not a hidden ref inside the modal?
+   * - Modal overlay is position:fixed with its own stacking context
+   * - zIndex:-1 children become uncapturable by html2canvas
+   * - Appending to body sidesteps all of this
+   */
   const captureCard = async (): Promise<Blob> => {
-    const el = captureRef.current
-    if (!el) throw new Error('Card element not ready')
-    // Dynamically import html2canvas (already in package.json)
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      // Capture exactly the card width
-      width: 480,
-      windowWidth: 480,
-    })
-    return new Promise((resolve, reject) => {
-      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('No blob')), 'image/png')
-    })
+    // Create temp container as direct child of body
+    const container = document.createElement('div')
+    container.style.cssText = [
+      'position:fixed',
+      'top:0',
+      'left:-9999px',
+      'width:480px',
+      'background:white',
+      'z-index:999999',
+      'overflow:visible',
+    ].join(';')
+    document.body.appendChild(container)
+
+    try {
+      // Render React card into temp container
+      const ReactDOMClient = await import('react-dom/client')
+      const root = ReactDOMClient.createRoot(container)
+      root.render(<CardComp p={product} c={c} />)
+
+      // Wait for React render + fonts to settle
+      await new Promise<void>(resolve => setTimeout(resolve, 800))
+
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(container.firstElementChild as HTMLElement || container, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        // Tell html2canvas to ignore fixed-position offset
+        x: 0,
+        y: 0,
+      })
+
+      root.unmount()
+
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          blob => blob ? resolve(blob) : reject(new Error('canvas.toBlob returned null')),
+          'image/png'
+        )
+      })
+    } finally {
+      if (document.body.contains(container)) document.body.removeChild(container)
+    }
   }
 
   const handleDownload = async () => {
     setStatus('loading')
+    setErrMsg('')
     try {
       const blob = await captureCard()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`
+      document.body.appendChild(a)
       a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 3000)
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
       setStatus('done')
-    } catch (e) {
+    } catch (e: any) {
       console.error('[ShareCard] download error:', e)
+      setErrMsg(String(e?.message || e))
       setStatus('error')
     } finally {
-      setTimeout(() => setStatus('idle'), 3000)
+      setTimeout(() => setStatus('idle'), 3500)
     }
   }
 
   const handleShare = async () => {
     setStatus('loading')
+    setErrMsg('')
     try {
       const blob = await captureCard()
       const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
       const file = new File([blob], filename, { type: 'image/png' })
+
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: `${product.name} — Madvet`, text: `Check out ${product.name} by Madvet Animal Healthcare`, files: [file] })
+        await navigator.share({
+          title: `${product.name} — Madvet Animal Healthcare`,
+          text: `${product.name} by Madvet — check it out!`,
+          files: [file],
+        })
         setStatus('done')
       } else {
-        // Fallback: download
+        // Fallback to download on desktop
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
-        a.href = url; a.download = filename; a.click()
-        setTimeout(() => URL.revokeObjectURL(url), 3000)
+        a.href = url; a.download = filename
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 5000)
         setStatus('done')
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') { setStatus('idle') }
-      else { console.error('[ShareCard] share error:', e); setStatus('error') }
+      else {
+        console.error('[ShareCard] share error:', e)
+        setErrMsg(String(e?.message || e))
+        setStatus('error')
+      }
     } finally {
-      setTimeout(() => setStatus('idle'), 3000)
+      setTimeout(() => { setStatus('idle'); setErrMsg('') }, 3500)
     }
   }
 
   const busy = status === 'loading'
-  const tmpl = getTemplate(product.category)
-  const c = getShareColors(product.id, product.category)
-  const CardComp = SHARE_CARD_TEMPLATES[tmpl]
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)', overflowY: 'auto' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-
-      {/* Hidden full-size card for html2canvas capture — off screen */}
-      <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 480, zIndex: -1 }} ref={captureRef}>
-        <CardComp p={product} c={c} />
-      </div>
-
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)', overflowY: 'auto' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 12px 40px' }}>
         <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+
+          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>SHARE CARD</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{product.name} · {product.category}</div>
             </div>
-            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            <button
+              onClick={onClose}
+              style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >✕</button>
           </div>
 
-          {/* Live React preview — scaled to fit modal */}
-          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#0e1117', position: 'relative', height: `calc(480px * 0.72 * 1.4)` }}>
-            <div style={{ transform: 'scale(0.72)', transformOrigin: 'top left', width: `${Math.round(100 / 0.72)}%`, pointerEvents: 'none', position: 'absolute', top: 0, left: 0 }}>
+          {/* Live preview — scaled to fit the modal panel */}
+          {/* The overflow wrapper clips the scaled card at the right width */}
+          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#0e1117' }}>
+            {/* Scale container: card is 480px → modal is ~512px → scale ≈ 0.73 */}
+            {/* We set width to 480/0.73 % so the scaled result fills 100% */}
+            <div style={{
+              transformOrigin: 'top left',
+              transform: 'scale(0.73)',
+              width: `${Math.round(480 / 0.73)}px`,
+              pointerEvents: 'none',
+            }}>
               <CardComp p={product} c={c} />
             </div>
           </div>
 
+          {/* Status */}
           {busy && (
-            <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>
-              ⏳ Rendering card…
+            <div style={{ textAlign: 'center', padding: '10px 0 0', color: '#FFE000', fontSize: 13 }}>
+              ⏳ Rendering card… (~1 sec)
             </div>
           )}
 
+          {/* Buttons */}
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            <button onClick={handleDownload} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#444' : '#1d4ed8', color: '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
-              {busy ? '⏳' : '↓ DOWNLOAD PNG'}
+            <button
+              onClick={handleDownload}
+              disabled={busy}
+              style={{
+                flex: 1, padding: '13px 0', borderRadius: 8,
+                background: busy ? '#333' : '#1d4ed8',
+                color: busy ? '#666' : '#fff',
+                border: 'none', cursor: busy ? 'not-allowed' : 'pointer',
+                fontSize: 14, fontWeight: 700, letterSpacing: 1,
+                transition: 'all 0.15s',
+              }}
+            >
+              {busy ? '⏳ Working…' : '↓ DOWNLOAD PNG'}
             </button>
-            <button onClick={handleShare} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#555' : '#FFE000', color: busy ? '#aaa' : '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
-              {busy ? '⏳' : '↗ SHARE'}
+            <button
+              onClick={handleShare}
+              disabled={busy}
+              style={{
+                flex: 1, padding: '13px 0', borderRadius: 8,
+                background: busy ? '#444' : '#FFE000',
+                color: busy ? '#888' : '#1a2f8a',
+                border: 'none', cursor: busy ? 'not-allowed' : 'pointer',
+                fontSize: 14, fontWeight: 700, letterSpacing: 1,
+                transition: 'all 0.15s',
+              }}
+            >
+              {busy ? '⏳ Working…' : '↗ SHARE / WHATSAPP'}
             </button>
           </div>
 
-          <p style={{ textAlign: 'center', fontSize: 11, color: status === 'error' ? '#ff6b6b' : status === 'done' ? '#4ade80' : '#888', marginTop: 8 }}>
-            {status === 'done' ? '✅ Done!' : status === 'error' ? '❌ Capture failed — try again' : 'PNG generated from live card preview'}
+          {/* Status message */}
+          <p style={{
+            textAlign: 'center', fontSize: 11, marginTop: 8, minHeight: 16,
+            color: status === 'error' ? '#ff6b6b' : status === 'done' ? '#4ade80' : 'rgba(255,255,255,0.35)',
+          }}>
+            {status === 'done' && '✅ Done!'}
+            {status === 'error' && `❌ ${errMsg || 'Capture failed'}`}
+            {status === 'idle' && 'PNG generated from live React card'}
           </p>
         </div>
       </div>
