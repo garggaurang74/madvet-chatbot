@@ -672,27 +672,31 @@ const SHARE_CARD_TEMPLATES: Record<string, any> = {
 }
 
 // ── Share card modal ───────────────────────────────────────────────────────────────────────────
-// ── Google Fonts URL for all 3 madvet card fonts
 const MADVET_GF_URL =
   'https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700;900&family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&display=swap'
 
 let _fontsPromise: Promise<void> | null = null
 
-// Load fonts via FontFace API by fetching Google Fonts CSS to get real woff2 URLs.
-// This is the ONLY approach that reliably works with html2canvas.
 async function ensureMadvetFonts(): Promise<void> {
   if (_fontsPromise) return _fontsPromise
   _fontsPromise = (async () => {
     try {
-      // Fetch the font CSS (browser context — no CORS issue with Google Fonts)
-      const css = await fetch(MADVET_GF_URL, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120' }
-      }).then(r => r.text())
+      // 6-second timeout so it never hangs on Android with poor signal
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 6000)
+      let css = ''
+      try {
+        const res = await fetch(MADVET_GF_URL, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120' },
+        })
+        css = await res.text()
+      } finally {
+        clearTimeout(timer)
+      }
 
-      // Extract every @font-face block and load via FontFace API
       const faceBlocks = css.match(/@font-face[^{]*\{[^}]+\}/g) || []
       const loads: Promise<void>[] = []
-
       for (const block of faceBlocks) {
         const familyM = block.match(/font-family:\s*['"]?([^'";\}]+)['"]?/)
         const weightM = block.match(/font-weight:\s*(\d+)/)
@@ -701,200 +705,168 @@ async function ensureMadvetFonts(): Promise<void> {
         const family = familyM[1].trim().replace(/['"]/g, '')
         const weight = weightM[1]
         const url    = urlM[1]
-        const alreadyLoaded = [...document.fonts].some(
+        const already = [...document.fonts].some(
           f => f.family.replace(/['"]/g, '') === family && f.weight === weight && f.status === 'loaded'
         )
-        if (alreadyLoaded) continue
+        if (already) continue
         loads.push((async () => {
           try {
             const face = new FontFace(family, `url(${url}) format('woff2')`, { weight, style: 'normal' })
             document.fonts.add(await face.load())
-          } catch (e) { console.warn('Font load failed:', family, weight, e) }
+          } catch { /* individual font failure is non-fatal */ }
         })())
       }
       await Promise.allSettled(loads)
-    } catch (e) {
-      console.warn('ensureMadvetFonts error:', e)
+    } catch {
+      // Font load timed out or failed — proceed with system fonts, card still renders
     }
   })()
   return _fontsPromise
 }
 
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
-  const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
-  const [errMsg, setErrMsg] = useState('')
+  const [status, setStatus]     = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [errMsg, setErrMsg]     = useState('')
   const [fontsReady, setFontsReady] = useState(false)
-  const [previewW, setPreviewW] = useState(340)
-  // Actual measured card height in px (updated after card renders + fonts load)
-  const [cardH, setCardH] = useState(880)
-  const previewContainerRef = useRef<HTMLDivElement>(null)
-  const cardInnerRef = useRef<HTMLDivElement>(null)
+  const [previewW, setPreviewW] = useState(0)   // 0 = not yet measured
+  const [naturalH, setNaturalH] = useState(0)   // card's un-scaled offsetHeight
+  const previewContainerRef     = useRef<HTMLDivElement>(null)
+  const cardInnerRef            = useRef<HTMLDivElement>(null)
 
-  // ── Load fonts, then measure the actual card height
-  useEffect(() => {
-    ensureMadvetFonts().then(() => {
-      setFontsReady(true)
-      // After fonts load, measure card's true rendered height
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const el = cardInnerRef.current?.firstElementChild as HTMLElement | null
-          if (el) {
-            const h = el.getBoundingClientRect().height || el.scrollHeight || el.offsetHeight
-            if (h > 100) setCardH(Math.ceil(h))
-          }
-        })
-      })
-    })
-  }, [])
+  const tmpl    = getTemplate(product.category)
+  const c       = getShareColors(product.id, product.category)
+  const CardComp = SHARE_CARD_TEMPLATES[tmpl]
 
-  // Re-measure on container resize
+  // ── Measure preview container width
   useEffect(() => {
-    const el = previewContainerRef.current
-    if (!el) return
-    setPreviewW(el.offsetWidth || 340)
+    const measure = () => {
+      const w = previewContainerRef.current?.offsetWidth || 0
+      if (w > 0) setPreviewW(w)
+    }
+    measure()
     if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(entries => {
-      const w = entries[0]?.contentRect?.width
-      if (w) setPreviewW(w)
-    })
-    ro.observe(el)
+    const ro = new ResizeObserver(measure)
+    if (previewContainerRef.current) ro.observe(previewContainerRef.current)
     return () => ro.disconnect()
   }, [])
 
-  const tmpl = getTemplate(product.category)
-  const c = getShareColors(product.id, product.category)
-  const CardComp = SHARE_CARD_TEMPLATES[tmpl]
+  // ── Load fonts (non-blocking — show card immediately, fonts update when ready)
+  useEffect(() => {
+    ensureMadvetFonts().finally(() => setFontsReady(true))
+  }, [])
 
-  // Scale so the 480px card fills the preview container width
-  const scale = Math.min(1, previewW / 480)
+  // ── After fonts ready AND card rendered, measure card's natural (pre-scale) offsetHeight
+  // offsetHeight is ALWAYS the pre-transform pixel height — unlike getBoundingClientRect
+  // which returns the SCALED visual height and would cause a double-scale bug.
+  useEffect(() => {
+    if (!fontsReady) return
+    const measure = () => {
+      const inner = cardInnerRef.current
+      if (!inner) return
+      // Read offsetHeight on the card's actual root element (first child of the wrapper div)
+      const cardEl = inner.firstElementChild as HTMLElement | null
+      const h = cardEl ? cardEl.offsetHeight : inner.offsetHeight
+      if (h > 100) setNaturalH(h)
+    }
+    // Two rAF frames to let React finish layout after fonts change
+    requestAnimationFrame(() => requestAnimationFrame(measure))
+  }, [fontsReady])
 
-  // ── Capture: use the live preview card element directly
-  // This is THE most reliable approach — we capture exactly what is visible on screen.
-  // No re-rendering, no hidden divs, no font re-loading. html2canvas sees the same
-  // element the browser already painted with the correct fonts and layout.
+  // scale: fit 480px card into preview container, never exceed 1:1
+  const scale = previewW > 0 ? Math.min(1, previewW / 480) : 0
+  // Container height = card's natural pixel height × scale
+  const containerH = naturalH > 0 && scale > 0 ? Math.round(naturalH * scale) : undefined
+
+  // ── Capture the card as a PNG blob
   const captureCard = async (): Promise<Blob> => {
-    await ensureMadvetFonts()
-
     const inner = cardInnerRef.current
     if (!inner) throw new Error('Card not mounted')
+    const cardEl = (inner.firstElementChild as HTMLElement) || inner
 
-    // The actual card element (first child of the scaled wrapper)
-    const el = (inner.firstElementChild as HTMLElement) || inner
-
-    // Temporarily make it visible at 1:1 scale off-screen for clean capture
-    const prevTransform = inner.style.transform
-    const prevPosition  = inner.style.position
-    const prevLeft      = inner.style.left
-    const prevTop       = inner.style.top
+    // Detach from transform temporarily: move off-screen at natural 1:1 size
+    const saved = { transform: inner.style.transform, position: inner.style.position, left: inner.style.left, top: inner.style.top }
     inner.style.transform = 'none'
     inner.style.position  = 'fixed'
     inner.style.left      = '-9999px'
-    inner.style.top       = '0'
+    inner.style.top       = '0px'
 
-    // Wait for any reflow after removing scale transform
-    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+    // One rAF to let the browser reflow at 1:1 before capture
+    await new Promise<void>(r => requestAnimationFrame(() => r()))
 
     try {
-      // Ensure all images loaded
-      const imgs = Array.from(el.querySelectorAll('img')) as HTMLImageElement[]
+      // Wait for any lazy images to load
       await Promise.allSettled(
-        imgs.map(img =>
-          img.complete
-            ? Promise.resolve()
-            : new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res() })
+        Array.from(cardEl.querySelectorAll('img')).map((img: any) =>
+          img.complete ? Promise.resolve()
+            : new Promise<void>(res => { img.onload = res; img.onerror = res })
         )
       )
 
       const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0,
-        width: 480,
-        windowWidth: 480,
+      const canvas = await html2canvas(cardEl, {
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff', logging: false,
+        scrollX: 0, scrollY: 0, x: 0, y: 0,
+        width: cardEl.offsetWidth, windowWidth: cardEl.offsetWidth,
       })
 
-      return new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          blob => blob ? resolve(blob) : reject(new Error('canvas.toBlob returned null')),
-          'image/png'
-        )
-      })
+      return await new Promise<Blob>((res, rej) =>
+        canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob returned null')), 'image/png')
+      )
     } finally {
-      // Restore the preview transform
-      inner.style.transform = prevTransform
-      inner.style.position  = prevPosition
-      inner.style.left      = prevLeft
-      inner.style.top       = prevTop
+      Object.assign(inner.style, saved)
     }
   }
 
-  // ── Download helper
-  function downloadBlob(blob: Blob, filename: string) {
+  // ── Android-compatible save: try Web Share API first, then open blob URL in new tab
+  const saveBlob = async (blob: Blob, filename: string) => {
+    const isAndroid = /android/i.test(navigator.userAgent)
+
+    // 1. Try Web Share API (works on Android Chrome, iOS Safari)
+    if (typeof navigator.canShare === 'function') {
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ title: product.name + ' — Madvet', files: [file] })
+          return
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return  // user cancelled
+          // fall through
+        }
+      }
+    }
+
+    // 2. Desktop / iOS: anchor download
+    if (!isAndroid) {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+      return
+    }
+
+    // 3. Android fallback: open blob in new tab — user long-presses to Save Image
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 5000)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
   }
 
-  const handleDownload = async () => {
-    setStatus('loading'); setErrMsg('')
-    try {
-      const blob = await captureCard()
-      downloadBlob(blob, `${product.name.replace(/\s+/g, '-')}-madvet.png`)
-      setStatus('done')
-    } catch (e: any) {
-      console.error('[ShareCard] download error:', e)
-      setErrMsg(e?.message || String(e))
-      setStatus('error')
-    } finally {
-      setTimeout(() => { setStatus('idle'); setErrMsg('') }, 4000)
-    }
-  }
-
-  const handleShare = async () => {
+  const handleSave = async (shareIntent: boolean) => {
     setStatus('loading'); setErrMsg('')
     try {
       const blob = await captureCard()
       const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
-
-      // Try native share (mobile) — wrap in inner try/catch so any failure falls back to download
-      if (typeof navigator.canShare === 'function') {
-        const file = new File([blob], filename, { type: 'image/png' })
-        try {
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: `${product.name} — Madvet Animal Healthcare`,
-              text: `${product.name} by Madvet — For veterinary use.`,
-              files: [file],
-            })
-            setStatus('done')
-            return
-          }
-        } catch (shareErr: any) {
-          // AbortError = user cancelled — silently dismiss
-          if (shareErr?.name === 'AbortError') { setStatus('idle'); return }
-          // NotAllowedError / TypeError / anything else = fall through to download
-          console.warn('[ShareCard] navigator.share failed, falling back to download:', shareErr)
-        }
+      if (shareIntent) {
+        await saveBlob(blob, filename)
+      } else {
+        await saveBlob(blob, filename)
       }
-
-      // Fallback: download the PNG
-      downloadBlob(blob, filename)
       setStatus('done')
     } catch (e: any) {
-      console.error('[ShareCard] share error:', e)
-      setErrMsg(e?.message || String(e))
+      setErrMsg(e?.message || 'Capture failed')
       setStatus('error')
     } finally {
       setTimeout(() => { setStatus('idle'); setErrMsg('') }, 4000)
@@ -902,113 +874,100 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   }
 
   const busy = status === 'loading'
+  const ready = fontsReady && scale > 0 && containerH !== undefined
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.9)', overflowY: 'auto' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.92)', overflowY: 'auto' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 12px 40px' }}>
         <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
 
-          {/* Header row */}
+          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>SHARE CARD</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{product.name} · {product.category}</div>
             </div>
-            <button
-              onClick={onClose}
-              style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >✕</button>
+            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
 
-          {/* ── Preview ──
-           * The outer container height is set to (measured card height × scale).
-           * The inner div renders at full 480px width then is shrunk via transform.
-           * Using transform-origin top-left ensures the top of the card aligns
-           * with the top of the container — no floating, no gaps.
-           * cardH is measured from the live DOM after fonts load, so it's always exact.
+          {/*
+           * Preview container.
+           *
+           * HOW THE SIZING WORKS (to avoid "design up / text down"):
+           *   - The card always renders at its natural width (480px) inside cardInnerRef.
+           *   - We shrink it visually with transform: scale(scale), origin top-left.
+           *   - Container height = naturalH * scale  (naturalH = cardEl.offsetHeight,
+           *     NOT getBoundingClientRect which returns the already-scaled visual height
+           *     and would cause containerH = naturalH * scale²).
+           *   - While we don't yet know naturalH we render the card invisibly (opacity:0)
+           *     but measure immediately after — so flicker is sub-frame.
            */}
           <div
             ref={previewContainerRef}
             style={{
               width: '100%',
-              height: Math.round(cardH * scale),
+              // Hold space even before we know exact height to avoid layout jump
+              height: containerH ?? Math.round(480 * scale * 1.85),
               position: 'relative',
               overflow: 'hidden',
               borderRadius: 8,
               background: '#0a0d14',
             }}
           >
-            {!fontsReady && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Loading…</div>
+            {!ready && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>Loading card…</div>
               </div>
             )}
             <div
               ref={cardInnerRef}
               style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
+                top: 0, left: 0,
                 width: 480,
                 transformOrigin: 'top left',
-                transform: `scale(${scale})`,
+                transform: scale > 0 ? `scale(${scale})` : 'none',
                 pointerEvents: 'none',
-                opacity: fontsReady ? 1 : 0,
-                transition: 'opacity 0.3s ease',
+                // Show immediately — opacity only hides while scale=0 or container not measured
+                opacity: ready ? 1 : 0,
+                transition: 'opacity 0.2s ease',
               }}
             >
               <CardComp p={product} c={c} />
             </div>
           </div>
 
-          {/* Status indicator */}
           {busy && (
             <div style={{ textAlign: 'center', padding: '8px 0 0', color: '#FFE000', fontSize: 12 }}>
-              ⏳ Generating PNG… (~1–2 sec)
+              ⏳ Generating image…
             </div>
           )}
 
-          {/* Action buttons */}
+          {/* Buttons */}
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <button
-              onClick={handleDownload}
-              disabled={busy || !fontsReady}
-              style={{
-                flex: 1, padding: '13px 0', borderRadius: 8,
-                background: busy ? '#2a2a2a' : '#1d4ed8',
-                color: busy ? '#555' : '#fff',
-                border: 'none', cursor: busy ? 'not-allowed' : 'pointer',
-                fontSize: 14, fontWeight: 700, letterSpacing: 0.8,
-              }}
+              onClick={() => handleSave(false)}
+              disabled={busy}
+              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#2a2a2a' : '#1d4ed8', color: busy ? '#555' : '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
             >
-              {busy ? '⏳ Working…' : '↓ DOWNLOAD PNG'}
+              {busy ? '⏳ Working…' : '↓ SAVE IMAGE'}
             </button>
             <button
-              onClick={handleShare}
-              disabled={busy || !fontsReady}
-              style={{
-                flex: 1, padding: '13px 0', borderRadius: 8,
-                background: busy ? '#3a3a2a' : '#FFE000',
-                color: busy ? '#777' : '#1a2f8a',
-                border: 'none', cursor: busy ? 'not-allowed' : 'pointer',
-                fontSize: 14, fontWeight: 700, letterSpacing: 0.8,
-              }}
+              onClick={() => handleSave(true)}
+              disabled={busy}
+              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#3a3a2a' : '#FFE000', color: busy ? '#777' : '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
             >
               {busy ? '⏳ Working…' : '↗ SHARE / WHATSAPP'}
             </button>
           </div>
 
-          {/* Status text */}
-          <p style={{
-            textAlign: 'center', fontSize: 11, marginTop: 6, minHeight: 14,
-            color: status === 'error' ? '#ff6b6b' : status === 'done' ? '#4ade80' : 'rgba(255,255,255,0.28)',
-          }}>
-            {status === 'done' && '✅ Done! Save the image from your photos.'}
+          <p style={{ textAlign: 'center', fontSize: 11, marginTop: 6, minHeight: 14, color: status === 'error' ? '#ff6b6b' : status === 'done' ? '#4ade80' : 'rgba(255,255,255,0.28)' }}>
+            {status === 'done'  && '✅ Done! Save / share from the image.'}
             {status === 'error' && `❌ ${errMsg || 'Capture failed — try again'}`}
-            {status === 'idle' && 'What you see above is what gets downloaded'}
+            {status === 'idle'  && 'The card above is exactly what gets saved'}
           </p>
         </div>
       </div>
