@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useMemo } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import type { Product } from '../types'
 
 type Lang = 'en' | 'hi'
@@ -101,8 +101,167 @@ function getTemplate(category: string) {
   return 'clinical'
 }
 
+// ── Detect if a string contains Hindi/Devanagari characters
+const isHindi = (s: string) => /[\u0900-\u097F]/.test(s)
+
+// ── Font helper: pick correct font family based on content language
+function benefitFont(text: string): string {
+  return isHindi(text)
+    ? "'Noto Sans Devanagari',sans-serif"
+    : "'Barlow Condensed','Arial Narrow',sans-serif"
+}
+function benefitFontSize(text: string, base = 13): number {
+  return isHindi(text) ? base : base + 1.5
+}
+
+// usp_benefits_hi uses । (Hindi danda) as sentence terminator — must be in the split regex
 function splitBenefits(txt = '') {
-  return txt.split(/[•\n,;|]+/).map(s => s.trim()).filter(s => s.length > 3).slice(0, 8)
+  return txt
+    .split(/[•\n,;|।]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 6)
+    .slice(0, 8)
+}
+
+// Safe wrapper: if split gives < 2 items, fall back to English, then sentence-split
+function splitBenefitsSafe(hi = '', en = '') {
+  const primary = splitBenefits(hi)
+  if (primary.length >= 2) return primary
+  const fromEn = splitBenefits(en)
+  if (fromEn.length >= 2) return fromEn
+  const fromSent = hi.split(/[.।]+/).map(s => s.trim()).filter(s => s.length > 8)
+  return fromSent.length >= 2 ? fromSent.slice(0, 8) : (primary.length ? primary : fromEn)
+}
+
+// ── Hindi lookup for common indication terms → benefit phrases
+const HI_IND: Record<string, string> = {
+  'fever': 'बुखार में असरदार',
+  'pain': 'दर्द से जल्दी राहत',
+  'inflammation': 'सूजन कम करे',
+  'arthritis': 'गठिया में असरदार',
+  'infection': 'संक्रमण से लड़े',
+  'bacterial infections': 'बैक्टीरिया संक्रमण में कारगर',
+  'respiratory': 'श्वसन रोग में राहत',
+  'mastitis': 'थनिका (mastitis) में कारगर',
+  'lameness': 'लंगड़ेपन में राहत',
+  'colic': 'पेट दर्द (कोलिक) में असरदार',
+  'diarrhea': 'दस्त रोकने में कारगर',
+  'deworming': 'पेट के कीड़े खत्म करे',
+  'ticks': 'टिक्स और जूँ से बचाव',
+  'skin': 'त्वचा रोग में लाभकारी',
+  'udder': 'थन की सेहत सुधारे',
+  'milk': 'दूध उत्पादन बढ़ाए',
+  'reproductive': 'प्रजनन क्षमता सुधारे',
+  'heat': 'मद चक्र नियमित करे',
+  'liver': 'लिवर की देखभाल',
+  'calcium': 'कैल्शियम की कमी पूरी करे',
+  'vitamin': 'विटामिन की कमी दूर करे',
+  'bloat': 'गैस और अफारे से राहत',
+  'worm': 'कृमि (कीड़े) खत्म करे',
+  'mange': 'खुजली और स्कैबीज में कारगर',
+  'antibiotic': 'बैक्टीरिया संक्रमण में कारगर',
+}
+
+// ── Augment benefit list to minimum `minCount` using indication + description fields
+function augmentBenefits(
+  hiList: string[],
+  enList: string[],
+  indication = '',
+  description = '',
+  minCount = 4
+): { hi: string[]; en: string[] } {
+  if (hiList.length >= minCount) return { hi: hiList, en: enList }
+
+  const needed = minCount - hiList.length
+  const newHi: string[] = []
+  const newEn: string[] = []
+
+  // Try to extract from indication field
+  const indTerms = indication
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(s => s.length > 2 && !/[\u0900-\u097F]/.test(s)) // English only
+
+  for (const term of indTerms) {
+    if (newHi.length >= needed) break
+    // Skip if this term is already covered in existing benefits
+    const covered = [...hiList, ...newHi].some(b => b.toLowerCase().includes(term))
+      || [...enList, ...newEn].some(b => b.toLowerCase().includes(term))
+    if (covered) continue
+
+    // Look for a matching Hindi phrase
+    const hiPhrase = Object.entries(HI_IND).find(([k]) => term.includes(k))?.[1]
+    if (hiPhrase && !hiList.includes(hiPhrase)) {
+      newHi.push(hiPhrase)
+      // Create English version
+      const enPhrase = term.length < 3 ? `Treats ${term}` :
+        term.charAt(0).toUpperCase() + term.slice(1)
+      newEn.push(enPhrase)
+    }
+  }
+
+  // If still not enough, try splitting description into sentences
+  if (newHi.length < needed) {
+    const descSentences = description
+      .split(/\.\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 20 && s.length < 120)
+      .filter(s => !s.toLowerCase().includes('for cattle') && !s.toLowerCase().includes('for use'))
+    for (const s of descSentences) {
+      if (newHi.length >= needed) break
+      const covered = [...hiList, ...enList, ...newEn].some(b => b.toLowerCase().includes(s.slice(0, 15).toLowerCase()))
+      if (!covered) {
+        newHi.push(s)
+        newEn.push(s)
+      }
+    }
+  }
+
+  return {
+    hi: [...hiList, ...newHi].slice(0, 5),
+    en: [...enList, ...newEn].slice(0, 5),
+  }
+}
+
+// ── Description / indication helpers ────────────────────────────────────────
+function getDescExcerpt(desc = '', maxLen = 145) {
+  if (!desc) return ''
+  const first = desc.split(/\.\s+/)[0]
+  const t = first.length <= maxLen ? first : first.slice(0, maxLen).replace(/\s\S+$/, '') + '…'
+  return t.endsWith('.') ? t : t + '.'
+}
+
+function getIndicationTags(indication = '') {
+  return indication
+    .split(/[,،]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 2 && s.length < 28 && /^[a-zA-Z\s\/\-]+$/.test(s))
+    .slice(0, 4)
+}
+
+function ShareDescBar({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
+  const desc = getDescExcerpt(p.description)
+  const tags = getIndicationTags(p.indication)
+  if (!desc && tags.length === 0) return null
+  return (
+    <div style={{ margin: '0', padding: '10px 18px 8px', background: c.pale, borderBottom: `1.5px solid ${c.primary}18` }}>
+      {desc && (
+        <p style={{ margin: '0 0 6px', fontSize: 10.5, color: '#2a2a2a', lineHeight: 1.5, fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 500, fontStyle: 'italic' }}>
+          {desc}
+        </p>
+      )}
+      {tags.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 8.5, color: c.primary, fontWeight: 800, letterSpacing: 1, fontFamily: "'Oswald',sans-serif" }}>TREATS:</span>
+          {tags.map((t, i) => (
+            <span key={i} style={{ fontSize: 9, color: c.dark, background: `${c.primary}14`, border: `1px solid ${c.primary}25`, borderRadius: 20, padding: '2px 8px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, letterSpacing: 0.3 }}>
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Shared share-card sub-components ────────────────────────────────────────
@@ -111,7 +270,7 @@ function ShareMadvetLogoLight({ size = 1 }: { size?: number }) {
   const h = Math.round(52 * size)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: Math.round(8 * size), flexShrink: 0 }}>
-      <img src="/madvet-icon.png" alt="Madvet" crossOrigin="anonymous"
+      <img src="/madvet-icon.png" alt="Madvet"
         style={{ height: h, width: h, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
       <div>
         <div style={{ fontFamily: "'Oswald','Arial Black',sans-serif", fontSize: Math.round(22 * size), fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>MADVET</div>
@@ -191,7 +350,7 @@ function ShareFooter({ c }: { c: ReturnType<typeof getShareColors> }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* Real logo icon in white bg box, exactly like physical flyers */}
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/madvet-icon.png" alt="Madvet" style={{ height: 44, width: 44, objectFit: 'contain' }} crossOrigin="anonymous" />
+              <img src="/madvet-icon.png" alt="Madvet" style={{ height: 44, width: 44, objectFit: 'contain' }} />
             </div>
             <div>
               <div style={{ fontFamily: "'Oswald','Arial Black',sans-serif", fontSize: 28, fontWeight: 900, color: '#1a2f8a', letterSpacing: 3, lineHeight: 1 }}>MADVET</div>
@@ -217,7 +376,7 @@ function ArrowSlab({ text, enText, c, big = true }: { text: string; enText: stri
     <div style={{ position: 'relative', marginBottom: big ? 7 : 5, display: 'flex' }}>
       <div style={{ flex: 1, background: big ? `linear-gradient(90deg,${c.darkest},${c.primary})` : `linear-gradient(90deg,${c.primary},${c.mid})`, borderRadius: '6px 0 0 6px', padding: big ? '9px 40px 9px 14px' : '6px 36px 6px 12px', boxShadow: big ? `2px 3px 14px ${c.glow}` : 'none' }}>
         <div style={{ position: 'absolute', right: -15, top: 0, bottom: 0, width: 0, borderTop: `${big ? 22 : 17}px solid transparent`, borderBottom: `${big ? 22 : 17}px solid transparent`, borderLeft: `15px solid ${big ? c.primary : c.mid}` }} />
-        <p style={{ margin: 0, fontSize: big ? 13.5 : 12, fontFamily: "'Noto Sans Devanagari',sans-serif", color: '#fff', fontWeight: big ? 800 : 600, lineHeight: 1.3 }}>{text}</p>
+        <p style={{ margin: 0, fontSize: benefitFontSize(text, big ? 12.5 : 11), fontFamily: benefitFont(text), color: '#fff', fontWeight: big ? 800 : 600, lineHeight: 1.3 }}>{text}</p>
         {enText && <p style={{ margin: '2px 0 0', fontSize: 9, color: 'rgba(255,255,255,0.58)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.3 }}>{enText}</p>}
       </div>
     </div>
@@ -226,8 +385,9 @@ function ArrowSlab({ text, enText, c, big = true }: { text: string; enText: stri
 
 // ── 5 share card templates ───────────────────────────────────────────────────
 function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
-  const hi = splitBenefits(p.usp_benefits_hi || p.benefits)
-  const en = splitBenefits(p.benefits)
+  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
+  const _enRaw = splitBenefits(p.benefits)
+  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   const nameFontSize = p.name.length > 12 ? 44 : p.name.length > 9 ? 54 : 66
   return (
     <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
@@ -251,6 +411,7 @@ function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShare
           <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontWeight: 800, fontSize: 14, color: c.darkest }}>{hi[0] || p.name}</span>
         </div>
       </div>
+      <ShareDescBar p={p} c={c} />
       <div style={{ display: 'flex', padding: '16px 16px 6px', gap: 14 }}>
         <div style={{ flex: 1 }}>
           {hi.slice(0, 7).map((b, i) => <ArrowSlab key={i} text={b} enText={en[i] || ''} c={c} big={i === 0 || i === 1 || i === 3 || i === 5} />)}
@@ -267,8 +428,9 @@ function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShare
 }
 
 function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
-  const hi = splitBenefits(p.usp_benefits_hi || p.benefits)
-  const en = splitBenefits(p.benefits)
+  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
+  const _enRaw = splitBenefits(p.benefits)
+  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   return (
     <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
       <div style={{ position: 'relative', padding: '16px 20px 0', background: '#fff' }}>
@@ -289,6 +451,7 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
         </div>
       </div>
       <div style={{ height: 3, background: `linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest}20)`, margin: '12px 0 0' }} />
+      <ShareDescBar p={p} c={c} />
       <div style={{ padding: '12px 20px', display: 'flex', gap: 14 }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -299,7 +462,7 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8, padding: '6px 10px', borderRadius: 6, background: i % 2 === 0 ? c.pale : 'transparent', borderLeft: `3px solid ${i % 2 === 0 ? c.primary : c.bright}` }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: c.primary, flexShrink: 0, marginTop: 5 }} />
               <div>
-                <p style={{ margin: 0, fontSize: 13, fontFamily: "'Noto Sans Devanagari',sans-serif", color: '#1a1a1a', fontWeight: 600, lineHeight: 1.35 }}>{b}</p>
+                <p style={{ margin: 0, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#1a1a1a', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</p>
                 {en[i] && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</p>}
               </div>
             </div>
@@ -325,8 +488,9 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
 }
 
 function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
-  const hi = splitBenefits(p.usp_benefits_hi || p.benefits)
-  const en = splitBenefits(p.benefits)
+  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
+  const _enRaw = splitBenefits(p.benefits)
+  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   const c2 = `hsl(${(c.h + 40) % 360},75%,36%)`
   return (
     <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
@@ -359,12 +523,13 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
           <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रमुख लाभ एवं उपयोग :</span>
           <div style={{ flex: 1, height: 1, background: `${c.primary}20` }} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+        <ShareDescBar p={p} c={c} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 8 }}>
           {hi.slice(0, 6).map((b, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 10px', background: i < 2 ? c.pale : '#fafafa', borderRadius: 7, border: `1px solid ${i < 2 ? c.primary + '33' : '#eeeeee'}`, alignItems: 'flex-start' }}>
               <span style={{ color: c.primary, fontSize: 15, fontWeight: 900, flexShrink: 0, lineHeight: 1.2 }}>►</span>
               <div>
-                <p style={{ margin: 0, fontSize: 11.5, fontFamily: "'Noto Sans Devanagari',sans-serif", color: '#222', lineHeight: 1.35, fontWeight: 500 }}>{b}</p>
+                <p style={{ margin: 0, fontSize: benefitFontSize(b, 11), fontFamily: benefitFont(b), color: '#222', lineHeight: 1.35, fontWeight: isHindi(b) ? 500 : 700 }}>{b}</p>
                 {en[i] && <p style={{ margin: '1px 0 0', fontSize: 8.5, color: '#999', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</p>}
               </div>
             </div>
@@ -385,8 +550,9 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
 }
 
 function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
-  const hi = splitBenefits(p.usp_benefits_hi || p.benefits)
-  const en = splitBenefits(p.benefits)
+  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
+  const _enRaw = splitBenefits(p.benefits)
+  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   return (
     <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
       <div style={{ background: `linear-gradient(125deg,${c.darkest} 0%,${c.primary} 100%)`, padding: '18px 20px 22px', position: 'relative', overflow: 'hidden' }}>
@@ -413,14 +579,15 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
         </div>
       </div>
       <div style={{ padding: '14px 18px 6px' }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: c.primary, fontFamily: "'Noto Sans Devanagari',sans-serif", marginBottom: 10 }}>लाभ एवं उपयोग :</div>
+        <ShareDescBar p={p} c={c} />
+        <div style={{ fontSize: 13, fontWeight: 800, color: c.primary, fontFamily: "'Noto Sans Devanagari',sans-serif", marginBottom: 10, marginTop: 8 }}>लाभ एवं उपयोग :</div>
         {hi.slice(0, 5).map((b, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 7, background: `linear-gradient(90deg,${c.pale},white)`, border: `1px solid ${c.primary}25`, borderLeft: `4px solid ${i === 0 ? c.primary : c.bright}`, boxShadow: i === 0 ? `2px 2px 12px ${c.glow}` : 'none' }}>
             <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 8px ${c.glow}` }}>
               <span style={{ fontSize: 13, color: '#fff', fontWeight: 900 }}>✓</span>
             </div>
             <div>
-              <p style={{ margin: 0, fontSize: 13, fontFamily: "'Noto Sans Devanagari',sans-serif", color: '#111', fontWeight: 600, lineHeight: 1.35 }}>{b}</p>
+              <p style={{ margin: 0, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</p>
               {en[i] && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</p>}
             </div>
           </div>
@@ -436,8 +603,9 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
 }
 
 function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
-  const hi = splitBenefits(p.usp_benefits_hi || p.benefits)
-  const en = splitBenefits(p.benefits)
+  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
+  const _enRaw = splitBenefits(p.benefits)
+  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   const isInj = p.formulation === 'Injection'
   return (
     <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
@@ -467,6 +635,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
         </div>
       </div>
       <div style={{ height: 4, background: `linear-gradient(90deg,${c.darkest},${c.bright},hsl(${(c.h + 35) % 360},90%,52%))` }} />
+      <ShareDescBar p={p} c={c} />
       <div style={{ padding: '14px 18px 6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <div style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रमुख लाभ</div>
@@ -477,7 +646,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 8, background: i === 0 ? c.pale : i === 1 ? `${c.pale}88` : '#fafafa', border: `1px solid ${i < 2 ? c.primary + '30' : '#eeeeee'}`, boxShadow: i === 0 ? `2px 3px 12px ${c.glow}` : 'none' }}>
             <div style={{ width: 24, height: 24, borderRadius: '50%', background: i === 0 ? c.primary : i === 1 ? c.mid : c.bright, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', fontWeight: 800, flexShrink: 0, boxShadow: `0 2px 6px ${c.glow}` }}>{i + 1}</div>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontSize: 13, fontFamily: "'Noto Sans Devanagari',sans-serif", color: '#111', lineHeight: 1.35, fontWeight: 600 }}>{b}</p>
+              <p style={{ margin: 0, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', lineHeight: 1.35, fontWeight: isHindi(b) ? 600 : 700 }}>{b}</p>
               {en[i] && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</p>}
             </div>
           </div>
@@ -493,89 +662,190 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
 }
 
 
-// ── Share card modal ─────────────────────────────────────────────────────────
+// ── Template map (used by modal preview) ─────────────────────────────────────
+const SHARE_CARD_TEMPLATES: Record<string, any> = {
+  vitality: ShareCardVitality,
+  digest: ShareCardDigest,
+  herbal: ShareCardHerbal,
+  shield: ShareCardShield,
+  clinical: ShareCardClinical,
+}
+
+// ── Share card modal ───────────────────────────────────────────────────────────────────────────
+// PNG generation is now 100% server-side via /api/share-card/[id].
+// The modal only displays a live React preview and delegates PNG creation to the server.
+// This eliminates: html2canvas font misalignment, transform scale bugs, CORS issues,
+// Android hang on font loading, and every other client-side capture problem.
+
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
-  const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
-  const cardUrl = `/api/share-card/${product.id}`
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [errMsg, setErrMsg] = useState('')
+  const [previewW, setPreviewW] = useState(0)
+  const previewContainerRef = useRef<HTMLDivElement>(null)
 
-  const fetchPNG = async (): Promise<Blob> => {
-    const res = await fetch(cardUrl, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`Server returned ${res.status}`)
-    const blob = await res.blob()
-    if (blob.size === 0) throw new Error('Empty image received')
-    return blob
-  }
+  const tmpl     = getTemplate(product.category)
+  const c        = getShareColors(product.id, product.category)
+  const CardComp = SHARE_CARD_TEMPLATES[tmpl]
 
-  const handleDownload = async () => {
-    setStatus('loading')
-    try {
-      const blob = await fetchPNG()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = `${product.name.replace(/\s+/g, '-')}-madvet.png`; a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 3000)
-      setStatus('done')
-    } catch { setStatus('error') }
-    finally { setTimeout(() => setStatus('idle'), 3000) }
-  }
+  // Measure preview container for scale calculation
+  useEffect(() => {
+    const measure = () => {
+      const w = previewContainerRef.current?.offsetWidth || 0
+      if (w > 0) setPreviewW(w)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    if (previewContainerRef.current) ro.observe(previewContainerRef.current)
+    return () => ro.disconnect()
+  }, [])
 
-  const handleShare = async () => {
-    setStatus('loading')
-    try {
-      const blob = await fetchPNG()
-      const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
+  const scale = previewW > 0 ? Math.min(1, previewW / 480) : 0
+
+  // Android-compatible save: Web Share API → anchor download → window.open
+  const saveBlob = async (blob: Blob, filename: string, shareIntent: boolean) => {
+    const isAndroid = /android/i.test(navigator.userAgent)
+
+    if (shareIntent && typeof navigator.canShare === 'function') {
       const file = new File([blob], filename, { type: 'image/png' })
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: `${product.name} — Madvet`, files: [file] })
-        setStatus('done')
-      } else {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url; a.download = filename; a.click()
-        setTimeout(() => URL.revokeObjectURL(url), 3000)
-        setStatus('done')
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ title: product.name + ' — Madvet', files: [file] })
+          return
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return // user cancelled — not an error
+        }
       }
+    }
+
+    if (!isAndroid) {
+      // Desktop: standard anchor-download
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+      return
+    }
+
+    // Android fallback: open in new tab → user long-presses "Save image"
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  }
+
+  const handleSave = async (shareIntent: boolean) => {
+    setStatus('loading')
+    setErrMsg('')
+    try {
+      // Fetch the PNG from the server — perfect fonts, no CORS, no html2canvas
+      const res = await fetch(`/api/share-card/${product.id}`, {
+        signal: AbortSignal.timeout(30000), // 30s max on slow connections
+      })
+      if (!res.ok) throw new Error(`Server returned ${res.status}`)
+      const blob = await res.blob()
+      const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
+      await saveBlob(blob, filename, shareIntent)
+      setStatus('done')
     } catch (e: any) {
-      if (e?.name === 'AbortError') { setStatus('idle') }
-      else { setStatus('error') }
-    } finally { setTimeout(() => setStatus('idle'), 3000) }
+      const msg = e?.name === 'TimeoutError'
+        ? 'Timed out — check connection'
+        : (e?.message || 'Failed to generate image')
+      setErrMsg(msg)
+      setStatus('error')
+    } finally {
+      setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
+    }
   }
 
   const busy = status === 'loading'
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)', overflowY: 'auto' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 12px 40px' }}>
-        <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.92)', overflowY: 'auto' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 12px 40px' }}>
+        <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+
+          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>SHARE CARD</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>SHARE CARD</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{product.name} · {product.category}</div>
             </div>
             <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
-          {/* Preview = actual server PNG — what you see is exactly what gets shared */}
-          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#111', minHeight: 200 }}>
-            <img src={cardUrl} alt={product.name} style={{ width: '100%', height: 'auto', display: 'block' }} />
+
+          {/* Preview: live React card at scaled size */}
+          <div
+            ref={previewContainerRef}
+            style={{
+              width: '100%',
+              height: scale > 0 ? Math.round(700 * scale) : 340,
+              position: 'relative',
+              overflow: 'hidden',
+              borderRadius: 8,
+              background: '#0a0d14',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: 480,
+                transformOrigin: 'top left',
+                transform: scale > 0 ? `scale(${scale})` : 'none',
+                pointerEvents: 'none',
+              }}
+            >
+              <CardComp p={product} c={c} />
+            </div>
           </div>
-          {busy && <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>⏳ Preparing…</div>}
-          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            <button onClick={handleDownload} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#444' : '#1d4ed8', color: '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
-              {busy ? '⏳' : '↓ DOWNLOAD'}
+
+          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 6, marginBottom: 0, textAlign: 'center' }}>
+            Preview — the downloaded PNG is rendered server-side with perfect fonts
+          </p>
+
+          {/* Status */}
+          {busy && (
+            <div style={{ textAlign: 'center', padding: '8px 0 0', color: '#FFE000', fontSize: 12 }}>
+              ⏳ Generating image on server…
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <button
+              onClick={() => handleSave(false)}
+              disabled={busy}
+              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#2a2a2a' : '#1d4ed8', color: busy ? '#555' : '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
+            >
+              {busy ? '⏳ Working…' : '↓ SAVE IMAGE'}
             </button>
-            <button onClick={handleShare} disabled={busy} style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#bbb' : '#FFE000', color: '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
-              {busy ? '⏳' : '↗ SHARE'}
+            <button
+              onClick={() => handleSave(true)}
+              disabled={busy}
+              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#3a3a2a' : '#FFE000', color: busy ? '#777' : '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
+            >
+              {busy ? '⏳ Working…' : '↗ SHARE / WHATSAPP'}
             </button>
           </div>
-          <p style={{ textAlign: 'center', fontSize: 11, color: status === 'error' ? '#ff6b6b' : '#aaa', marginTop: 8 }}>
-            {status === 'done' ? '✅ Done!' : status === 'error' ? '❌ Failed — check Vercel logs' : 'Tap SHARE to send via WhatsApp'}
+
+          <p style={{ textAlign: 'center', fontSize: 11, marginTop: 6, minHeight: 14, color: status === 'error' ? '#ff6b6b' : status === 'done' ? '#4ade80' : 'rgba(255,255,255,0.28)' }}>
+            {status === 'done'  && '✅ Done! Image saved / shared.'}
+            {status === 'error' && `❌ ${errMsg}`}
+            {status === 'idle'  && 'Tap Save or Share to download the card as PNG'}
           </p>
         </div>
       </div>
     </div>
   )
 }
+
 // ── Lang toggle ──────────────────────────────────────────────────────────────
 function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   return (
@@ -683,7 +953,21 @@ export default function ProductDetailClient({ product }: { product: Product }) {
           {product.image_url && (
             <div style={{ position: 'relative', width: '100%', maxWidth: 320, marginBottom: product.video_url ? 12 : 20, display: 'inline-block' }}>
               <div style={{ borderRadius: 16, overflow: 'hidden', background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', border: '1px solid rgba(200,169,110,0.25)', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  loading="eager"
+                  decoding="async"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }}
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement
+                    img.style.display = 'none'
+                    const parent = img.parentElement
+                    if (parent) {
+                      parent.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;opacity:0.4;gap:8px"><span style="font-size:48px">📦</span><span style="font-size:11px;color:#5a7060;font-family:sans-serif">Image not available</span></div>`
+                    }
+                  }}
+                />
               </div>
               {/* Floating share button on image */}
               <button onClick={() => setShowShare(true)}
