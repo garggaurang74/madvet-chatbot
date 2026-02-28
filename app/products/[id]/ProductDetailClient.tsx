@@ -724,15 +724,30 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [errMsg, setErrMsg] = useState('')
   const [fontsReady, setFontsReady] = useState(false)
-  // Measure preview container width so we can set the right scale + height
   const [previewW, setPreviewW] = useState(340)
+  // Actual measured card height in px (updated after card renders + fonts load)
+  const [cardH, setCardH] = useState(880)
   const previewContainerRef = useRef<HTMLDivElement>(null)
+  const cardInnerRef = useRef<HTMLDivElement>(null)
 
-  // ── Load fonts via FontFace API on mount (works in all browsers + html2canvas)
+  // ── Load fonts, then measure the actual card height
   useEffect(() => {
-    ensureMadvetFonts().then(() => setFontsReady(true))
+    ensureMadvetFonts().then(() => {
+      setFontsReady(true)
+      // After fonts load, measure card's true rendered height
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = cardInnerRef.current?.firstElementChild as HTMLElement | null
+          if (el) {
+            const h = el.getBoundingClientRect().height || el.scrollHeight || el.offsetHeight
+            if (h > 100) setCardH(Math.ceil(h))
+          }
+        })
+      })
+    })
   }, [])
 
+  // Re-measure on container resize
   useEffect(() => {
     const el = previewContainerRef.current
     if (!el) return
@@ -750,30 +765,38 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const c = getShareColors(product.id, product.category)
   const CardComp = SHARE_CARD_TEMPLATES[tmpl]
 
-  // scale so the 480px card fills the preview container (never exceed 1:1)
+  // Scale so the 480px card fills the preview container width
   const scale = Math.min(1, previewW / 480)
-  // Estimated natural card height (all templates are roughly this tall)
-  // Slightly generous so the footer is always visible
-  const CARD_NATURAL_H = 880
 
-  // ── Capture: mount card fresh into a body-appended div (escapes all stacking contexts)
+  // ── Capture: use the live preview card element directly
+  // This is THE most reliable approach — we capture exactly what is visible on screen.
+  // No re-rendering, no hidden divs, no font re-loading. html2canvas sees the same
+  // element the browser already painted with the correct fonts and layout.
   const captureCard = async (): Promise<Blob> => {
-    // Ensure fonts are in document.fonts (FontFace API) before capture
     await ensureMadvetFonts()
 
-    const container = document.createElement('div')
-    container.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;background:#fff;z-index:2147483647;overflow:visible'
-    document.body.appendChild(container)
+    const inner = cardInnerRef.current
+    if (!inner) throw new Error('Card not mounted')
+
+    // The actual card element (first child of the scaled wrapper)
+    const el = (inner.firstElementChild as HTMLElement) || inner
+
+    // Temporarily make it visible at 1:1 scale off-screen for clean capture
+    const prevTransform = inner.style.transform
+    const prevPosition  = inner.style.position
+    const prevLeft      = inner.style.left
+    const prevTop       = inner.style.top
+    inner.style.transform = 'none'
+    inner.style.position  = 'fixed'
+    inner.style.left      = '-9999px'
+    inner.style.top       = '0'
+
+    // Wait for any reflow after removing scale transform
+    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
     try {
-      const ReactDOMClient = await import('react-dom/client')
-      const root = ReactDOMClient.createRoot(container)
-      root.render(<CardComp p={product} c={c} />)
-
-      // Wait for React paint + font rendering
-      await new Promise<void>(r => setTimeout(r, 800))
-
-      // Wait for all images inside the container to fully load
-      const imgs = Array.from(container.querySelectorAll('img')) as HTMLImageElement[]
+      // Ensure all images loaded
+      const imgs = Array.from(el.querySelectorAll('img')) as HTMLImageElement[]
       await Promise.allSettled(
         imgs.map(img =>
           img.complete
@@ -783,11 +806,10 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       )
 
       const html2canvas = (await import('html2canvas')).default
-      const el = (container.firstElementChild as HTMLElement) || container
       const canvas = await html2canvas(el, {
-        scale: 2,           // 2× = retina quality (960px wide output)
+        scale: 2,
         useCORS: true,
-        allowTaint: true,   // allows same-origin images without CORS header
+        allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
         scrollX: 0,
@@ -798,8 +820,6 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         windowWidth: 480,
       })
 
-      root.unmount()
-
       return new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
           blob => blob ? resolve(blob) : reject(new Error('canvas.toBlob returned null')),
@@ -807,7 +827,11 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         )
       })
     } finally {
-      if (document.body.contains(container)) document.body.removeChild(container)
+      // Restore the preview transform
+      inner.style.transform = prevTransform
+      inner.style.position  = prevPosition
+      inner.style.left      = prevLeft
+      inner.style.top       = prevTop
     }
   }
 
@@ -899,17 +923,18 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             >✕</button>
           </div>
 
-          {/*
-           * Preview container:
-           * - outer div is EXACTLY scale * CARD_NATURAL_H tall — no black void, no scrolling needed
-           * - inner card is position:absolute from top:0 so the hero (logo + product name) is always visible first
-           * - ResizeObserver measures outer width → computes scale dynamically for any phone width
+          {/* ── Preview ──
+           * The outer container height is set to (measured card height × scale).
+           * The inner div renders at full 480px width then is shrunk via transform.
+           * Using transform-origin top-left ensures the top of the card aligns
+           * with the top of the container — no floating, no gaps.
+           * cardH is measured from the live DOM after fonts load, so it's always exact.
            */}
           <div
             ref={previewContainerRef}
             style={{
               width: '100%',
-              height: Math.round(CARD_NATURAL_H * scale),
+              height: Math.round(cardH * scale),
               position: 'relative',
               overflow: 'hidden',
               borderRadius: 8,
@@ -918,20 +943,23 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
           >
             {!fontsReady && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Loading fonts…</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Loading…</div>
               </div>
             )}
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: 480,
-              transformOrigin: 'top left',
-              transform: `scale(${scale})`,
-              pointerEvents: 'none',
-              opacity: fontsReady ? 1 : 0,
-              transition: 'opacity 0.3s ease',
-            }}>
+            <div
+              ref={cardInnerRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: 480,
+                transformOrigin: 'top left',
+                transform: `scale(${scale})`,
+                pointerEvents: 'none',
+                opacity: fontsReady ? 1 : 0,
+                transition: 'opacity 0.3s ease',
+              }}
+            >
               <CardComp p={product} c={c} />
             </div>
           </div>
