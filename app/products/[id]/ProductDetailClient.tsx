@@ -493,6 +493,15 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
 }
 
 
+// ── Template map (used by modal preview) ─────────────────────────────────────
+const SHARE_CARD_TEMPLATES: Record<string, any> = {
+  vitality: ShareCardVitality,
+  digest: ShareCardDigest,
+  herbal: ShareCardHerbal,
+  shield: ShareCardShield,
+  clinical: ShareCardClinical,
+}
+
 // ── Share card modal ─────────────────────────────────────────────────────────
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
@@ -555,9 +564,16 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             </div>
             <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
-          {/* Preview = actual server PNG — what you see is exactly what gets shared */}
-          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#111', minHeight: 200 }}>
-            <img src={cardUrl} alt={product.name} style={{ width: '100%', height: 'auto', display: 'block' }} />
+          {/* Live React preview — instant, no API needed */}
+          <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden', background: '#0e1117' }}>
+            <div style={{ transform: 'scale(0.72)', transformOrigin: 'top left', width: `${100 / 0.72}%`, pointerEvents: 'none' }}>
+              {(() => {
+                const tmpl = getTemplate(product.category)
+                const c = getShareColors(product.id, product.category)
+                const CardComp = SHARE_CARD_TEMPLATES[tmpl]
+                return <CardComp p={product} c={c} />
+              })()}
+            </div>
           </div>
           {busy && <div style={{ textAlign: 'center', padding: '10px 0', color: '#FFE000', fontSize: 13 }}>⏳ Preparing…</div>}
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
