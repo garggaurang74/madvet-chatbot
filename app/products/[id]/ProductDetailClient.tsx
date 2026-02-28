@@ -564,12 +564,30 @@ const SHARE_CARD_TEMPLATES: Record<string, any> = {
 }
 
 // ── Share card modal ───────────────────────────────────────────────────────────────────────────
+const MADVET_FONTS_URL =
+  'https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700;900&family=Barlow+Condensed:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&display=swap'
+
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [errMsg, setErrMsg] = useState('')
+  const [fontsReady, setFontsReady] = useState(false)
   // Measure preview container width so we can set the right scale + height
   const [previewW, setPreviewW] = useState(340)
   const previewContainerRef = useRef<HTMLDivElement>(null)
+
+  // ── Inject Google Fonts into the page so the preview renders correctly
+  useEffect(() => {
+    const id = 'madvet-share-fonts'
+    if (!document.getElementById(id)) {
+      const link = document.createElement('link')
+      link.id = id
+      link.rel = 'stylesheet'
+      link.href = MADVET_FONTS_URL
+      document.head.appendChild(link)
+    }
+    // Wait for fonts to be loaded before allowing capture
+    document.fonts.ready.then(() => setFontsReady(true))
+  }, [])
 
   useEffect(() => {
     const el = previewContainerRef.current
@@ -598,14 +616,19 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const captureCard = async (): Promise<Blob> => {
     const container = document.createElement('div')
     container.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;background:#fff;z-index:2147483647;overflow:visible'
+    // Inject font stylesheet so html2canvas captures correct fonts
+    const styleEl = document.createElement('style')
+    styleEl.textContent = `@import url('${MADVET_FONTS_URL}');`
+    container.appendChild(styleEl)
     document.body.appendChild(container)
     try {
       const ReactDOMClient = await import('react-dom/client')
       const root = ReactDOMClient.createRoot(container)
       root.render(<CardComp p={product} c={c} />)
 
-      // Wait for React paint + fonts (Google Fonts need ~600ms on first load)
-      await new Promise<void>(r => setTimeout(r, 900))
+      // Wait for all fonts to load, then extra paint time
+      await document.fonts.ready
+      await new Promise<void>(r => setTimeout(r, 700))
 
       // Wait for all images inside the container to fully load
       const imgs = Array.from(container.querySelectorAll('img')) as HTMLImageElement[]
@@ -751,6 +774,11 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
               background: '#0a0d14',
             }}
           >
+            {!fontsReady && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Loading fonts…</div>
+              </div>
+            )}
             <div style={{
               position: 'absolute',
               top: 0,
@@ -759,6 +787,8 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
               transformOrigin: 'top left',
               transform: `scale(${scale})`,
               pointerEvents: 'none',
+              opacity: fontsReady ? 1 : 0,
+              transition: 'opacity 0.3s ease',
             }}>
               <CardComp p={product} c={c} />
             </div>
@@ -775,7 +805,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <button
               onClick={handleDownload}
-              disabled={busy}
+              disabled={busy || !fontsReady}
               style={{
                 flex: 1, padding: '13px 0', borderRadius: 8,
                 background: busy ? '#2a2a2a' : '#1d4ed8',
@@ -788,7 +818,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             </button>
             <button
               onClick={handleShare}
-              disabled={busy}
+              disabled={busy || !fontsReady}
               style={{
                 flex: 1, padding: '13px 0', borderRadius: 8,
                 background: busy ? '#3a3a2a' : '#FFE000',
