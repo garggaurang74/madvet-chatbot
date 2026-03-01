@@ -952,19 +952,21 @@ export default function ProductDetailClient({ product }: { product: Product }) {
           <h1 className="hero-title" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 42, color: 'var(--cream)', lineHeight: 1.1, marginBottom: 16 }}>{product.name}</h1>
           {product.image_url && (
             <div style={{ position: 'relative', width: '100%', maxWidth: 320, marginBottom: product.video_url ? 12 : 20, display: 'inline-block' }}>
-              <div style={{ borderRadius: 16, overflow: 'hidden', background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', border: '1px solid rgba(200,169,110,0.25)', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ borderRadius: 16, background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', border: '1px solid rgba(200,169,110,0.25)', height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img
                   src={product.image_url}
                   alt={product.name}
                   loading="eager"
                   decoding="async"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12 }}
+                  style={{ maxWidth: '100%', maxHeight: 260, objectFit: 'contain', padding: 12 }}
                   onError={(e) => {
                     const img = e.target as HTMLImageElement
-                    img.style.display = 'none'
-                    const parent = img.parentElement
-                    if (parent) {
-                      parent.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;opacity:0.4;gap:8px"><span style="font-size:48px">📦</span><span style="font-size:11px;color:#5a7060;font-family:sans-serif">Image not available</span></div>`
+                    if (!img.dataset.retried) {
+                      // Retry once with cache-bust — handles transient CDN failures on mobile
+                      img.dataset.retried = '1'
+                      img.src = img.src.split('?')[0] + '?t=' + Date.now()
+                    } else {
+                      img.style.display = 'none'
                     }
                   }}
                 />

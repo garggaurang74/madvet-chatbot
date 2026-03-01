@@ -96,57 +96,78 @@ export default function ChatWindow() {
     setMessages(prev => [...prev, userMsg])
     setSending(true)
 
-    // Create conversation if new
+    // Create conversation if new — sidebar refresh is non-blocking
     let convId = activeConvIdRef.current
     if (!convId) {
       convId = await createConversation(text.trim())
       if (convId) {
         setActiveConversationId(convId)
-        const updated = await loadConversations()
-        setConversations(updated)
+        loadConversations().then(c => setConversations(c)).catch(() => {})
       }
     }
-    if (convId) await saveMessage(convId, 'user', text.trim())
+    // Save user message — fire-and-forget, don't block API call
+    if (convId) saveMessage(convId, 'user', text.trim()).catch(() => {})
 
     // Build clean history for API (content only, no product objects)
     const cleanHistory = messages.map(m => ({ role: m.role, content: m.content }))
+
+    // 55-second abort — just under Vercel's 60s maxDuration
+    const controller = new AbortController()
+    const abortTimer = setTimeout(() => controller.abort(), 55000)
+
+    // Show 'pehli baar thoda waqt lagta hai' hint if no response after 6s
+    const assistantId = Math.random().toString(36).substring(2, 15)
+    setMessages(prev => [...prev, {
+      id: assistantId, role: 'assistant', content: '',
+      primaryProducts: [], complementaryProducts: [],
+    }])
+    const slowHintTimer = setTimeout(() => {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId && m.content === ''
+          ? { ...m, content: '⏳ Pehli baar thoda waqt lagta hai, zaroor jawab aayega...' }
+          : m
+      ))
+    }, 6000)
 
     try {
       const res = await fetch('/api/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ messages: cleanHistory, latestMessage: text.trim() }),
+        signal:  controller.signal,
       })
 
       if (res.status === 429) {
-        setMessages(prev => [...prev, {
-          id: crypto.randomUUID(), role: 'assistant',
-          content: 'Aap bahut tezi se sawaal pooch rahe hain 🙏 Ek minute rukein aur phir try karein.',
-          isError: true, retryText: text.trim(),
-        }])
+        clearTimeout(slowHintTimer)
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, content: 'Aap bahut tezi se sawaal pooch rahe hain 🙏 Ek minute rukein aur phir try karein.', isError: true, retryText: text.trim() }
+            : m
+        ))
         return
       }
 
       if (!res.ok) {
+        clearTimeout(slowHintTimer)
         let errMsg = 'Thoda technical issue aa gaya, please dobara try karein 🙏'
         try { const d = await res.json(); if (d?.error) errMsg = d.error } catch {}
-        setMessages(prev => [...prev, {
-          id: crypto.randomUUID(), role: 'assistant',
-          content: errMsg, isError: true, retryText: text.trim(),
-        }])
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, content: errMsg, isError: true, retryText: text.trim() }
+            : m
+        ))
         return
       }
 
-      const reader     = res.body?.getReader()
-      const decoder    = new TextDecoder()
-      const assistantId = Math.random().toString(36).substring(2, 15)
-      let   fullText   = ''
-      let   buffer     = ''
-
-      setMessages(prev => [...prev, {
-        id: assistantId, role: 'assistant', content: '',
-        primaryProducts: [], complementaryProducts: [],
-      }])
+      const reader  = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let   fullText = ''
+      let   buffer   = ''
+      clearTimeout(slowHintTimer)
+      // Clear slow hint if shown, reset content to empty for streaming
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId ? { ...m, content: '' } : m
+      ))
 
       if (reader) {
         while (true) {
@@ -212,19 +233,33 @@ export default function ChatWindow() {
         m.id === assistantId ? { ...m, content: displayText } : m
       ))
 
-      if (convId && displayText) await saveMessage(convId, 'assistant', displayText)
+      if (convId && displayText) saveMessage(convId, 'assistant', displayText).catch(() => {})
 
-    } catch (error) {
+    } catch (error: any) {
+      clearTimeout(slowHintTimer)
+      clearTimeout(abortTimer)
+      const isAbort = error?.name === 'AbortError'
+      const errMsg = isAbort
+        ? 'Connection timeout — internet slow hai, dobara try karein 🙏'
+        : 'Internet connection check karein aur dobara try karein 🙏'
       console.error('[ChatWindow] Error:', error)
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(), role: 'assistant',
-        content: 'Internet connection check karein aur dobara try karein 🙏',
-        isError: true, retryText: text.trim(),
-      }])
+      setMessages(prev => {
+        // Update the existing assistant bubble if it exists, else add new
+        const hasAssistant = prev.some(m => m.id === assistantId)
+        if (hasAssistant) {
+          return prev.map(m => m.id === assistantId
+            ? { ...m, content: errMsg, isError: true, retryText: text.trim() }
+            : m
+          )
+        }
+        return [...prev, { id: crypto.randomUUID(), role: 'assistant', content: errMsg, isError: true, retryText: text.trim() }]
+      })
     } finally {
+      clearTimeout(slowHintTimer)
+      clearTimeout(abortTimer)
       setSending(false)
-      const updated = await loadConversations()
-      setConversations(updated)
+      // Defer sidebar refresh — non-blocking
+      loadConversations().then(c => setConversations(c)).catch(() => {})
     }
   }, [messages, sending])
 
