@@ -9,30 +9,8 @@ export const runtime = 'edge'
 export const maxDuration = 30
 
 // ── Font loader ────────────────────────────────────────────────────────────────
-let _fonts = null
 async function loadFonts() {
-  if (_fonts) return _fonts
-  try {
-    const base = 'https://ai.madvet.in/fonts/'
-    const defs = [
-      { name: 'Oswald',                 weight: 700, file: 'oswald-700.woff2' },
-      { name: 'Barlow Condensed',       weight: 600, file: 'barlow-600.woff2' },
-      { name: 'Barlow Condensed',       weight: 700, file: 'barlow-700.woff2' },
-      { name: 'Barlow Condensed',       weight: 800, file: 'barlow-800.woff2' },
-      { name: 'Noto Sans Devanagari',   weight: 600, file: 'noto-devanagari-600.woff2' },
-      { name: 'Noto Sans Devanagari',   weight: 700, file: 'noto-devanagari-700.woff2' },
-      { name: 'Noto Sans Devanagari',   weight: 800, file: 'noto-devanagari-800.woff2' },
-    ]
-    const results = await Promise.allSettled(
-      defs.map(async ({ name, weight, file }) => {
-        const r = await fetch(base + file, { signal: AbortSignal.timeout(5000) })
-        if (!r.ok) throw new Error('HTTP ' + r.status)
-        return { name, data: await r.arrayBuffer(), weight, style: 'normal' }
-      })
-    )
-    _fonts = results.filter(r => r.status === 'fulfilled').map(r => r.value)
-    return _fonts
-  } catch { return [] }
+  return []
 }
 
 // ── Image → base64 URI (Edge-safe, chunked to avoid stack overflow) ────────────
@@ -596,14 +574,14 @@ export async function GET(_req, { params }) {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const table = (process.env.NEXT_PUBLIC_SUPABASE_TABLE ?? 'products_enriched').trim()
 
-  // Fetch product data, logo, and fonts in parallel
-  const [{ data, error }, logoImg, fonts] = await Promise.all([
+  // Fetch product data and logo in parallel
+  const fonts = []
+  const [{ data, error }, logoImg] = await Promise.all([
     sb.from(table)
       .select('id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,usp_benefits_hi,image_url')
       .eq('id', id)
       .single(),
     imgURI('https://ai.madvet.in/madvet-icon.png'),
-    loadFonts(),
   ])
 
   if (error||!data) return new Response('Not found', { status:404 })
