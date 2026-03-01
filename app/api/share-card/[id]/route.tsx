@@ -8,6 +8,7 @@ import { ImageResponse } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
+export const maxDuration = 30
 
 // ── Font loader ───────────────────────────────────────────────────────────────
 let _fonts = null

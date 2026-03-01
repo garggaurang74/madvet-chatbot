@@ -20,6 +20,8 @@ const redis = process.env.UPSTASH_REDIS_REST_URL
 const RATE_LIMIT  = 30
 const RATE_WINDOW = 60
 
+export const maxDuration = 60
+
 export interface Message {
   role:    'user' | 'assistant' | 'system'
   content: string
