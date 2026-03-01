@@ -13,24 +13,19 @@ let _fonts = null
 async function loadFonts() {
   if (_fonts) return _fonts
   try {
-    const css = await fetch(
-      'https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Noto+Sans+Devanagari:wght@600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap',
-      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }, signal: AbortSignal.timeout(8000) }
-    ).then(r => r.text())
-    const seen = new Set(), jobs = []
-    for (const block of css.split('@font-face')) {
-      const fm = block.match(/font-family:\s*['"]?([^'"\n;]+)['"]?/)
-      const wm = block.match(/font-weight:\s*(\d+)/)
-      const um = block.match(/url\(([^)]+\.woff2)\)/)
-      if (!fm || !um || !wm) continue
-      const key = `${fm[1].trim()}:${wm[1]}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      jobs.push({ name: fm[1].trim(), weight: parseInt(wm[1]), url: um[1].trim() })
-    }
+    const base = 'https://ai.madvet.in/fonts/'
+    const defs = [
+      { name: 'Oswald',                 weight: 700, file: 'oswald-700.woff2' },
+      { name: 'Barlow Condensed',       weight: 600, file: 'barlow-600.woff2' },
+      { name: 'Barlow Condensed',       weight: 700, file: 'barlow-700.woff2' },
+      { name: 'Barlow Condensed',       weight: 800, file: 'barlow-800.woff2' },
+      { name: 'Noto Sans Devanagari',   weight: 600, file: 'noto-devanagari-600.woff2' },
+      { name: 'Noto Sans Devanagari',   weight: 700, file: 'noto-devanagari-700.woff2' },
+      { name: 'Noto Sans Devanagari',   weight: 800, file: 'noto-devanagari-800.woff2' },
+    ]
     const results = await Promise.allSettled(
-      jobs.map(async ({ name, weight, url }) => {
-        const r = await fetch(url, { signal: AbortSignal.timeout(8000) })
+      defs.map(async ({ name, weight, file }) => {
+        const r = await fetch(base + file, { signal: AbortSignal.timeout(5000) })
         if (!r.ok) throw new Error('HTTP ' + r.status)
         return { name, data: await r.arrayBuffer(), weight, style: 'normal' }
       })
