@@ -1,9 +1,9 @@
 {
   "functions": {
-    "app/api/chat/route.ts": {
+    "api/chat/route.ts": {
       "maxDuration": 60
     },
-    "app/api/share-card/[id]/route.tsx": {
+    "api/share-card/[id]/route.tsx": {
       "maxDuration": 30
     }
   }
