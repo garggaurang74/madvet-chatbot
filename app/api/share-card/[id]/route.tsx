@@ -7,7 +7,7 @@ import React from 'react'
 import { ImageResponse } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 export const maxDuration = 30
 
 // ── Font loader ───────────────────────────────────────────────────────────────
@@ -50,11 +50,11 @@ async function imgURI(url) {
     if (!r.ok) return null
     const ct = r.headers.get('content-type') || ''
     if (ct.includes('html') || ct.includes('text')) return null
-    const buf = Buffer.from(await r.arrayBuffer())
-    const b = buf.slice(0, 4)
-    if (b[0] === 0xFF && b[1] === 0xD8) return `data:image/jpeg;base64,${buf.toString('base64')}`
-    if (b[0] === 0x89 && b[1] === 0x50) return `data:image/png;base64,${buf.toString('base64')}`
-    return `data:image/webp;base64,${buf.toString('base64')}`
+    const arr = new Uint8Array(await r.arrayBuffer())
+    const b64 = btoa(arr.reduce((d,b)=>d+String.fromCharCode(b),''))
+    if (arr[0]===0xFF && arr[1]===0xD8) return `data:image/jpeg;base64,${b64}` 
+    if (arr[0]===0x89 && arr[1]===0x50) return `data:image/png;base64,${b64}` 
+    return `data:image/webp;base64,${b64}`
   } catch { return null }
 }
 
