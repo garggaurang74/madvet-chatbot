@@ -9,9 +9,6 @@ export const runtime = 'edge'
 export const maxDuration = 30
 
 // ── Font loader ────────────────────────────────────────────────────────────────
-async function loadFonts() {
-  return []
-}
 
 // ── Image → base64 URI (Edge-safe, chunked to avoid stack overflow) ────────────
 async function imgURI(url) {
@@ -575,7 +572,6 @@ export async function GET(_req, { params }) {
   const table = (process.env.NEXT_PUBLIC_SUPABASE_TABLE ?? 'products_enriched').trim()
 
   // Fetch product data and logo in parallel
-  const fonts = []
   const [{ data, error }, logoImg] = await Promise.all([
     sb.from(table)
       .select('id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,usp_benefits_hi,image_url')
@@ -583,6 +579,15 @@ export async function GET(_req, { params }) {
       .single(),
     imgURI('https://ai.madvet.in/madvet-icon.png'),
   ])
+
+  // Replace loadFonts() with direct fetch of one font
+  const fontData = await fetch('https://ai.madvet.in/fonts/oswald-700.woff2', { signal: AbortSignal.timeout(5000) })
+    .then(r => r.arrayBuffer())
+    .catch(() => null)
+
+  if (!fontData) return new Response('Font load failed', { status: 500 })
+
+  const fonts = [{ name: 'Oswald', data: fontData, weight: 700, style: 'normal' as const }]
 
   if (error||!data) return new Response('Not found', { status:404 })
 
