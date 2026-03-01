@@ -8,7 +8,39 @@ import { createClient } from '@supabase/supabase-js'
 export const runtime = 'edge'
 export const maxDuration = 30
 
-// ── Image → base64 URI (Edge-safe, no Buffer) ─────────────────────────────────
+// ── Font loader ────────────────────────────────────────────────────────────────
+let _fonts = null
+async function loadFonts() {
+  if (_fonts) return _fonts
+  try {
+    const css = await fetch(
+      'https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Noto+Sans+Devanagari:wght@600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap',
+      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }, signal: AbortSignal.timeout(8000) }
+    ).then(r => r.text())
+    const seen = new Set(), jobs = []
+    for (const block of css.split('@font-face')) {
+      const fm = block.match(/font-family:\s*['"]?([^'"\n;]+)['"]?/)
+      const wm = block.match(/font-weight:\s*(\d+)/)
+      const um = block.match(/url\(([^)]+\.woff2)\)/)
+      if (!fm || !um || !wm) continue
+      const key = `${fm[1].trim()}:${wm[1]}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      jobs.push({ name: fm[1].trim(), weight: parseInt(wm[1]), url: um[1].trim() })
+    }
+    const results = await Promise.allSettled(
+      jobs.map(async ({ name, weight, url }) => {
+        const r = await fetch(url, { signal: AbortSignal.timeout(8000) })
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        return { name, data: await r.arrayBuffer(), weight, style: 'normal' }
+      })
+    )
+    _fonts = results.filter(r => r.status === 'fulfilled').map(r => r.value)
+    return _fonts
+  } catch { return [] }
+}
+
+// ── Image → base64 URI (Edge-safe, chunked to avoid stack overflow) ────────────
 async function imgURI(url) {
   if (!url) return null
   try {
@@ -18,7 +50,6 @@ async function imgURI(url) {
     const ct = r.headers.get('content-type') || ''
     if (ct.includes('html') || ct.includes('text')) return null
     const arr = new Uint8Array(await r.arrayBuffer())
-    // Chunk conversion avoids stack overflow on large images
     let b64 = ''
     const chunk = 8192
     for (let i = 0; i < arr.length; i += chunk) {
@@ -69,7 +100,7 @@ function hslToRgb(h, s, l) {
   const k = n => (n + h / 30) % 12
   const a = s * Math.min(l, 1 - l)
   const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
-  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)]
+  return [Math.round(f(0)*255), Math.round(f(8)*255), Math.round(f(4)*255)]
 }
 
 function getColors(id, category) {
@@ -168,9 +199,9 @@ function Logo({ size=1, logoImg }) {
         }
       </div>
       <div style={{ display:'flex', flexDirection:'column' }}>
-        <span style={{ fontSize:20*size, fontWeight:700, color:'#fff', letterSpacing:2, lineHeight:1 }}>MADVET</span>
-        <span style={{ fontSize:8*size, color:'rgba(255,255,255,0.70)', letterSpacing:1.5, marginTop:1, fontWeight:600 }}>ANIMAL HEALTH CARE</span>
-        <span style={{ fontSize:7*size, color:'rgba(255,255,255,0.45)', letterSpacing:0.8, marginTop:1 }}>ISO 9001:2013 COMPANY</span>
+        <span style={{ fontFamily:'Oswald', fontSize:20*size, fontWeight:700, color:'#fff', letterSpacing:2, lineHeight:1 }}>MADVET</span>
+        <span style={{ fontFamily:'Barlow Condensed', fontSize:8*size, color:'rgba(255,255,255,0.70)', letterSpacing:1.5, marginTop:1, fontWeight:600 }}>ANIMAL HEALTH CARE</span>
+        <span style={{ fontFamily:'Barlow Condensed', fontSize:7*size, color:'rgba(255,255,255,0.45)', letterSpacing:0.8, marginTop:1 }}>ISO 9001:2013 COMPANY</span>
       </div>
     </div>
   )
@@ -215,12 +246,12 @@ function DescBar({ desc, tags, c }) {
   if (!desc && !tags.length) return null
   return (
     <div style={{ display:'flex', flexDirection:'column', padding:'10px 18px 8px 18px', background:c.pale }}>
-      {desc && <span style={{ fontSize:10.5, color:'#2a2a2a', lineHeight:1.5, fontWeight:500, marginBottom:tags.length?6:0 }}>{desc}</span>}
+      {desc && <span style={{ fontSize:10.5, color:'#2a2a2a', lineHeight:1.5, fontFamily:'Barlow Condensed', fontWeight:500, marginBottom:tags.length?6:0 }}>{desc}</span>}
       {tags.length>0 && (
         <div style={{ display:'flex', gap:5, flexWrap:'wrap', alignItems:'center' }}>
-          <span style={{ fontSize:8.5, color:c.primary, fontWeight:800, letterSpacing:1 }}>TREATS:</span>
+          <span style={{ fontSize:8.5, color:c.primary, fontWeight:800, letterSpacing:1, fontFamily:'Oswald' }}>TREATS:</span>
           {tags.map((t,i)=>(
-            <div key={i} style={{ display:'flex', fontSize:9, color:c.dark, background:c.p12, borderRadius:20, padding:'2px 8px', fontWeight:600 }}>
+            <div key={i} style={{ display:'flex', fontSize:9, color:c.dark, background:c.p12, borderRadius:20, padding:'2px 8px', fontFamily:'Barlow Condensed', fontWeight:600 }}>
               <span>{t}</span>
             </div>
           ))}
@@ -238,13 +269,13 @@ function AllProductsTag({ c }) {
           <span>🔗</span>
         </div>
         <div style={{ display:'flex', flexDirection:'column' }}>
-          <span style={{ fontSize:8, color:'rgba(255,255,255,0.55)', letterSpacing:2 }}>VIEW ALL PRODUCTS · सभी उत्पाद</span>
-          <span style={{ fontSize:14, color:'#fff', fontWeight:700, letterSpacing:1 }}>madvet.in/products</span>
+          <span style={{ fontSize:8, color:'rgba(255,255,255,0.55)', fontFamily:'Barlow Condensed', letterSpacing:2 }}>VIEW ALL PRODUCTS · सभी उत्पाद</span>
+          <span style={{ fontSize:14, color:'#fff', fontWeight:700, fontFamily:'Oswald', letterSpacing:1 }}>madvet.in/products</span>
         </div>
       </div>
       <div style={{ display:'flex', flexDirection:'column', background:'rgba(255,255,255,0.12)', borderRadius:6, padding:'4px 12px', alignItems:'center' }}>
-        <span style={{ fontSize:8, color:'rgba(255,255,255,0.55)' }}>AI ASSISTANT</span>
-        <span style={{ fontSize:11, color:'rgba(255,255,255,0.9)' }}>ai.madvet.in</span>
+        <span style={{ fontSize:8, color:'rgba(255,255,255,0.55)', fontFamily:'Barlow Condensed' }}>AI ASSISTANT</span>
+        <span style={{ fontSize:11, color:'rgba(255,255,255,0.9)', fontFamily:'Oswald' }}>ai.madvet.in</span>
       </div>
     </div>
   )
@@ -263,16 +294,16 @@ function Footer({ c, logoImg }) {
             }
           </div>
           <div style={{ display:'flex', flexDirection:'column' }}>
-            <span style={{ fontSize:24, fontWeight:700, color:'#1a2f8a', letterSpacing:3, lineHeight:1 }}>MADVET</span>
-            <span style={{ fontSize:9, color:'#1a2f8a', letterSpacing:1.5, fontWeight:700, marginTop:1 }}>ANIMAL HEALTH CARE</span>
-            <span style={{ fontSize:8, color:'#555', marginTop:1 }}>Ghaziabad (U.P.)</span>
+            <span style={{ fontFamily:'Oswald', fontSize:24, fontWeight:700, color:'#1a2f8a', letterSpacing:3, lineHeight:1 }}>MADVET</span>
+            <span style={{ fontFamily:'Barlow Condensed', fontSize:9, color:'#1a2f8a', letterSpacing:1.5, fontWeight:700, marginTop:1 }}>ANIMAL HEALTH CARE</span>
+            <span style={{ fontFamily:'Barlow Condensed', fontSize:8, color:'#555', marginTop:1 }}>Ghaziabad (U.P.)</span>
           </div>
         </div>
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end' }}>
-          <span style={{ fontSize:9, color:'#111', fontWeight:800 }}>ISO 9001:2013 COMPANY</span>
-          <span style={{ fontSize:8, color:'#333', marginTop:2 }}>madvet.animal@gmail.com</span>
-          <span style={{ fontSize:8, color:'#333' }}>www.madvet.in</span>
-          <span style={{ fontSize:10, color:'#1a2f8a', fontWeight:800, marginTop:2 }}>📞 9935257750 · 8400347331</span>
+          <span style={{ fontFamily:'Barlow Condensed', fontSize:9, color:'#111', fontWeight:800 }}>ISO 9001:2013 COMPANY</span>
+          <span style={{ fontFamily:'Barlow Condensed', fontSize:8, color:'#333', marginTop:2 }}>madvet.animal@gmail.com</span>
+          <span style={{ fontFamily:'Barlow Condensed', fontSize:8, color:'#333' }}>www.madvet.in</span>
+          <span style={{ fontFamily:'Barlow Condensed', fontSize:10, color:'#1a2f8a', fontWeight:800, marginTop:2 }}>📞 9935257750 · 8400347331</span>
         </div>
       </div>
     </div>
@@ -284,23 +315,23 @@ function CardVitality({ p, c, productImg, logoImg }) {
   const { hi, en } = augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits), splitBenefits(p.benefits), p.indication, p.description)
   const nameSz = p.name.length>12?44:p.name.length>9?54:66
   return (
-    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff' }}>
-      <div style={{ display:'flex', flexDirection:'column', background:`linear-gradient(135deg,${c.darkest} 0%,${c.primary} 55%,${c.bright} 100%)`, padding:'18px 20px' }}>
+    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff', fontFamily:'Barlow Condensed' }}>
+      <div style={{ display:'flex', flexDirection:'column', background:`linear-gradient(135deg,${c.darkest} 0%,${c.primary} 55%,${c.bright} 100%)`, padding:'18px 20px 18px 20px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
           <Logo size={0.9} logoImg={logoImg} />
           <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end' }}>
-            <span style={{ fontSize:10, color:'rgba(255,255,255,0.65)' }}>{p.packaging}</span>
-            <span style={{ fontSize:9, color:'rgba(255,255,255,0.5)' }}>{p.formulation}</span>
+            <span style={{ fontSize:10, color:'rgba(255,255,255,0.65)', fontFamily:'Barlow Condensed' }}>{p.packaging}</span>
+            <span style={{ fontSize:9, color:'rgba(255,255,255,0.5)', fontFamily:'Barlow Condensed' }}>{p.formulation}</span>
           </div>
         </div>
         <div style={{ display:'flex', flexDirection:'column', marginTop:10 }}>
-          <span style={{ fontWeight:700, fontSize:nameSz, color:'#fff', letterSpacing:3, lineHeight:1 }}>{p.name}</span>
-          <span style={{ fontSize:12, color:'rgba(255,255,255,0.75)', marginTop:5 }}>{p.salt}</span>
+          <span style={{ fontFamily:'Oswald', fontWeight:700, fontSize:nameSz, color:'#fff', letterSpacing:3, lineHeight:1 }}>{p.name}</span>
+          <span style={{ fontSize:12, color:'rgba(255,255,255,0.75)', marginTop:5, fontFamily:'Barlow Condensed' }}>{p.salt}</span>
         </div>
       </div>
       <div style={{ display:'flex', padding:'8px 24px', background:c.dk20 }}>
         <div style={{ display:'flex', background:'#FFE000', borderRadius:6, padding:'7px 16px' }}>
-          <span style={{ fontWeight:800, fontSize:14, color:c.darkest }}>{hi[0]||p.name}</span>
+          <span style={{ fontFamily:'Noto Sans Devanagari', fontWeight:800, fontSize:14, color:c.darkest }}>{hi[0]||p.name}</span>
         </div>
       </div>
       <DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c} />
@@ -311,8 +342,8 @@ function CardVitality({ p, c, productImg, logoImg }) {
             return (
               <div key={i} style={{ display:'flex', marginBottom:big?7:5 }}>
                 <div style={{ flexGrow:1, flexShrink:1, flexBasis:0, background:big?`linear-gradient(90deg,${c.darkest},${c.primary})`:`linear-gradient(90deg,${c.primary},${c.mid})`, borderRadius:6, padding:big?'9px 14px':'6px 12px' }}>
-                  <span style={{ fontSize:big?12.5:11, color:'#fff', fontWeight:big?800:600, lineHeight:1.3, display:'block' }}>{b}</span>
-                  {en[i] && <span style={{ fontSize:8.5, color:'rgba(255,255,255,0.6)', marginTop:2, display:'block' }}>{en[i]}</span>}
+                  <span style={{ fontFamily:isHindi(b)?'Noto Sans Devanagari':'Barlow Condensed', fontSize:big?12.5:11, color:'#fff', fontWeight:big?800:600, lineHeight:1.3, display:'block' }}>{b}</span>
+                  {en[i] && <span style={{ fontSize:8.5, color:'rgba(255,255,255,0.6)', fontFamily:'Barlow Condensed', marginTop:2, display:'block' }}>{en[i]}</span>}
                 </div>
               </div>
             )
@@ -335,11 +366,11 @@ function CardDigest({ p, c, productImg, logoImg }) {
   const { hi, en } = augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits), splitBenefits(p.benefits), p.indication, p.description)
   const nameSz = p.name.length>12?36:p.name.length>8?46:56
   return (
-    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff' }}>
+    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff', fontFamily:'Barlow Condensed' }}>
       <div style={{ display:'flex', flexDirection:'row', padding:'16px 20px 0', background:'#fff', gap:14, alignItems:'flex-start' }}>
         <div style={{ display:'flex', flexDirection:'column', flexGrow:1, flexShrink:1, flexBasis:0 }}>
-          <span style={{ fontSize:13, fontWeight:700, color:'#c8220a', lineHeight:1.3, marginBottom:6 }}>{p.indication?.split(',')[0]?.trim()||'असरदार और तुरंत राहत'}</span>
-          <span style={{ fontWeight:700, fontSize:nameSz, color:c.primary, letterSpacing:2, lineHeight:1 }}>{p.name}</span>
+          <span style={{ fontSize:13, fontWeight:700, color:'#c8220a', fontFamily:'Noto Sans Devanagari', lineHeight:1.3, marginBottom:6 }}>{p.indication?.split(',')[0]?.trim()||'असरदार और तुरंत राहत'}</span>
+          <span style={{ fontFamily:'Oswald', fontWeight:700, fontSize:nameSz, color:c.primary, letterSpacing:2, lineHeight:1 }}>{p.name}</span>
           <div style={{ display:'flex', marginTop:6 }}>
             <div style={{ background:c.pale, borderRadius:4, padding:'3px 10px', display:'flex' }}>
               <span style={{ fontSize:11, color:c.primary, fontWeight:700, letterSpacing:2 }}>{(p.formulation||'').toUpperCase()}</span>
@@ -347,7 +378,7 @@ function CardDigest({ p, c, productImg, logoImg }) {
           </div>
           <div style={{ display:'flex', marginTop:8 }}>
             <div style={{ background:c.primary, borderRadius:4, padding:'6px 14px', display:'flex' }}>
-              <span style={{ fontSize:13, color:'#fff', fontWeight:700 }}>{hi[0]||'तुरंत असर, लंबे समय तक फायदा'}</span>
+              <span style={{ fontSize:13, color:'#fff', fontFamily:'Noto Sans Devanagari', fontWeight:700 }}>{hi[0]||'तुरंत असर, लंबे समय तक फायदा'}</span>
             </div>
           </div>
         </div>
@@ -358,27 +389,27 @@ function CardDigest({ p, c, productImg, logoImg }) {
       <div style={{ display:'flex', padding:'12px 20px', gap:14 }}>
         <div style={{ display:'flex', flexDirection:'column', flexGrow:1, flexShrink:1, flexBasis:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-            <span style={{ fontSize:13, fontWeight:800, color:c.primary }}>प्रयोग एवं लक्षण :</span>
+            <span style={{ fontFamily:'Noto Sans Devanagari', fontSize:13, fontWeight:800, color:c.primary }}>प्रयोग एवं लक्षण :</span>
             <div style={{ flexGrow:1, flexShrink:1, flexBasis:0, height:1.5, background:c.p25, display:'flex' }} />
           </div>
           {hi.slice(0,6).map((b,i) => (
             <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:7, padding:'6px 10px', borderRadius:6, background:i%2===0?c.pale:'#fff', borderLeftWidth:3, borderLeftStyle:'solid', borderLeftColor:i%2===0?c.primary:c.bright, borderTopWidth:0, borderRightWidth:0, borderBottomWidth:0 }}>
               <div style={{ width:7, height:7, borderRadius:4, background:c.primary, flexShrink:0, marginTop:5, display:'flex' }} />
               <div style={{ display:'flex', flexDirection:'column' }}>
-                <span style={{ fontSize:12, color:'#1a1a1a', fontWeight:isHindi(b)?600:700, lineHeight:1.35 }}>{b}</span>
-                {en[i] && <span style={{ fontSize:9.5, color:'#888', marginTop:1 }}>{en[i]}</span>}
+                <span style={{ fontFamily:isHindi(b)?'Noto Sans Devanagari':'Barlow Condensed', fontSize:12, color:'#1a1a1a', fontWeight:isHindi(b)?600:700, lineHeight:1.35 }}>{b}</span>
+                {en[i] && <span style={{ fontSize:9.5, color:'#888', fontFamily:'Barlow Condensed', marginTop:1 }}>{en[i]}</span>}
               </div>
             </div>
           ))}
         </div>
         <div style={{ width:108, flexShrink:0, display:'flex', flexDirection:'column', gap:8, alignItems:'center', paddingTop:4 }}>
           <div style={{ display:'flex', flexDirection:'column', background:`linear-gradient(160deg,${c.darkest},${c.primary})`, borderRadius:10, padding:'14px 8px', alignItems:'center', width:'100%' }}>
-            <span style={{ fontSize:9, color:'rgba(255,255,255,0.6)', letterSpacing:1.5, marginBottom:4 }}>{(p.formulation||'').toUpperCase()}</span>
-            <span style={{ fontSize:15, fontWeight:700, color:'#fff', lineHeight:1.15, letterSpacing:1 }}>{p.name}</span>
-            <span style={{ fontSize:8.5, color:'rgba(255,255,255,0.65)', marginTop:4 }}>{p.packaging}</span>
+            <span style={{ fontSize:9, color:'rgba(255,255,255,0.6)', fontFamily:'Barlow Condensed', letterSpacing:1.5, marginBottom:4 }}>{(p.formulation||'').toUpperCase()}</span>
+            <span style={{ fontFamily:'Oswald', fontSize:15, fontWeight:700, color:'#fff', lineHeight:1.15, letterSpacing:1 }}>{p.name}</span>
+            <span style={{ fontSize:8.5, color:'rgba(255,255,255,0.65)', marginTop:4, fontFamily:'Barlow Condensed' }}>{p.packaging}</span>
           </div>
           <div style={{ display:'flex', flexDirection:'column', background:c.pale, borderRadius:8, padding:'8px', alignItems:'center', width:'100%' }}>
-            <span style={{ fontSize:8.5, color:c.primary, fontWeight:700, letterSpacing:1, marginBottom:5 }}>SPECIES</span>
+            <span style={{ fontSize:8.5, color:c.primary, fontWeight:700, fontFamily:'Barlow Condensed', letterSpacing:1, marginBottom:5 }}>SPECIES</span>
             <Species sp={p.species} c={c} />
           </div>
         </div>
@@ -396,28 +427,28 @@ function CardHerbal({ p, c, productImg, logoImg }) {
   const c2 = `hsl(${(c.h+40)%360},75%,36%)`
   const nameSz = p.name.length>14?32:p.name.length>10?42:50
   return (
-    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff' }}>
+    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff', fontFamily:'Barlow Condensed' }}>
       <div style={{ display:'flex', flexDirection:'column', background:`linear-gradient(160deg,${c.darkest} 0%,${c.primary} 60%,${c2} 100%)`, padding:'16px 20px 18px 20px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
           <Logo size={0.88} logoImg={logoImg} />
-          <span style={{ fontSize:9, color:'rgba(255,255,255,0.5)' }}>{p.packaging}</span>
+          <span style={{ fontSize:9, color:'rgba(255,255,255,0.5)', fontFamily:'Barlow Condensed' }}>{p.packaging}</span>
         </div>
         <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:12 }}>
           <div style={{ display:'flex', flexDirection:'column', flexGrow:1, flexShrink:1, flexBasis:0 }}>
-            <span style={{ fontWeight:700, fontSize:nameSz, lineHeight:1, letterSpacing:2, color:'#fff' }}>{p.name}</span>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,0.78)', marginTop:5 }}>{(p.salt||'').split(',')[0]?.trim()}</span>
+            <span style={{ fontFamily:'Oswald', fontWeight:700, fontSize:nameSz, lineHeight:1, letterSpacing:2, color:'#fff' }}>{p.name}</span>
+            <span style={{ fontSize:11, color:'rgba(255,255,255,0.78)', marginTop:5, fontFamily:'Barlow Condensed' }}>{(p.salt||'').split(',')[0]?.trim()}</span>
           </div>
           <ImgBox uri={productImg} w={100} h={100} c={c} emoji="🌿" />
         </div>
         <div style={{ display:'flex', marginTop:10, background:'rgba(255,255,255,0.15)', borderRadius:6, padding:'6px 14px', alignItems:'center', gap:8, alignSelf:'flex-start' }}>
           <span style={{ fontSize:14, lineHeight:1 }}>🌱</span>
-          <span style={{ fontSize:13, color:'#FFE000', fontWeight:700 }}>{hi[0]||p.indication}</span>
+          <span style={{ fontFamily:'Noto Sans Devanagari', fontSize:13, color:'#FFE000', fontWeight:700 }}>{hi[0]||p.indication}</span>
         </div>
       </div>
       <div style={{ display:'flex', flexDirection:'column', padding:'14px 18px 8px 18px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
           <div style={{ width:4, height:16, background:c.primary, borderRadius:2, display:'flex' }} />
-          <span style={{ fontSize:13, fontWeight:800, color:c.primary }}>प्रमुख लाभ एवं उपयोग :</span>
+          <span style={{ fontFamily:'Noto Sans Devanagari', fontSize:13, fontWeight:800, color:c.primary }}>प्रमुख लाभ एवं उपयोग :</span>
           <div style={{ flexGrow:1, flexShrink:1, flexBasis:0, height:1, background:c.p20, display:'flex' }} />
         </div>
         <DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c} />
@@ -430,8 +461,8 @@ function CardHerbal({ p, c, productImg, logoImg }) {
                 <div key={i} style={{ display:'flex', gap:8, padding:'7px 10px', background:i<2?c.pale:'#fafafa', borderRadius:7, alignItems:'flex-start', flexGrow:1, flexShrink:1, flexBasis:0 }}>
                   <span style={{ color:c.primary, fontSize:13, fontWeight:900, flexShrink:0, lineHeight:1.2 }}>►</span>
                   <div style={{ display:'flex', flexDirection:'column' }}>
-                    <span style={{ fontSize:11, color:'#222', lineHeight:1.35, fontWeight:isHindi(b)?500:700 }}>{b}</span>
-                    {en[i] && <span style={{ fontSize:8, color:'#999', marginTop:1 }}>{en[i]}</span>}
+                    <span style={{ fontFamily:isHindi(b)?'Noto Sans Devanagari':'Barlow Condensed', fontSize:11, color:'#222', lineHeight:1.35, fontWeight:isHindi(b)?500:700 }}>{b}</span>
+                    {en[i] && <span style={{ fontSize:8, color:'#999', fontFamily:'Barlow Condensed', marginTop:1 }}>{en[i]}</span>}
                   </div>
                 </div>
               )
@@ -442,8 +473,8 @@ function CardHerbal({ p, c, productImg, logoImg }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0 18px 8px' }}>
         <Species sp={p.species} c={c} />
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end' }}>
-          <span style={{ fontSize:9, color:'#aaa' }}>FORMULATION</span>
-          <span style={{ fontSize:12, fontWeight:700, color:c.primary }}>{p.formulation}</span>
+          <span style={{ fontSize:9, color:'#aaa', fontFamily:'Barlow Condensed' }}>FORMULATION</span>
+          <span style={{ fontSize:12, fontWeight:700, color:c.primary, fontFamily:'Barlow Condensed' }}>{p.formulation}</span>
         </div>
       </div>
       <AllProductsTag c={c} />
@@ -457,22 +488,22 @@ function CardShield({ p, c, productImg, logoImg }) {
   const { hi, en } = augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits), splitBenefits(p.benefits), p.indication, p.description)
   const nameSz = p.name.length>14?34:p.name.length>10?44:54
   return (
-    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff' }}>
+    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff', fontFamily:'Barlow Condensed' }}>
       <div style={{ display:'flex', flexDirection:'column', background:`linear-gradient(125deg,${c.darkest} 0%,${c.primary} 100%)`, padding:'18px 20px 22px 20px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
           <Logo size={0.88} logoImg={logoImg} />
           <div style={{ display:'flex', flexDirection:'column', background:'rgba(255,255,255,0.18)', borderRadius:5, padding:'4px 12px', alignItems:'center' }}>
-            <span style={{ fontSize:11, color:'#FFE000', fontWeight:700, letterSpacing:2 }}>{(p.formulation||'').toUpperCase()}</span>
-            <span style={{ fontSize:8.5, color:'rgba(255,255,255,0.65)' }}>{p.packaging}</span>
+            <span style={{ fontSize:11, color:'#FFE000', fontWeight:700, letterSpacing:2, fontFamily:'Oswald' }}>{(p.formulation||'').toUpperCase()}</span>
+            <span style={{ fontSize:8.5, color:'rgba(255,255,255,0.65)', fontFamily:'Barlow Condensed' }}>{p.packaging}</span>
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'flex-end', gap:16 }}>
           <div style={{ display:'flex', flexDirection:'column', flexGrow:1, flexShrink:1, flexBasis:0 }}>
-            <span style={{ fontWeight:700, fontSize:nameSz, color:'#fff', letterSpacing:2, lineHeight:1 }}>{p.name}</span>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,0.72)', marginTop:6 }}>{p.salt}</span>
+            <span style={{ fontFamily:'Oswald', fontWeight:700, fontSize:nameSz, color:'#fff', letterSpacing:2, lineHeight:1 }}>{p.name}</span>
+            <span style={{ fontSize:11, color:'rgba(255,255,255,0.72)', marginTop:6, fontFamily:'Barlow Condensed' }}>{p.salt}</span>
             <div style={{ display:'flex', marginTop:10 }}>
               <div style={{ background:'#FFE000', borderRadius:5, padding:'5px 14px', display:'flex' }}>
-                <span style={{ fontSize:13, fontWeight:800, color:c.darkest }}>{hi[0]||p.indication}</span>
+                <span style={{ fontFamily:'Noto Sans Devanagari', fontSize:13, fontWeight:800, color:c.darkest }}>{hi[0]||p.indication}</span>
               </div>
             </div>
           </div>
@@ -481,15 +512,15 @@ function CardShield({ p, c, productImg, logoImg }) {
       </div>
       <div style={{ display:'flex', flexDirection:'column', padding:'14px 18px 6px 18px' }}>
         <DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c} />
-        <span style={{ fontSize:13, fontWeight:800, color:c.primary, marginBottom:10, marginTop:8 }}>लाभ एवं उपयोग :</span>
+        <span style={{ fontFamily:'Noto Sans Devanagari', fontSize:13, fontWeight:800, color:c.primary, marginBottom:10, marginTop:8 }}>लाभ एवं उपयोग :</span>
         {hi.slice(0,5).map((b,i)=>(
           <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:7, padding:'8px 12px', borderRadius:7, background:c.pale, borderLeftWidth:4, borderLeftStyle:'solid', borderLeftColor:i===0?c.primary:c.bright, borderTopWidth:0, borderRightWidth:0, borderBottomWidth:0 }}>
             <div style={{ width:22, height:22, borderRadius:11, background:c.primary, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <span style={{ fontSize:13, color:'#fff', fontWeight:900 }}>✓</span>
             </div>
             <div style={{ display:'flex', flexDirection:'column' }}>
-              <span style={{ fontSize:12, color:'#111', fontWeight:isHindi(b)?600:700, lineHeight:1.35 }}>{b}</span>
-              {en[i] && <span style={{ fontSize:9.5, color:'#888', marginTop:1 }}>{en[i]}</span>}
+              <span style={{ fontFamily:isHindi(b)?'Noto Sans Devanagari':'Barlow Condensed', fontSize:12, color:'#111', fontWeight:isHindi(b)?600:700, lineHeight:1.35 }}>{b}</span>
+              {en[i] && <span style={{ fontSize:9.5, color:'#888', fontFamily:'Barlow Condensed', marginTop:1 }}>{en[i]}</span>}
             </div>
           </div>
         ))}
@@ -509,23 +540,23 @@ function CardClinical({ p, c, productImg, logoImg }) {
   const isInj = p.formulation==='Injection'
   const nameSz = p.name.length>14?32:p.name.length>10?42:52
   return (
-    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff' }}>
+    <div style={{ display:'flex', flexDirection:'column', width:480, background:'#fff', fontFamily:'Barlow Condensed' }}>
       <div style={{ display:'flex', flexDirection:'column', background:`linear-gradient(135deg,${c.darkest} 0%,${c.dark} 50%,${c.primary} 100%)`, padding:'16px 20px 20px 20px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
           <Logo size={0.88} logoImg={logoImg} />
           <div style={{ display:'flex' }}>
             <div style={{ background:c.p30, borderRadius:4, padding:'3px 10px', display:'flex' }}>
-              <span style={{ fontSize:10, color:'#fff', fontWeight:700, letterSpacing:1 }}>{(p.category||'').split('/')[0]?.trim()}</span>
+              <span style={{ fontSize:10, color:'#fff', fontWeight:700, letterSpacing:1, fontFamily:'Barlow Condensed' }}>{(p.category||'').split('/')[0]?.trim()}</span>
             </div>
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'flex-end', gap:14 }}>
           <div style={{ display:'flex', flexDirection:'column', flexGrow:1, flexShrink:1, flexBasis:0 }}>
-            <span style={{ fontWeight:700, fontSize:nameSz, color:'#fff', letterSpacing:1.5, lineHeight:1 }}>{p.name}</span>
-            <span style={{ fontSize:10.5, color:'rgba(255,255,255,0.72)', marginTop:5 }}>{p.salt}</span>
+            <span style={{ fontFamily:'Oswald', fontWeight:700, fontSize:nameSz, color:'#fff', letterSpacing:1.5, lineHeight:1 }}>{p.name}</span>
+            <span style={{ fontSize:10.5, color:'rgba(255,255,255,0.72)', marginTop:5, fontFamily:'Barlow Condensed' }}>{p.salt}</span>
             <div style={{ display:'flex', gap:8, marginTop:8 }}>
               <div style={{ background:'rgba(255,255,255,0.15)', borderRadius:4, padding:'3px 10px', display:'flex' }}>
-                <span style={{ fontSize:10, color:'rgba(255,255,255,0.85)' }}>{p.formulation} · {p.packaging}</span>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.85)', fontFamily:'Barlow Condensed' }}>{p.formulation} · {p.packaging}</span>
               </div>
             </div>
           </div>
@@ -536,18 +567,18 @@ function CardClinical({ p, c, productImg, logoImg }) {
       <DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c} />
       <div style={{ display:'flex', flexDirection:'column', padding:'14px 18px 6px 18px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-          <span style={{ fontSize:13, fontWeight:800, color:c.primary }}>प्रमुख लाभ</span>
+          <span style={{ fontFamily:'Noto Sans Devanagari', fontSize:13, fontWeight:800, color:c.primary }}>प्रमुख लाभ</span>
           <div style={{ flexGrow:1, flexShrink:1, flexBasis:0, height:2, background:c.p40, display:'flex' }} />
-          <span style={{ fontSize:9.5, color:'#aaa' }}>Key Benefits</span>
+          <span style={{ fontSize:9.5, color:'#aaa', fontFamily:'Barlow Condensed' }}>Key Benefits</span>
         </div>
         {hi.slice(0,5).map((b,i)=>(
           <div key={i} style={{ display:'flex', gap:10, marginBottom:7, padding:'8px 12px', borderRadius:8, background:i===0?c.pale:i===1?'#f5f5f5':'#fafafa' }}>
             <div style={{ width:24, height:24, borderRadius:12, background:i===0?c.primary:i===1?c.mid:c.bright, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#fff', fontWeight:800, flexShrink:0 }}>
-              <span>{i+1}</span>
+              <span style={{ fontFamily:'Barlow Condensed' }}>{i+1}</span>
             </div>
             <div style={{ display:'flex', flexDirection:'column', flexGrow:1, flexShrink:1, flexBasis:0 }}>
-              <span style={{ fontSize:12, color:'#111', lineHeight:1.35, fontWeight:isHindi(b)?600:700 }}>{b}</span>
-              {en[i] && <span style={{ fontSize:9.5, color:'#888', marginTop:1 }}>{en[i]}</span>}
+              <span style={{ fontFamily:isHindi(b)?'Noto Sans Devanagari':'Barlow Condensed', fontSize:12, color:'#111', lineHeight:1.35, fontWeight:isHindi(b)?600:700 }}>{b}</span>
+              {en[i] && <span style={{ fontSize:9.5, color:'#888', fontFamily:'Barlow Condensed', marginTop:1 }}>{en[i]}</span>}
             </div>
           </div>
         ))}
@@ -570,13 +601,14 @@ export async function GET(_req, { params }) {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const table = (process.env.NEXT_PUBLIC_SUPABASE_TABLE ?? 'products_enriched').trim()
 
-  // Fetch product + logo in parallel, no font fetching
-  const [{ data, error }, logoImg] = await Promise.all([
+  // Fetch product data, logo, and fonts in parallel
+  const [{ data, error }, logoImg, fonts] = await Promise.all([
     sb.from(table)
       .select('id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,usp_benefits_hi,image_url')
       .eq('id', id)
       .single(),
     imgURI('https://ai.madvet.in/madvet-icon.png'),
+    loadFonts(),
   ])
 
   if (error||!data) return new Response('Not found', { status:404 })
@@ -612,8 +644,9 @@ export async function GET(_req, { params }) {
     return new ImageResponse(
       <CardComp p={p} c={c} productImg={productImg} logoImg={logoImg} />,
       {
-        width: 960,          // 2x for crisp high-res PNG
-        height: height * 2,
+        width: 480,
+        height,
+        fonts,
         headers: { 'Cache-Control':'public,max-age=300,stale-while-revalidate=3600' },
       }
     )
