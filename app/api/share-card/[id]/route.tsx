@@ -6,6 +6,20 @@ import { createClient } from '@supabase/supabase-js'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
+// Load fonts from local filesystem
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+const FONTS = [
+  { name: 'Oswald',               weight: 700, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/oswald-700.woff2')) },
+  { name: 'Barlow Condensed',     weight: 600, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/barlow-600.woff2')) },
+  { name: 'Barlow Condensed',     weight: 700, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/barlow-700.woff2')) },
+  { name: 'Barlow Condensed',     weight: 800, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/barlow-800.woff2')) },
+  { name: 'Noto Sans Devanagari', weight: 600, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/noto-devanagari-600.woff2')) },
+  { name: 'Noto Sans Devanagari', weight: 700, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/noto-devanagari-700.woff2')) },
+  { name: 'Noto Sans Devanagari', weight: 800, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/noto-devanagari-800.woff2')) },
+]
+
 async function imgURI(url) {
   if (!url) return null
   try {
