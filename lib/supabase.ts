@@ -14,7 +14,9 @@ export interface MadvetProduct {
   species?:         string
   indication?:      string
   description?:     string
+  description_hi?:  string   // Hindi description
   usp_benefits?:    string
+  usp_benefits_hi?: string   // Hindi key benefits
   aliases?:         string
   dosage?:          string   // stored in DB but NEVER shown to user
   image_url?:       string   // Supabase Storage public URL
@@ -66,7 +68,7 @@ export async function fetchAllProducts(): Promise<MadvetProduct[]> {
       .from(table)
       .select(
         'id, product_name, salt_ingredient, packaging, formulation, category, ' +
-        'species, indication, description, usp_benefits, aliases, dosage, image_url'
+        'species, indication, description, description_hi, usp_benefits, usp_benefits_hi, aliases, dosage, image_url'
       )
       .limit(500)
 
@@ -86,7 +88,9 @@ export async function fetchAllProducts(): Promise<MadvetProduct[]> {
       species:         str(row.species),
       indication:      str(row.indication),
       description:     str(row.description),
+      description_hi:  str(row.description_hi),
       usp_benefits:    str(row.usp_benefits),
+      usp_benefits_hi: str(row.usp_benefits_hi),
       aliases:         str(row.aliases),
       dosage:          str(row.dosage),
       image_url:       str(row.image_url),

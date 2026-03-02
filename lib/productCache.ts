@@ -7,12 +7,25 @@ import type { MadvetProduct } from './supabase'
 // ─────────────────────────────────────────────
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes (increased from 5)
 
+// Temporary cache invalidation to fetch Hindi fields
+console.log('[ProductCache] Initializing - checking for Hindi field support...')
+let needsInvalidation = true
+
 let cachedProducts:  MadvetProduct[] = []
 let cacheExpiresAt:  number = 0
 let fetchInProgress: Promise<MadvetProduct[]> | null = null
 
 export async function getCachedProducts(): Promise<MadvetProduct[]> {
   const now = Date.now()
+
+  // Invalidate cache once to fetch Hindi fields
+  if (needsInvalidation && cachedProducts.length > 0) {
+    console.log('[ProductCache] Invalidating cache to fetch Hindi fields...')
+    needsInvalidation = false
+    cachedProducts = []
+    cacheExpiresAt = 0
+    fetchInProgress = null
+  }
 
   // Cache hit
   if (cachedProducts.length > 0 && now < cacheExpiresAt) {
@@ -50,6 +63,7 @@ export async function getCachedProducts(): Promise<MadvetProduct[]> {
 }
 
 export function invalidateProductCache(): void {
+  console.log('[ProductCache] Cache invalidated - will fetch Hindi fields on next load')
   cachedProducts = []
   cacheExpiresAt = 0
   fetchInProgress = null
