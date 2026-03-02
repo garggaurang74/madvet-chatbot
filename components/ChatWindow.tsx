@@ -38,9 +38,27 @@ export default function ChatWindow() {
   useEffect(() => { activeConvIdRef.current = activeConversationId }, [activeConversationId])
 
   useEffect(() => {
-    loadConversations()
-      .then(c => setConversations(c))
-      .finally(() => setLoading(false))
+    let mounted = true
+    const timer = setTimeout(() => {
+      if (mounted) {
+        loadConversations()
+          .then(c => {
+            if (mounted) setConversations(c)
+          })
+          .catch(err => {
+            console.error('Failed to load conversations:', err)
+            if (mounted) setConversations([])
+          })
+          .finally(() => {
+            if (mounted) setLoading(false)
+          })
+      }
+    }, 100) // Small delay to prevent blocking
+
+    return () => {
+      mounted = false
+      clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {

@@ -46,15 +46,20 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
           <img
             src={product.image_url}
             alt={name}
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain transition-opacity duration-300"
             style={{ padding: '8px' }}
             loading="lazy"
             decoding="async"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             onError={(e) => {
               const img = e.target as HTMLImageElement
               img.style.display = 'none'
               const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
               if (placeholder) placeholder.style.display = 'flex'
+            }}
+            onLoad={(e) => {
+              const img = e.target as HTMLImageElement
+              img.style.opacity = '1'
             }}
           />
           <div className="img-placeholder" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🐄</div>
