@@ -1,0 +1,17 @@
+export interface Product {
+  id: number
+  name: string
+  salt: string
+  packaging: string
+  formulation: string
+  category: string
+  species: string
+  indication: string
+  description: string
+  benefits: string
+  description_hi: string
+  usp_benefits_hi: string
+  aliases: string
+  image_url: string
+  video_url: string
+}

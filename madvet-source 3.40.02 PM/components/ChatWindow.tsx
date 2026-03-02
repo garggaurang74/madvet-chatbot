@@ -1,0 +1,389 @@
+'use client'
+
+import { useState, useEffect, useRef, useCallback } from 'react'
+import MessageBubble from './MessageBubble'
+import InputBar from './InputBar'
+import TypingIndicator from './TypingIndicator'
+import QuickReplies from './QuickReplies'
+import Sidebar from './Sidebar'
+import {
+  createConversation, saveMessage, loadConversations,
+  loadMessages, deleteConversation
+} from '@/lib/chatHistory'
+import type { MadvetProduct } from '@/lib/supabase'
+import type { Conversation } from '@/lib/chatHistory'
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  primaryProducts?:       MadvetProduct[]
+  complementaryProducts?: MadvetProduct[]
+  isError?: boolean
+  retryText?: string
+}
+
+export default function ChatWindow() {
+  const [messages, setMessages]             = useState<ChatMessage[]>([])
+  const [loading, setLoading]               = useState(true)
+  const [sending, setSending]               = useState(false)
+  const [showQuickReplies, setShowQuickReplies] = useState(true)
+  const [sidebarOpen, setSidebarOpen]       = useState(false)
+  const [conversations, setConversations]   = useState<Conversation[]>([])
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const activeConvIdRef = useRef<string | null>(null)
+
+  useEffect(() => { activeConvIdRef.current = activeConversationId }, [activeConversationId])
+
+  useEffect(() => {
+    loadConversations()
+      .then(c => setConversations(c))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages, sending])
+
+  const startNewChat = useCallback(() => {
+    setMessages([])
+    setActiveConversationId(null)
+    setShowQuickReplies(true)
+    setSidebarOpen(false)
+  }, [])
+
+  const selectConversation = useCallback(async (id: string) => {
+    const stored = await loadMessages(id)
+    const chatMessages: ChatMessage[] = stored.map(m => ({
+      id:      m.id,
+      role:    m.role as 'user' | 'assistant',
+      content: m.content,
+    }))
+    setMessages(chatMessages)
+    setActiveConversationId(id)
+    setShowQuickReplies(false)
+    setSidebarOpen(false)
+  }, [])
+
+  const handleDelete = useCallback(async (id: string) => {
+    await deleteConversation(id)
+    setConversations(prev => prev.filter(c => c.id !== id))
+    if (activeConversationId === id) startNewChat()
+  }, [activeConversationId, startNewChat])
+
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (confirmDeleteId === id) {
+      handleDelete(id)
+      setConfirmDeleteId(null)
+    } else {
+      setConfirmDeleteId(id)
+      setTimeout(() => setConfirmDeleteId(null), 3000)
+    }
+  }
+
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || sending) return
+    setShowQuickReplies(false)
+
+    const userMsg: ChatMessage = {
+      id:      Math.random().toString(36).substring(2, 15),
+      role:    'user',
+      content: text.trim(),
+    }
+    setMessages(prev => [...prev, userMsg])
+    setSending(true)
+
+    // Create conversation if new — sidebar refresh is non-blocking
+    let convId = activeConvIdRef.current
+    if (!convId) {
+      convId = await createConversation(text.trim())
+      if (convId) {
+        setActiveConversationId(convId)
+        loadConversations().then(c => setConversations(c)).catch(() => {})
+      }
+    }
+    // Save user message — fire-and-forget, don't block API call
+    if (convId) saveMessage(convId, 'user', text.trim()).catch(() => {})
+
+    // Build clean history for API (content only, no product objects)
+    const cleanHistory = messages.map(m => ({ role: m.role, content: m.content }))
+
+    // 55-second abort — just under Vercel's 60s maxDuration
+    const controller = new AbortController()
+    const abortTimer = setTimeout(() => controller.abort(), 55000)
+
+    // Show 'pehli baar thoda waqt lagta hai' hint if no response after 6s
+    const assistantId = Math.random().toString(36).substring(2, 15)
+    setMessages(prev => [...prev, {
+      id: assistantId, role: 'assistant', content: '',
+      primaryProducts: [], complementaryProducts: [],
+    }])
+    const slowHintTimer = setTimeout(() => {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId && m.content === ''
+          ? { ...m, content: '⏳ Pehli baar thoda waqt lagta hai, zaroor jawab aayega...' }
+          : m
+      ))
+    }, 6000)
+
+    try {
+      const res = await fetch('/api/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ messages: cleanHistory, latestMessage: text.trim() }),
+        signal:  controller.signal,
+      })
+
+      if (res.status === 429) {
+        clearTimeout(slowHintTimer)
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, content: 'Aap bahut tezi se sawaal pooch rahe hain 🙏 Ek minute rukein aur phir try karein.', isError: true, retryText: text.trim() }
+            : m
+        ))
+        return
+      }
+
+      if (!res.ok) {
+        clearTimeout(slowHintTimer)
+        let errMsg = 'Thoda technical issue aa gaya, please dobara try karein 🙏'
+        try { const d = await res.json(); if (d?.error) errMsg = d.error } catch {}
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, content: errMsg, isError: true, retryText: text.trim() }
+            : m
+        ))
+        return
+      }
+
+      const reader  = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let   fullText = ''
+      let   buffer   = ''
+      clearTimeout(slowHintTimer)
+      // Clear slow hint if shown, reset content to empty for streaming
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId ? { ...m, content: '' } : m
+      ))
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? '' // keep incomplete last line
+
+          for (const line of lines) {
+            if (line.startsWith('t:')) {
+              // Text chunk
+              const chunk = line.slice(2).replace(/\\n/g, '\n')
+              fullText += chunk
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId ? { ...m, content: fullText } : m
+              ))
+            } else if (line.startsWith('m:')) {
+              // Product metadata
+              try {
+                const meta = JSON.parse(line.slice(2))
+                if (meta.type === 'products') {
+                  setMessages(prev => prev.map(m =>
+                    m.id === assistantId
+                      ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [] }
+                      : m
+                  ))
+                }
+              } catch { /* ignore parse errors */ }
+            }
+          }
+        }
+
+        // Process any remaining buffer
+        if (buffer.startsWith('m:')) {
+          try {
+            const meta = JSON.parse(buffer.slice(2))
+            if (meta.type === 'products') {
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId
+                  ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [] }
+                  : m
+              ))
+            }
+          } catch {}
+        }
+      }
+
+      // Clean display text — strip PRODUCTS tag (backup for route.ts),
+      // and any stray card-artifact lines GPT occasionally emits
+      const displayText = fullText
+        .replace(/\n*PRODUCTS:\s*primary=\[[^\]]*\]\s*complementary=\[[^\]]*\]/gi, '')
+        .replace(/^📦\s*Packing:.*$/gm, '')
+        .replace(/^✅\s*FREE.*$/gm, '')
+        .replace(/^AUR OPTIONS.*$/gim, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/\\n/g, '\n')
+        .trim()
+
+      // Apply cleaned text to the final rendered message (was dead code before!)
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId ? { ...m, content: displayText } : m
+      ))
+
+      if (convId && displayText) saveMessage(convId, 'assistant', displayText).catch(() => {})
+
+    } catch (error: any) {
+      clearTimeout(slowHintTimer)
+      clearTimeout(abortTimer)
+      const isAbort = error?.name === 'AbortError'
+      const errMsg = isAbort
+        ? 'Connection timeout — internet slow hai, dobara try karein 🙏'
+        : 'Internet connection check karein aur dobara try karein 🙏'
+      console.error('[ChatWindow] Error:', error)
+      setMessages(prev => {
+        // Update the existing assistant bubble if it exists, else add new
+        const hasAssistant = prev.some(m => m.id === assistantId)
+        if (hasAssistant) {
+          return prev.map(m => m.id === assistantId
+            ? { ...m, content: errMsg, isError: true, retryText: text.trim() }
+            : m
+          )
+        }
+        return [...prev, { id: crypto.randomUUID(), role: 'assistant', content: errMsg, isError: true, retryText: text.trim() }]
+      })
+    } finally {
+      clearTimeout(slowHintTimer)
+      clearTimeout(abortTimer)
+      setSending(false)
+      // Defer sidebar refresh — non-blocking
+      loadConversations().then(c => setConversations(c)).catch(() => {})
+    }
+  }, [messages, sending])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#212121]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white/60 text-sm">Dr. Madvet load ho raha hai...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const isEmpty = messages.length === 0
+
+  return (
+    <div className="flex h-screen bg-[#212121] text-white overflow-hidden">
+
+      <Sidebar
+        conversations={conversations}
+        activeId={activeConversationId}
+        onSelect={selectConversation}
+        onNewChat={startNewChat}
+        onDelete={handleDelete}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(prev => !prev)}
+      />
+
+      <div className="flex flex-col flex-1 min-w-0 relative">
+
+        {/* Top Bar */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(prev => !prev)}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <span className="font-semibold text-sm">Dr. Madvet Assistant</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <a href="/products" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <span>Products</span>
+            </a>
+            <a href="/madvet-training.html" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+              </svg>
+              <span>Training</span>
+            </a>
+            <button onClick={startNewChat} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title="New Chat">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+          {isEmpty && (
+            <div className="flex flex-col items-center justify-center h-full px-4 text-center">
+              <img src="/madvet-center.png" alt="Madvet" style={{height:100,width:100,objectFit:"contain",marginBottom:16,borderRadius:20}} />
+              <h1 className="text-2xl font-semibold mb-2">Dr. Madvet Assistant</h1>
+              <p className="text-white/50 text-sm mb-8 max-w-sm">
+                Apne janwar ki koi bhi health problem puchein — Hindi, English, ya Hinglish mein
+              </p>
+              <QuickReplies onSelect={sendMessage} visible={showQuickReplies} dark={true} />
+            </div>
+          )}
+
+          {!isEmpty && (
+            <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+              {messages.map(m => (
+                <div key={m.id}>
+                  <MessageBubble
+                    messageId={m.id}
+                    role={m.role}
+                    content={m.content}
+                    primaryProducts={m.primaryProducts}
+                    complementaryProducts={m.complementaryProducts}
+                    showFeedback={m.role === 'assistant' && m.content.length > 0 && !m.isError}
+                    dark={true}
+                  />
+                  {m.isError && m.retryText && (
+                    <div className="flex justify-start mt-2 ml-12">
+                      <button
+                        onClick={() => sendMessage(m.retryText!)}
+                        disabled={sending}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors disabled:opacity-40"
+                      >
+                        🔄 Dobara try karein
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {sending && messages[messages.length - 1]?.role === 'user' && (
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-sm font-bold flex-shrink-0">M</div>
+                  <div className="pt-1"><TypingIndicator /></div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="flex-shrink-0 px-4 pb-4 pt-2 max-w-3xl mx-auto w-full">
+          {!isEmpty && <QuickReplies onSelect={sendMessage} visible={showQuickReplies} dark={true} />}
+          <InputBar onSend={sendMessage} disabled={sending} dark={true} />
+          <p className="text-center text-white/25 text-xs mt-2">
+            Dr. Madvet Assistant medical advice replace nahi karta — serious cases mein vet se milein
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
