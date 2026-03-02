@@ -1,6 +1,6 @@
 // @ts-nocheck
 // app/api/share-card/[id]/route.tsx
-// Fonts embedded as base64 — zero network fetch, guaranteed to work
+// NO font loading — uses system fonts, guaranteed to work
 
 import React from 'react'
 import { ImageResponse } from 'next/og'
@@ -9,22 +9,10 @@ import { createClient } from '@supabase/supabase-js'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-// ── Fonts embedded at build time ──────────────────────────────────────────────
-const FONTS = [
-  { name: 'Oswald', weight: 700, style: 'normal' as const, data: Buffer.from('PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ZW4+CiAgPG1ldGEgY2hhcnNldD11dGYtOD4KICA8bWV0YSBuYW1lPXZpZXdwb3J0IGNvbnRlbnQ9ImluaXRpYWwtc2NhbGU9MSwgbWluaW11bS1zY2FsZT0xLCB3aWR0aD1kZXZpY2Utd2lkdGgiPgogIDx0aXRsZT5FcnJvciA0MDQgKE5vdCBGb3VuZCkhITE8L3RpdGxlPgogIDxzdHlsZT4KICAgICp7bWFyZ2luOjA7cGFkZGluZzowfWh0bWwsY29kZXtmb250OjE1cHgvMjJweCBhcmlhbCxzYW5zLXNlcmlmfWh0bWx7YmFja2dyb3VuZDojZmZmO2NvbG9yOiMyMjI7cGFkZGluZzoxNXB4fWJvZHl7bWFyZ2luOjclIGF1dG8gMDttYXgtd2lkdGg6MzkwcHg7bWluLWhlaWdodDoxODBweDtwYWRkaW5nOjMwcHggMCAxNXB4fSogPiBib2R5e2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2Vycm9ycy9yb2JvdC5wbmcpIDEwMCUgNXB4IG5vLXJlcGVhdDtwYWRkaW5nLXJpZ2h0OjIwNXB4fXB7bWFyZ2luOjExcHggMCAyMnB4O292ZXJmbG93OmhpZGRlbn1pbnN7Y29sb3I6Izc3Nzt0ZXh0LWRlY29yYXRpb246bm9uZX1hIGltZ3tib3JkZXI6MH1AbWVkaWEgc2NyZWVuIGFuZCAobWF4LXdpZHRoOjc3MnB4KXtib2R5e2JhY2tncm91bmQ6bm9uZTttYXJnaW4tdG9wOjA7bWF4LXdpZHRoOm5vbmU7cGFkZGluZy1yaWdodDowfX0jbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzF4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7bWFyZ2luLWxlZnQ6LTVweH1AbWVkaWEgb25seSBzY3JlZW4gYW5kIChtaW4tcmVzb2x1dGlvbjoxOTJkcGkpeyNsb2dve2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIG5vLXJlcGVhdCAwJSAwJS8xMDAlIDEwMCU7LW1vei1ib3JkZXItaW1hZ2U6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIDB9fUBtZWRpYSBvbmx5IHNjcmVlbiBhbmQgKC13ZWJraXQtbWluLWRldmljZS1waXhlbC1yYXRpbzoyKXsjbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzJ4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7LXdlYmtpdC1iYWNrZ3JvdW5kLXNpemU6MTAwJSAxMDAlfX0jbG9nb3tkaXNwbGF5OmlubGluZS1ibG9jaztoZWlnaHQ6NTRweDt3aWR0aDoxNTBweH0KICA8L3N0eWxlPgogIDxhIGhyZWY9Ly93d3cuZ29vZ2xlLmNvbS8+PHNwYW4gaWQ9bG9nbyBhcmlhLWxhYmVsPUdvb2dsZT48L3NwYW4+PC9hPgogIDxwPjxiPjQwNC48L2I+IDxpbnM+VGhhdOKAmXMgYW4gZXJyb3IuPC9pbnM+CiAgPHA+VGhlIHJlcXVlc3RlZCBVUkwgPGNvZGU+L3Mvb3N3YWxkL3Y1My9USzNfV2tVSEhBSWpnNzVjRlJmM2JYTDhMSUNzMTNOdmdVRm9aQWFSbGlFLndvZmYyPC9jb2RlPiB3YXMgbm90IGZvdW5kIG9uIHRoaXMgc2VydmVyLiAgPGlucz5UaGF04oCZcyBhbGwgd2Uga25vdy48L2lucz4K', 'base64') },
-  { name: 'Barlow Condensed', weight: 600, style: 'normal' as const, data: Buffer.from('PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ZW4+CiAgPG1ldGEgY2hhcnNldD11dGYtOD4KICA8bWV0YSBuYW1lPXZpZXdwb3J0IGNvbnRlbnQ9ImluaXRpYWwtc2NhbGU9MSwgbWluaW11bS1zY2FsZT0xLCB3aWR0aD1kZXZpY2Utd2lkdGgiPgogIDx0aXRsZT5FcnJvciA0MDQgKE5vdCBGb3VuZCkhITE8L3RpdGxlPgogIDxzdHlsZT4KICAgICp7bWFyZ2luOjA7cGFkZGluZzowfWh0bWwsY29kZXtmb250OjE1cHgvMjJweCBhcmlhbCxzYW5zLXNlcmlmfWh0bWx7YmFja2dyb3VuZDojZmZmO2NvbG9yOiMyMjI7cGFkZGluZzoxNXB4fWJvZHl7bWFyZ2luOjclIGF1dG8gMDttYXgtd2lkdGg6MzkwcHg7bWluLWhlaWdodDoxODBweDtwYWRkaW5nOjMwcHggMCAxNXB4fSogPiBib2R5e2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2Vycm9ycy9yb2JvdC5wbmcpIDEwMCUgNXB4IG5vLXJlcGVhdDtwYWRkaW5nLXJpZ2h0OjIwNXB4fXB7bWFyZ2luOjExcHggMCAyMnB4O292ZXJmbG93OmhpZGRlbn1pbnN7Y29sb3I6Izc3Nzt0ZXh0LWRlY29yYXRpb246bm9uZX1hIGltZ3tib3JkZXI6MH1AbWVkaWEgc2NyZWVuIGFuZCAobWF4LXdpZHRoOjc3MnB4KXtib2R5e2JhY2tncm91bmQ6bm9uZTttYXJnaW4tdG9wOjA7bWF4LXdpZHRoOm5vbmU7cGFkZGluZy1yaWdodDowfX0jbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzF4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7bWFyZ2luLWxlZnQ6LTVweH1AbWVkaWEgb25seSBzY3JlZW4gYW5kIChtaW4tcmVzb2x1dGlvbjoxOTJkcGkpeyNsb2dve2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIG5vLXJlcGVhdCAwJSAwJS8xMDAlIDEwMCU7LW1vei1ib3JkZXItaW1hZ2U6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIDB9fUBtZWRpYSBvbmx5IHNjcmVlbiBhbmQgKC13ZWJraXQtbWluLWRldmljZS1waXhlbC1yYXRpbzoyKXsjbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzJ4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7LXdlYmtpdC1iYWNrZ3JvdW5kLXNpemU6MTAwJSAxMDAlfX0jbG9nb3tkaXNwbGF5OmlubGluZS1ibG9jaztoZWlnaHQ6NTRweDt3aWR0aDoxNTBweH0KICA8L3N0eWxlPgogIDxhIGhyZWY9Ly93d3cuZ29vZ2xlLmNvbS8+PHNwYW4gaWQ9bG9nbyBhcmlhLWxhYmVsPUdvb2dsZT48L3NwYW4+PC9hPgogIDxwPjxiPjQwNC48L2I+IDxpbnM+VGhhdOKAmXMgYW4gZXJyb3IuPC9pbnM+CiAgPHA+VGhlIHJlcXVlc3RlZCBVUkwgPGNvZGU+L3MvYmFybG93Y29uZGVuc2VkL3YxMi9IVHh3TDNJLUpDR0NoWUo4VkktTDZPT19hdTdCNDNMVDMxdnpIdnMud29mZjI8L2NvZGU+IHdhcyBub3QgZm91bmQgb24gdGhpcyBzZXJ2ZXIuICA8aW5zPlRoYXTigJlzIGFsbCB3ZSBrbm93LjwvaW5zPgo=', 'base64') },
-  { name: 'Barlow Condensed', weight: 700, style: 'normal' as const, data: Buffer.from('PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ZW4+CiAgPG1ldGEgY2hhcnNldD11dGYtOD4KICA8bWV0YSBuYW1lPXZpZXdwb3J0IGNvbnRlbnQ9ImluaXRpYWwtc2NhbGU9MSwgbWluaW11bS1zY2FsZT0xLCB3aWR0aD1kZXZpY2Utd2lkdGgiPgogIDx0aXRsZT5FcnJvciA0MDQgKE5vdCBGb3VuZCkhITE8L3RpdGxlPgogIDxzdHlsZT4KICAgICp7bWFyZ2luOjA7cGFkZGluZzowfWh0bWwsY29kZXtmb250OjE1cHgvMjJweCBhcmlhbCxzYW5zLXNlcmlmfWh0bWx7YmFja2dyb3VuZDojZmZmO2NvbG9yOiMyMjI7cGFkZGluZzoxNXB4fWJvZHl7bWFyZ2luOjclIGF1dG8gMDttYXgtd2lkdGg6MzkwcHg7bWluLWhlaWdodDoxODBweDtwYWRkaW5nOjMwcHggMCAxNXB4fSogPiBib2R5e2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2Vycm9ycy9yb2JvdC5wbmcpIDEwMCUgNXB4IG5vLXJlcGVhdDtwYWRkaW5nLXJpZ2h0OjIwNXB4fXB7bWFyZ2luOjExcHggMCAyMnB4O292ZXJmbG93OmhpZGRlbn1pbnN7Y29sb3I6Izc3Nzt0ZXh0LWRlY29yYXRpb246bm9uZX1hIGltZ3tib3JkZXI6MH1AbWVkaWEgc2NyZWVuIGFuZCAobWF4LXdpZHRoOjc3MnB4KXtib2R5e2JhY2tncm91bmQ6bm9uZTttYXJnaW4tdG9wOjA7bWF4LXdpZHRoOm5vbmU7cGFkZGluZy1yaWdodDowfX0jbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzF4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7bWFyZ2luLWxlZnQ6LTVweH1AbWVkaWEgb25seSBzY3JlZW4gYW5kIChtaW4tcmVzb2x1dGlvbjoxOTJkcGkpeyNsb2dve2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIG5vLXJlcGVhdCAwJSAwJS8xMDAlIDEwMCU7LW1vei1ib3JkZXItaW1hZ2U6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIDB9fUBtZWRpYSBvbmx5IHNjcmVlbiBhbmQgKC13ZWJraXQtbWluLWRldmljZS1waXhlbC1yYXRpbzoyKXsjbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzJ4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7LXdlYmtpdC1iYWNrZ3JvdW5kLXNpemU6MTAwJSAxMDAlfX0jbG9nb3tkaXNwbGF5OmlubGluZS1ibG9jaztoZWlnaHQ6NTRweDt3aWR0aDoxNTBweH0KICA8L3N0eWxlPgogIDxhIGhyZWY9Ly93d3cuZ29vZ2xlLmNvbS8+PHNwYW4gaWQ9bG9nbyBhcmlhLWxhYmVsPUdvb2dsZT48L3NwYW4+PC9hPgogIDxwPjxiPjQwNC48L2I+IDxpbnM+VGhhdOKAmXMgYW4gZXJyb3IuPC9pbnM+CiAgPHA+VGhlIHJlcXVlc3RlZCBVUkwgPGNvZGU+L3MvYmFybG93Y29uZGVuc2VkL3YxMi9IVHh4TDNJLUpDR0NoWUo4VkktTDZPT19hdTdCNC1MejN3Rkk5WkNiLndvZmYyPC9jb2RlPiB3YXMgbm90IGZvdW5kIG9uIHRoaXMgc2VydmVyLiAgPGlucz5UaGF04oCZcyBhbGwgd2Uga25vdy48L2lucz4K', 'base64') },
-  { name: 'Noto Sans Devanagari', weight: 600, style: 'normal' as const, data: Buffer.from('PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ZW4+CiAgPG1ldGEgY2hhcnNldD11dGYtOD4KICA8bWV0YSBuYW1lPXZpZXdwb3J0IGNvbnRlbnQ9ImluaXRpYWwtc2NhbGU9MSwgbWluaW11bS1zY2FsZT0xLCB3aWR0aD1kZXZpY2Utd2lkdGgiPgogIDx0aXRsZT5FcnJvciA0MDQgKE5vdCBGb3VuZCkhITE8L3RpdGxlPgogIDxzdHlsZT4KICAgICp7bWFyZ2luOjA7cGFkZGluZzowfWh0bWwsY29kZXtmb250OjE1cHgvMjJweCBhcmlhbCxzYW5zLXNlcmlmfWh0bWx7YmFja2dyb3VuZDojZmZmO2NvbG9yOiMyMjI7cGFkZGluZzoxNXB4fWJvZHl7bWFyZ2luOjclIGF1dG8gMDttYXgtd2lkdGg6MzkwcHg7bWluLWhlaWdodDoxODBweDtwYWRkaW5nOjMwcHggMCAxNXB4fSogPiBib2R5e2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2Vycm9ycy9yb2JvdC5wbmcpIDEwMCUgNXB4IG5vLXJlcGVhdDtwYWRkaW5nLXJpZ2h0OjIwNXB4fXB7bWFyZ2luOjExcHggMCAyMnB4O292ZXJmbG93OmhpZGRlbn1pbnN7Y29sb3I6Izc3Nzt0ZXh0LWRlY29yYXRpb246bm9uZX1hIGltZ3tib3JkZXI6MH1AbWVkaWEgc2NyZWVuIGFuZCAobWF4LXdpZHRoOjc3MnB4KXtib2R5e2JhY2tncm91bmQ6bm9uZTttYXJnaW4tdG9wOjA7bWF4LXdpZHRoOm5vbmU7cGFkZGluZy1yaWdodDowfX0jbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzF4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7bWFyZ2luLWxlZnQ6LTVweH1AbWVkaWEgb25seSBzY3JlZW4gYW5kIChtaW4tcmVzb2x1dGlvbjoxOTJkcGkpeyNsb2dve2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIG5vLXJlcGVhdCAwJSAwJS8xMDAlIDEwMCU7LW1vei1ib3JkZXItaW1hZ2U6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIDB9fUBtZWRpYSBvbmx5IHNjcmVlbiBhbmQgKC13ZWJraXQtbWluLWRldmljZS1waXhlbC1yYXRpbzoyKXsjbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzJ4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7LXdlYmtpdC1iYWNrZ3JvdW5kLXNpemU6MTAwJSAxMDAlfX0jbG9nb3tkaXNwbGF5OmlubGluZS1ibG9jaztoZWlnaHQ6NTRweDt3aWR0aDoxNTBweH0KICA8L3N0eWxlPgogIDxhIGhyZWY9Ly93d3cuZ29vZ2xlLmNvbS8+PHNwYW4gaWQ9bG9nbyBhcmlhLWxhYmVsPUdvb2dsZT48L3NwYW4+PC9hPgogIDxwPjxiPjQwNC48L2I+IDxpbnM+VGhhdOKAmXMgYW4gZXJyb3IuPC9pbnM+CiAgPHA+VGhlIHJlcXVlc3RlZCBVUkwgPGNvZGU+L3Mvbm90b3NhbnNkZXZhbmFnYXJpL3YyNS9UdUdvVVVGelhJNUZCdFVxNWE4YmpLWVRaanRncmJuMF8tQUhSNS10U2cud29mZjI8L2NvZGU+IHdhcyBub3QgZm91bmQgb24gdGhpcyBzZXJ2ZXIuICA8aW5zPlRoYXTigJlzIGFsbCB3ZSBrbm93LjwvaW5zPgo=', 'base64') },
-  { name: 'Noto Sans Devanagari', weight: 700, style: 'normal' as const, data: Buffer.from('PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ZW4+CiAgPG1ldGEgY2hhcnNldD11dGYtOD4KICA8bWV0YSBuYW1lPXZpZXdwb3J0IGNvbnRlbnQ9ImluaXRpYWwtc2NhbGU9MSwgbWluaW11bS1zY2FsZT0xLCB3aWR0aD1kZXZpY2Utd2lkdGgiPgogIDx0aXRsZT5FcnJvciA0MDQgKE5vdCBGb3VuZCkhITE8L3RpdGxlPgogIDxzdHlsZT4KICAgICp7bWFyZ2luOjA7cGFkZGluZzowfWh0bWwsY29kZXtmb250OjE1cHgvMjJweCBhcmlhbCxzYW5zLXNlcmlmfWh0bWx7YmFja2dyb3VuZDojZmZmO2NvbG9yOiMyMjI7cGFkZGluZzoxNXB4fWJvZHl7bWFyZ2luOjclIGF1dG8gMDttYXgtd2lkdGg6MzkwcHg7bWluLWhlaWdodDoxODBweDtwYWRkaW5nOjMwcHggMCAxNXB4fSogPiBib2R5e2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2Vycm9ycy9yb2JvdC5wbmcpIDEwMCUgNXB4IG5vLXJlcGVhdDtwYWRkaW5nLXJpZ2h0OjIwNXB4fXB7bWFyZ2luOjExcHggMCAyMnB4O292ZXJmbG93OmhpZGRlbn1pbnN7Y29sb3I6Izc3Nzt0ZXh0LWRlY29yYXRpb246bm9uZX1hIGltZ3tib3JkZXI6MH1AbWVkaWEgc2NyZWVuIGFuZCAobWF4LXdpZHRoOjc3MnB4KXtib2R5e2JhY2tncm91bmQ6bm9uZTttYXJnaW4tdG9wOjA7bWF4LXdpZHRoOm5vbmU7cGFkZGluZy1yaWdodDowfX0jbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzF4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7bWFyZ2luLWxlZnQ6LTVweH1AbWVkaWEgb25seSBzY3JlZW4gYW5kIChtaW4tcmVzb2x1dGlvbjoxOTJkcGkpeyNsb2dve2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIG5vLXJlcGVhdCAwJSAwJS8xMDAlIDEwMCU7LW1vei1ib3JkZXItaW1hZ2U6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIDB9fUBtZWRpYSBvbmx5IHNjcmVlbiBhbmQgKC13ZWJraXQtbWluLWRldmljZS1waXhlbC1yYXRpbzoyKXsjbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzJ4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7LXdlYmtpdC1iYWNrZ3JvdW5kLXNpemU6MTAwJSAxMDAlfX0jbG9nb3tkaXNwbGF5OmlubGluZS1ibG9jaztoZWlnaHQ6NTRweDt3aWR0aDoxNTBweH0KICA8L3N0eWxlPgogIDxhIGhyZWY9Ly93d3cuZ29vZ2xlLmNvbS8+PHNwYW4gaWQ9bG9nbyBhcmlhLWxhYmVsPUdvb2dsZT48L3NwYW4+PC9hPgogIDxwPjxiPjQwNC48L2I+IDxpbnM+VGhhdOKAmXMgYW4gZXJyb3IuPC9pbnM+CiAgPHA+VGhlIHJlcXVlc3RlZCBVUkwgPGNvZGU+L3Mvbm90b3NhbnNkZXZhbmFnYXJpL3YyNS9UdUdvVVVGelhJNUZCdFVxNWE4YmpLWVRaanRncmJuMF8tQUhSNS12U1Eud29mZjI8L2NvZGU+IHdhcyBub3QgZm91bmQgb24gdGhpcyBzZXJ2ZXIuICA8aW5zPlRoYXTigJlzIGFsbCB3ZSBrbm93LjwvaW5zPgo=', 'base64') },
-  { name: 'Noto Sans Devanagari', weight: 800, style: 'normal' as const, data: Buffer.from('PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ZW4+CiAgPG1ldGEgY2hhcnNldD11dGYtOD4KICA8bWV0YSBuYW1lPXZpZXdwb3J0IGNvbnRlbnQ9ImluaXRpYWwtc2NhbGU9MSwgbWluaW11bS1zY2FsZT0xLCB3aWR0aD1kZXZpY2Utd2lkdGgiPgogIDx0aXRsZT5FcnJvciA0MDQgKE5vdCBGb3VuZCkhITE8L3RpdGxlPgogIDxzdHlsZT4KICAgICp7bWFyZ2luOjA7cGFkZGluZzowfWh0bWwsY29kZXtmb250OjE1cHgvMjJweCBhcmlhbCxzYW5zLXNlcmlmfWh0bWx7YmFja2dyb3VuZDojZmZmO2NvbG9yOiMyMjI7cGFkZGluZzoxNXB4fWJvZHl7bWFyZ2luOjclIGF1dG8gMDttYXgtd2lkdGg6MzkwcHg7bWluLWhlaWdodDoxODBweDtwYWRkaW5nOjMwcHggMCAxNXB4fSogPiBib2R5e2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2Vycm9ycy9yb2JvdC5wbmcpIDEwMCUgNXB4IG5vLXJlcGVhdDtwYWRkaW5nLXJpZ2h0OjIwNXB4fXB7bWFyZ2luOjExcHggMCAyMnB4O292ZXJmbG93OmhpZGRlbn1pbnN7Y29sb3I6Izc3Nzt0ZXh0LWRlY29yYXRpb246bm9uZX1hIGltZ3tib3JkZXI6MH1AbWVkaWEgc2NyZWVuIGFuZCAobWF4LXdpZHRoOjc3MnB4KXtib2R5e2JhY2tncm91bmQ6bm9uZTttYXJnaW4tdG9wOjA7bWF4LXdpZHRoOm5vbmU7cGFkZGluZy1yaWdodDowfX0jbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzF4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7bWFyZ2luLWxlZnQ6LTVweH1AbWVkaWEgb25seSBzY3JlZW4gYW5kIChtaW4tcmVzb2x1dGlvbjoxOTJkcGkpeyNsb2dve2JhY2tncm91bmQ6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIG5vLXJlcGVhdCAwJSAwJS8xMDAlIDEwMCU7LW1vei1ib3JkZXItaW1hZ2U6dXJsKC8vd3d3Lmdvb2dsZS5jb20vaW1hZ2VzL2JyYW5kaW5nL2dvb2dsZWxvZ28vMngvZ29vZ2xlbG9nb19jb2xvcl8xNTB4NTRkcC5wbmcpIDB9fUBtZWRpYSBvbmx5IHNjcmVlbiBhbmQgKC13ZWJraXQtbWluLWRldmljZS1waXhlbC1yYXRpbzoyKXsjbG9nb3tiYWNrZ3JvdW5kOnVybCgvL3d3dy5nb29nbGUuY29tL2ltYWdlcy9icmFuZGluZy9nb29nbGVsb2dvLzJ4L2dvb2dsZWxvZ29fY29sb3JfMTUweDU0ZHAucG5nKSBuby1yZXBlYXQ7LXdlYmtpdC1iYWNrZ3JvdW5kLXNpemU6MTAwJSAxMDAlfX0jbG9nb3tkaXNwbGF5OmlubGluZS1ibG9jaztoZWlnaHQ6NTRweDt3aWR0aDoxNTBweH0KICA8L3N0eWxlPgogIDxhIGhyZWY9Ly93d3cuZ29vZ2xlLmNvbS8+PHNwYW4gaWQ9bG9nbyBhcmlhLWxhYmVsPUdvb2dsZT48L3NwYW4+PC9hPgogIDxwPjxiPjQwNC48L2I+IDxpbnM+VGhhdOKAmXMgYW4gZXJyb3IuPC9pbnM+CiAgPHA+VGhlIHJlcXVlc3RlZCBVUkwgPGNvZGU+L3Mvbm90b3NhbnNkZXZhbmFnYXJpL3YyNS9UdUdvVVVGelhJNUZCdFVxNWE4YmpLWVRaanRncmJuMF8tQUhSNS1sU2cud29mZjI8L2NvZGU+IHdhcyBub3QgZm91bmQgb24gdGhpcyBzZXJ2ZXIuICA8aW5zPlRoYXTigJlzIGFsbCB3ZSBrbm93LjwvaW5zPgo=', 'base64') },
-]
-
-// ── Image → base64 URI ────────────────────────────────────────────────────────
 async function imgURI(url) {
   if (!url) return null
   try {
-    const fetchUrl = url.includes('supabase') ? url + '?width=400&quality=85' : url
-    const r = await fetch(fetchUrl, { signal: AbortSignal.timeout(5000) })
+    const r = await fetch(url.includes('supabase') ? url + '?width=400&quality=85' : url, { signal: AbortSignal.timeout(5000) })
     if (!r.ok) return null
     const ct = r.headers.get('content-type') || ''
     if (ct.includes('html') || ct.includes('text')) return null
@@ -35,7 +23,6 @@ async function imgURI(url) {
   } catch { return null }
 }
 
-// ── Color system ──────────────────────────────────────────────────────────────
 const CAT_PALETTES = {
   'Vitamin Supplement':                { h:22,  s:85, l:32 },
   'Vitamin Supplement / Galactogogue': { h:210, s:80, l:28 },
@@ -51,86 +38,292 @@ const CAT_PALETTES = {
   'Udder Care / Herbal Antimicrobial': { h:88,  s:62, l:28 },
   'Digestive / Antiflatulent':         { h:33,  s:78, l:30 },
 }
+
 const CAT_NORMALIZE = {
-  'Anti-inflammatory':'Anti-inflammatory / Analgesic',
-  'Anti-inflammatory, Analgesic, Antipyretic':'Anti-inflammatory / Analgesic',
-  'Anti-inflammatory / Analgesic / Antipyretic':'Anti-inflammatory / Analgesic',
-  'Analgesic / Antipyretic':'Anti-inflammatory / Analgesic',
-  'Analgesic, Antipyretic':'Anti-inflammatory / Analgesic',
-  'Analgesic':'Anti-inflammatory / Analgesic',
-  'Anthelmintic':'Anthelmintic / Antiparasitic',
-  'Antiparasitic':'Anthelmintic / Antiparasitic',
-  'Antibiotic (Cephalosporin)':'Antibiotic',
-  'Antibiotic (Fluoroquinolone)':'Antibiotic',
-  'Antihistamine / Anti-allergic':'Antihistamine',
-  'Dermatological / Topical':'Dermatological',
-  'Probiotic / Immunomodulator / Vitamin Supplement':'Probiotic',
-  'Antidiarrheal / Gastrointestinal':'Antidiarrheal',
+  'Anti-inflammatory': 'Anti-inflammatory / Analgesic',
+  'Anti-inflammatory, Analgesic, Antipyretic': 'Anti-inflammatory / Analgesic',
+  'Anti-inflammatory / Analgesic / Antipyretic': 'Anti-inflammatory / Analgesic',
+  'Analgesic / Antipyretic': 'Anti-inflammatory / Analgesic',
+  'Analgesic, Antipyretic': 'Anti-inflammatory / Analgesic',
+  'Analgesic': 'Anti-inflammatory / Analgesic',
+  'Anthelmintic': 'Anthelmintic / Antiparasitic',
+  'Antiparasitic': 'Anthelmintic / Antiparasitic',
+  'Antibiotic (Cephalosporin)': 'Antibiotic',
+  'Antibiotic (Fluoroquinolone)': 'Antibiotic',
+  'Antihistamine / Anti-allergic': 'Antihistamine',
+  'Dermatological / Topical': 'Dermatological',
+  'Probiotic / Immunomodulator / Vitamin Supplement': 'Probiotic',
+  'Antidiarrheal / Gastrointestinal': 'Antidiarrheal',
 }
 
-function hslToRgb(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return[Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)]}
-
-function getColors(id,category){
-  const base=CAT_PALETTES[category]??{h:220,s:70,l:28}
-  const shift=((id*37+13)%41)-20
-  const h=(base.h+shift+360)%360,{s,l}=base
-  const[r,g,b]=hslToRgb(h,s,l),[rb,gb,bb]=hslToRgb(h,s,l+14),[rd,gd,bd]=hslToRgb(h,s,l-10),[rdk,gdk,bdk]=hslToRgb(h,s,l-18),[rm,gm,bm]=hslToRgb(h,s,l+7)
-  return{h,s,l,primary:`rgb(${r},${g},${b})`,bright:`rgb(${rb},${gb},${bb})`,dark:`rgb(${rd},${gd},${bd})`,darkest:`rgb(${rdk},${gdk},${bdk})`,pale:`hsl(${h},${s-20}%,95%)`,mid:`rgb(${rm},${gm},${bm})`,p12:`rgba(${r},${g},${b},0.12)`,p15:`rgba(${r},${g},${b},0.15)`,p20:`rgba(${r},${g},${b},0.20)`,p25:`rgba(${r},${g},${b},0.25)`,p30:`rgba(${r},${g},${b},0.30)`,p40:`rgba(${r},${g},${b},0.40)`,dk20:`rgba(${rdk},${gdk},${bdk},0.20)`}
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100
+  const k = n => (n + h / 30) % 12
+  const a = s * Math.min(l, 1 - l)
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)]
 }
 
-function getTemplate(cat){
-  if(['Vitamin Supplement','Vitamin Supplement / Galactogogue'].includes(cat))return'vitality'
-  if(['Probiotic','Digestive / Antiflatulent','Antidiarrheal'].includes(cat))return'digest'
-  if(['Reproductive Hormone','Udder Care / Herbal Antimicrobial'].includes(cat))return'herbal'
-  if(['Dermatological','Ectoparasiticide','Antihistamine'].includes(cat))return'shield'
-  return'clinical'
+function getColors(id, category) {
+  const base = CAT_PALETTES[category] ?? { h: 220, s: 70, l: 28 }
+  const shift = ((id * 37 + 13) % 41) - 20
+  const h = (base.h + shift + 360) % 360
+  const { s, l } = base
+  const [r, g, b] = hslToRgb(h, s, l)
+  const [rb, gb, bb] = hslToRgb(h, s, l + 14)
+  const [rd, gd, bd] = hslToRgb(h, s, l - 10)
+  const [rdk, gdk, bdk] = hslToRgb(h, s, l - 18)
+  const [rm, gm, bm] = hslToRgb(h, s, l + 7)
+  return {
+    primary: `rgb(${r},${g},${b})`,
+    bright:  `rgb(${rb},${gb},${bb})`,
+    dark:    `rgb(${rd},${gd},${bd})`,
+    darkest: `rgb(${rdk},${gdk},${bdk})`,
+    pale:    `hsl(${h},${s - 20}%,95%)`,
+    mid:     `rgb(${rm},${gm},${bm})`,
+    p15:     `rgba(${r},${g},${b},0.15)`,
+    p20:     `rgba(${r},${g},${b},0.20)`,
+    p25:     `rgba(${r},${g},${b},0.25)`,
+    p30:     `rgba(${r},${g},${b},0.30)`,
+    p12:     `rgba(${r},${g},${b},0.12)`,
+    p40:     `rgba(${r},${g},${b},0.40)`,
+    dk20:    `rgba(${rdk},${gdk},${bdk},0.20)`,
+  }
 }
 
-const isHindi=s=>/[\u0900-\u097F]/.test(s)
-const OW='Oswald',BC='Barlow Condensed',ND='Noto Sans Devanagari'
-function ff(t){return isHindi(t)?ND:BC}
-function splitBenefits(t=''){return t.split(/[•\n,;|।]+/).map(s=>s.trim()).filter(s=>s.length>6)}
-function splitBenefitsSafe(hi='',en=''){const p=splitBenefits(hi);if(p.length>=2)return p;const e=splitBenefits(en);return e.length>=2?e:(p.length?p:e)}
-const HI_IND={fever:'बुखार में असरदार',pain:'दर्द से जल्दी राहत',inflammation:'सूजन कम करे',arthritis:'गठिया में असरदार',infection:'संक्रमण से लड़े',mastitis:'थनिका में कारगर',lameness:'लंगड़ेपन में राहत',colic:'पेट दर्द में असरदार',diarrhea:'दस्त रोकने में कारगर',respiratory:'श्वसन रोग में राहत',skin:'त्वचा रोग में लाभकारी',milk:'दूध उत्पादन बढ़ाए',vitamin:'विटामिन की कमी दूर करे',worm:'कृमि खत्म करे'}
-function augmentBenefits(hiList,enList,indication='',desc='',minCount=4){
-  if(hiList.length>=minCount)return{hi:hiList,en:enList}
-  const needed=minCount-hiList.length,newHi=[],newEn=[]
-  const terms=(indication||'').split(',').map(s=>s.trim().toLowerCase()).filter(s=>s.length>2&&!isHindi(s))
-  for(const term of terms){if(newHi.length>=needed)break;if([...hiList,...newHi].some(b=>b.toLowerCase().includes(term)))continue;const e=Object.entries(HI_IND).find(([k])=>term.includes(k));if(e&&!hiList.includes(e[1])){newHi.push(e[1]);newEn.push(term[0].toUpperCase()+term.slice(1))}}
-  return{hi:[...hiList,...newHi].slice(0,5),en:[...enList,...newEn].slice(0,5)}
+const SP_EMOJI = { Cattle:'🐄', Buffalo:'🐃', Sheep:'🐑', Goat:'🐐', Dog:'🐕', Cat:'🐈', Poultry:'🐓', Horse:'🐴' }
+
+function splitBenefits(txt = '') {
+  return txt.split(/[•\n,;|।]+/).map(s => s.trim()).filter(s => s.length > 6)
 }
-function getDescExcerpt(desc='',max=140){if(!desc)return'';const f=desc.split(/\.\s+/)[0];const t=f.length<=max?f:f.slice(0,max).replace(/\s\S+$/,'')+'…';return t.endsWith('.')?t:t+'.'}
-function getIndicationTags(ind=''){return ind.split(/[,،]+/).map(s=>s.trim()).filter(s=>s.length>2&&s.length<28&&/^[a-zA-Z\s\/\-]+$/.test(s)).slice(0,4)}
-const SP_EMOJI={Cattle:'🐄',Buffalo:'🐃',Sheep:'🐑',Goat:'🐐',Dog:'🐕',Cat:'🐈',Poultry:'🐓',Horse:'🐴',Calf:'🐮'}
+function splitBenefitsSafe(hi = '', en = '') {
+  const p = splitBenefits(hi)
+  if (p.length >= 2) return p
+  const e = splitBenefits(en)
+  return e.length >= 2 ? e : (p.length ? p : e)
+}
 
-function Logo({size=1,logoImg}){return(<div style={{display:'flex',alignItems:'center',gap:8*size,flexShrink:0}}><div style={{background:'#fff',borderRadius:6*size,padding:3*size,display:'flex',alignItems:'center',justifyContent:'center'}}>{logoImg?<img src={logoImg} width={28*size} height={28*size} style={{width:28*size,height:28*size,objectFit:'contain'}}/>:<span style={{fontSize:24*size,lineHeight:1}}>🐾</span>}</div><div style={{display:'flex',flexDirection:'column'}}><span style={{fontFamily:OW,fontSize:20*size,fontWeight:700,color:'#fff',letterSpacing:2,lineHeight:1}}>MADVET</span><span style={{fontFamily:BC,fontSize:8*size,color:'rgba(255,255,255,0.70)',letterSpacing:1.5,marginTop:1,fontWeight:600}}>ANIMAL HEALTH CARE</span><span style={{fontFamily:BC,fontSize:7*size,color:'rgba(255,255,255,0.45)',letterSpacing:0.8,marginTop:1}}>ISO 9001:2013 COMPANY</span></div></div>)}
-function Species({sp,c}){const arr=(sp||'').split(/[,\/]/).map(s=>s.trim()).filter(Boolean).slice(0,5);return(<div style={{display:'flex',flexWrap:'wrap',gap:4}}>{arr.map((s,i)=>(<div key={i} style={{width:28,height:28,borderRadius:14,background:c.p15,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}><span>{SP_EMOJI[s]||'🐾'}</span></div>))}</div>)}
-function ImgBox({uri,w,h,c,emoji='🧴'}){return(<div style={{width:w,height:h,flexShrink:0,borderRadius:12,background:c.pale,display:'flex',alignItems:'center',justifyContent:'center'}}>{uri?<img src={uri} width={w-4} height={h-4} style={{objectFit:'contain',width:w-4,height:h-4}}/>:<span style={{fontSize:w*0.3}}>{emoji}</span>}</div>)}
-function ImgBoxRound({uri,w,c,emoji='💊'}){return(<div style={{width:w,height:w,flexShrink:0,borderRadius:w/2,background:c.pale,display:'flex',alignItems:'center',justifyContent:'center'}}>{uri?<img src={uri} width={w-4} height={w-4} style={{objectFit:'cover',width:w-4,height:w-4,borderRadius:(w-4)/2}}/>:<span style={{fontSize:w*0.38}}>{emoji}</span>}</div>)}
-function DescBar({desc,tags,c}){if(!desc&&!tags.length)return null;return(<div style={{display:'flex',flexDirection:'column',padding:'10px 18px 8px 18px',background:c.pale}}>{desc&&<span style={{fontFamily:BC,fontSize:10.5,color:'#2a2a2a',lineHeight:1.5,fontWeight:500,marginBottom:tags.length?6:0}}>{desc}</span>}{tags.length>0&&<div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}><span style={{fontFamily:OW,fontSize:8.5,color:c.primary,fontWeight:800,letterSpacing:1}}>TREATS:</span>{tags.map((t,i)=>(<div key={i} style={{display:'flex',fontSize:9,color:c.dark,background:c.p12,borderRadius:20,padding:'2px 8px',fontFamily:BC,fontWeight:600}}><span>{t}</span></div>))}</div>}</div>)}
-function AllProductsTag({c}){return(<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:`linear-gradient(90deg,${c.darkest},${c.primary})`,padding:'9px 20px',marginTop:8}}><div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:28,height:28,borderRadius:14,background:'rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}><span>🔗</span></div><div style={{display:'flex',flexDirection:'column'}}><span style={{fontFamily:BC,fontSize:8,color:'rgba(255,255,255,0.55)',letterSpacing:2}}>VIEW ALL PRODUCTS · सभी उत्पाद</span><span style={{fontFamily:OW,fontSize:14,color:'#fff',fontWeight:700,letterSpacing:1}}>madvet.in/products</span></div></div><div style={{display:'flex',flexDirection:'column',background:'rgba(255,255,255,0.12)',borderRadius:6,padding:'4px 12px',alignItems:'center'}}><span style={{fontFamily:BC,fontSize:8,color:'rgba(255,255,255,0.55)'}}>AI ASSISTANT</span><span style={{fontFamily:OW,fontSize:11,color:'rgba(255,255,255,0.9)'}}>ai.madvet.in</span></div></div>)}
-function Footer({c,logoImg}){return(<div style={{display:'flex',flexDirection:'column'}}><div style={{height:4,background:`linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest})`,display:'flex'}}/><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'#FFD700',padding:'14px 20px'}}><div style={{display:'flex',alignItems:'center',gap:10}}><div style={{background:'#fff',borderRadius:8,padding:'4px 6px',display:'flex',alignItems:'center',justifyContent:'center'}}>{logoImg?<img src={logoImg} width={38} height={38} style={{width:38,height:38,objectFit:'contain'}}/>:<span style={{fontSize:30,lineHeight:1}}>🐾</span>}</div><div style={{display:'flex',flexDirection:'column'}}><span style={{fontFamily:OW,fontSize:24,fontWeight:700,color:'#1a2f8a',letterSpacing:3,lineHeight:1}}>MADVET</span><span style={{fontFamily:BC,fontSize:9,color:'#1a2f8a',letterSpacing:1.5,fontWeight:700,marginTop:1}}>ANIMAL HEALTH CARE</span><span style={{fontFamily:BC,fontSize:8,color:'#555',marginTop:1}}>Ghaziabad (U.P.)</span></div></div><div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}><span style={{fontFamily:BC,fontSize:9,color:'#111',fontWeight:800}}>ISO 9001:2013 COMPANY</span><span style={{fontFamily:BC,fontSize:8,color:'#333',marginTop:2}}>madvet.animal@gmail.com</span><span style={{fontFamily:BC,fontSize:8,color:'#333'}}>www.madvet.in</span><span style={{fontFamily:BC,fontSize:10,color:'#1a2f8a',fontWeight:800,marginTop:2}}>📞 9935257750 · 8400347331</span></div></div></div>)}
+const HI_IND = {
+  fever: 'बुखार में असरदार', pain: 'दर्द से जल्दी राहत', inflammation: 'सूजन कम करे',
+  infection: 'संक्रमण से लड़े', mastitis: 'थनिका में कारगर', diarrhea: 'दस्त रोकने में कारगर',
+  respiratory: 'श्वसन रोग में राहत', skin: 'त्वचा रोग में लाभकारी', milk: 'दूध उत्पादन बढ़ाए',
+  vitamin: 'विटामिन की कमी दूर करे', worm: 'कृमि खत्म करे', calcium: 'कैल्शियम की कमी पूरी करे',
+}
 
-function CardVitality({p,c,productImg,logoImg}){const{hi,en}=augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits),splitBenefits(p.benefits),p.indication,p.description);const ns=p.name.length>12?44:p.name.length>9?54:66;return(<div style={{display:'flex',flexDirection:'column',width:480,background:'#fff',fontFamily:BC}}><div style={{display:'flex',flexDirection:'column',background:`linear-gradient(135deg,${c.darkest} 0%,${c.primary} 55%,${c.bright} 100%)`,padding:'18px 20px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}><Logo size={0.9} logoImg={logoImg}/><div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}><span style={{fontFamily:BC,fontSize:10,color:'rgba(255,255,255,0.65)'}}>{p.packaging}</span><span style={{fontFamily:BC,fontSize:9,color:'rgba(255,255,255,0.5)'}}>{p.formulation}</span></div></div><div style={{display:'flex',flexDirection:'column',marginTop:10}}><span style={{fontFamily:OW,fontWeight:700,fontSize:ns,color:'#fff',letterSpacing:3,lineHeight:1}}>{p.name}</span><span style={{fontFamily:BC,fontSize:12,color:'rgba(255,255,255,0.75)',marginTop:5}}>{p.salt}</span></div></div><div style={{display:'flex',padding:'8px 24px',background:c.dk20}}><div style={{display:'flex',background:'#FFE000',borderRadius:6,padding:'7px 16px'}}><span style={{fontFamily:ND,fontWeight:800,fontSize:14,color:c.darkest}}>{hi[0]||p.name}</span></div></div><DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c}/><div style={{display:'flex',padding:'14px 16px 6px 16px',gap:14}}><div style={{display:'flex',flexDirection:'column',flexGrow:1,flexShrink:1,flexBasis:0}}>{hi.slice(0,6).map((b,i)=>{const big=i===0||i===1||i===3||i===5;return(<div key={i} style={{display:'flex',marginBottom:big?7:5}}><div style={{flexGrow:1,flexShrink:1,flexBasis:0,background:big?`linear-gradient(90deg,${c.darkest},${c.primary})`:`linear-gradient(90deg,${c.primary},${c.mid})`,borderRadius:6,padding:big?'9px 14px':'6px 12px'}}><span style={{fontFamily:ff(b),fontSize:big?12.5:11,color:'#fff',fontWeight:big?800:600,lineHeight:1.3,display:'block'}}>{b}</span>{en[i]&&<span style={{fontFamily:BC,fontSize:8.5,color:'rgba(255,255,255,0.6)',marginTop:2,display:'block'}}>{en[i]}</span>}</div></div>)})}</div><div style={{width:118,display:'flex',flexDirection:'column',gap:10,alignItems:'center'}}><ImgBox uri={productImg} w={114} h={150} c={c} emoji={p.formulation==='Bolus'?'💊':'🧴'}/><Species sp={p.species} c={c}/></div></div><div style={{height:3,background:`linear-gradient(90deg,${c.darkest},${c.bright})`,display:'flex'}}/><AllProductsTag c={c}/><Footer c={c} logoImg={logoImg}/></div>)}
+function augmentBenefits(hiList, enList, indication = '', minCount = 4) {
+  if (hiList.length >= minCount) return { hi: hiList, en: enList }
+  const needed = minCount - hiList.length
+  const newHi = [], newEn = []
+  const terms = (indication || '').split(',').map(s => s.trim().toLowerCase()).filter(s => s.length > 2)
+  for (const term of terms) {
+    if (newHi.length >= needed) break
+    const entry = Object.entries(HI_IND).find(([k]) => term.includes(k))
+    if (entry && !hiList.includes(entry[1])) { newHi.push(entry[1]); newEn.push(term) }
+  }
+  return { hi: [...hiList, ...newHi].slice(0, 5), en: [...enList, ...newEn].slice(0, 5) }
+}
 
-function CardDigest({p,c,productImg,logoImg}){const{hi,en}=augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits),splitBenefits(p.benefits),p.indication,p.description);const ns=p.name.length>12?36:p.name.length>8?46:56;return(<div style={{display:'flex',flexDirection:'column',width:480,background:'#fff',fontFamily:BC}}><div style={{display:'flex',flexDirection:'row',padding:'16px 20px 0',background:'#fff',gap:14,alignItems:'flex-start'}}><div style={{display:'flex',flexDirection:'column',flexGrow:1,flexShrink:1,flexBasis:0}}><span style={{fontFamily:ND,fontSize:13,fontWeight:700,color:'#c8220a',lineHeight:1.3,marginBottom:6}}>{(p.indication||'').split(',')[0]||'असरदार और तुरंत राहत'}</span><span style={{fontFamily:OW,fontWeight:700,fontSize:ns,color:c.primary,letterSpacing:2,lineHeight:1}}>{p.name}</span><div style={{display:'flex',marginTop:6}}><div style={{background:c.pale,borderRadius:4,padding:'3px 10px',display:'flex'}}><span style={{fontFamily:BC,fontSize:11,color:c.primary,fontWeight:700,letterSpacing:2}}>{(p.formulation||'').toUpperCase()}</span></div></div><div style={{display:'flex',marginTop:8}}><div style={{background:c.primary,borderRadius:4,padding:'6px 14px',display:'flex'}}><span style={{fontFamily:ND,fontSize:13,color:'#fff',fontWeight:700}}>{hi[0]||'तुरंत असर, लंबे समय तक फायदा'}</span></div></div></div><ImgBoxRound uri={productImg} w={120} c={c} emoji="💊"/></div><div style={{height:3,background:`linear-gradient(90deg,${c.darkest},${c.bright})`,marginTop:12,display:'flex'}}/><DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c}/><div style={{display:'flex',padding:'12px 20px',gap:14}}><div style={{display:'flex',flexDirection:'column',flexGrow:1,flexShrink:1,flexBasis:0}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><span style={{fontFamily:ND,fontSize:13,fontWeight:800,color:c.primary}}>प्रयोग एवं लक्षण :</span><div style={{flexGrow:1,flexShrink:1,flexBasis:0,height:1.5,background:c.p25,display:'flex'}}/></div>{hi.slice(0,6).map((b,i)=>(<div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:7,padding:'6px 10px',borderRadius:6,background:i%2===0?c.pale:'#fff',borderLeftWidth:3,borderLeftStyle:'solid',borderLeftColor:i%2===0?c.primary:c.bright,borderTopWidth:0,borderRightWidth:0,borderBottomWidth:0}}><div style={{width:7,height:7,borderRadius:4,background:c.primary,flexShrink:0,marginTop:5,display:'flex'}}/><div style={{display:'flex',flexDirection:'column'}}><span style={{fontFamily:ff(b),fontSize:12,color:'#1a1a1a',fontWeight:isHindi(b)?600:700,lineHeight:1.35}}>{b}</span>{en[i]&&<span style={{fontFamily:BC,fontSize:9.5,color:'#888',marginTop:1}}>{en[i]}</span>}</div></div>))}</div><div style={{width:108,flexShrink:0,display:'flex',flexDirection:'column',gap:8,alignItems:'center',paddingTop:4}}><div style={{display:'flex',flexDirection:'column',background:`linear-gradient(160deg,${c.darkest},${c.primary})`,borderRadius:10,padding:'14px 8px',alignItems:'center',width:'100%'}}><span style={{fontFamily:BC,fontSize:9,color:'rgba(255,255,255,0.6)',letterSpacing:1.5,marginBottom:4}}>{(p.formulation||'').toUpperCase()}</span><span style={{fontFamily:OW,fontSize:15,fontWeight:700,color:'#fff',lineHeight:1.15,letterSpacing:1}}>{p.name}</span><span style={{fontFamily:BC,fontSize:8.5,color:'rgba(255,255,255,0.65)',marginTop:4}}>{p.packaging}</span></div><div style={{display:'flex',flexDirection:'column',background:c.pale,borderRadius:8,padding:'8px',alignItems:'center',width:'100%'}}><span style={{fontFamily:BC,fontSize:8.5,color:c.primary,fontWeight:700,letterSpacing:1,marginBottom:5}}>SPECIES</span><Species sp={p.species} c={c}/></div></div></div><div style={{height:5,background:`linear-gradient(90deg,${c.darkest},${c.bright})`,marginBottom:6,display:'flex'}}/><AllProductsTag c={c}/><Footer c={c} logoImg={logoImg}/></div>)}
+function getDescExcerpt(desc = '', max = 130) {
+  if (!desc) return ''
+  const f = desc.split(/\.\s+/)[0]
+  const t = f.length <= max ? f : f.slice(0, max).replace(/\s\S+$/, '') + '…'
+  return t.endsWith('.') ? t : t + '.'
+}
 
-function CardClinical({p,c,productImg,logoImg}){const{hi,en}=augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits),splitBenefits(p.benefits),p.indication,p.description);const isInj=p.formulation==='Injection';const ns=p.name.length>14?32:p.name.length>10?42:52;return(<div style={{display:'flex',flexDirection:'column',width:480,background:'#fff',fontFamily:BC}}><div style={{display:'flex',flexDirection:'column',background:`linear-gradient(135deg,${c.darkest} 0%,${c.dark} 50%,${c.primary} 100%)`,padding:'16px 20px 20px 20px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}><Logo size={0.88} logoImg={logoImg}/><div style={{display:'flex'}}><div style={{background:c.p30,borderRadius:4,padding:'3px 10px',display:'flex'}}><span style={{fontFamily:BC,fontSize:10,color:'#fff',fontWeight:700,letterSpacing:1}}>{(p.category||'').split('/')[0]?.trim()}</span></div></div></div><div style={{display:'flex',alignItems:'flex-end',gap:14}}><div style={{display:'flex',flexDirection:'column',flexGrow:1,flexShrink:1,flexBasis:0}}><span style={{fontFamily:OW,fontWeight:700,fontSize:ns,color:'#fff',letterSpacing:1.5,lineHeight:1}}>{p.name}</span><span style={{fontFamily:BC,fontSize:10.5,color:'rgba(255,255,255,0.72)',marginTop:5}}>{p.salt}</span><div style={{display:'flex',gap:8,marginTop:8}}><div style={{background:'rgba(255,255,255,0.15)',borderRadius:4,padding:'3px 10px',display:'flex'}}><span style={{fontFamily:BC,fontSize:10,color:'rgba(255,255,255,0.85)'}}>{p.formulation} · {p.packaging}</span></div></div></div><ImgBox uri={productImg} w={104} h={110} c={c} emoji={isInj?'💉':'💊'}/></div></div><div style={{height:4,background:`linear-gradient(90deg,${c.darkest},${c.bright})`,display:'flex'}}/><DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c}/><div style={{display:'flex',flexDirection:'column',padding:'14px 18px 6px 18px'}}><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}><span style={{fontFamily:ND,fontSize:13,fontWeight:800,color:c.primary}}>प्रमुख लाभ</span><div style={{flexGrow:1,flexShrink:1,flexBasis:0,height:2,background:c.p40,display:'flex'}}/><span style={{fontFamily:BC,fontSize:9.5,color:'#aaa'}}>Key Benefits</span></div>{hi.slice(0,5).map((b,i)=>(<div key={i} style={{display:'flex',gap:10,marginBottom:7,padding:'8px 12px',borderRadius:8,background:i===0?c.pale:i===1?'#f5f5f5':'#fafafa'}}><div style={{width:24,height:24,borderRadius:12,background:i===0?c.primary:i===1?c.mid:c.bright,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'#fff',fontWeight:800,flexShrink:0}}><span style={{fontFamily:BC}}>{i+1}</span></div><div style={{display:'flex',flexDirection:'column',flexGrow:1,flexShrink:1,flexBasis:0}}><span style={{fontFamily:ff(b),fontSize:12,color:'#111',lineHeight:1.35,fontWeight:isHindi(b)?600:700}}>{b}</span>{en[i]&&<span style={{fontFamily:BC,fontSize:9.5,color:'#888',marginTop:1}}>{en[i]}</span>}</div></div>))}</div><div style={{display:'flex',padding:'4px 18px 8px 18px'}}><Species sp={p.species} c={c}/></div><AllProductsTag c={c}/><Footer c={c} logoImg={logoImg}/></div>)}
+function getIndTags(ind = '') {
+  return ind.split(/[,،]+/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 28 && /^[a-zA-Z\s\/\-]+$/.test(s)).slice(0, 4)
+}
 
-function CardHerbal({p,c,productImg,logoImg}){const{hi,en}=augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits),splitBenefits(p.benefits),p.indication,p.description);const c2=`hsl(${(c.h+40)%360},75%,36%)`;const ns=p.name.length>14?32:p.name.length>10?42:50;return(<div style={{display:'flex',flexDirection:'column',width:480,background:'#fff',fontFamily:BC}}><div style={{display:'flex',flexDirection:'column',background:`linear-gradient(160deg,${c.darkest} 0%,${c.primary} 60%,${c2} 100%)`,padding:'16px 20px 18px 20px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}><Logo size={0.88} logoImg={logoImg}/><span style={{fontFamily:BC,fontSize:9,color:'rgba(255,255,255,0.5)'}}>{p.packaging}</span></div><div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:12}}><div style={{display:'flex',flexDirection:'column',flexGrow:1,flexShrink:1,flexBasis:0}}><span style={{fontFamily:OW,fontWeight:700,fontSize:ns,lineHeight:1,letterSpacing:2,color:'#fff'}}>{p.name}</span><span style={{fontFamily:BC,fontSize:11,color:'rgba(255,255,255,0.78)',marginTop:5}}>{(p.salt||'').split(',')[0]?.trim()}</span></div><ImgBox uri={productImg} w={100} h={100} c={c} emoji="🌿"/></div><div style={{display:'flex',marginTop:10,background:'rgba(255,255,255,0.15)',borderRadius:6,padding:'6px 14px',alignItems:'center',gap:8,alignSelf:'flex-start'}}><span style={{fontSize:14,lineHeight:1}}>🌱</span><span style={{fontFamily:ND,fontSize:13,color:'#FFE000',fontWeight:700}}>{hi[0]||p.indication}</span></div></div><div style={{display:'flex',flexDirection:'column',padding:'14px 18px 8px 18px'}}><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}><div style={{width:4,height:16,background:c.primary,borderRadius:2,display:'flex'}}/><span style={{fontFamily:ND,fontSize:13,fontWeight:800,color:c.primary}}>प्रमुख लाभ एवं उपयोग :</span><div style={{flexGrow:1,flexShrink:1,flexBasis:0,height:1,background:c.p20,display:'flex'}}/></div><DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c}/>{[0,2,4].map(rs=>(<div key={rs} style={{display:'flex',gap:7,marginTop:7}}>{[rs,rs+1].map(i=>{const b=hi[i];if(!b)return<div key={i} style={{display:'flex',flexGrow:1,flexShrink:1,flexBasis:0}}/>;return(<div key={i} style={{display:'flex',gap:8,padding:'7px 10px',background:i<2?c.pale:'#fafafa',borderRadius:7,alignItems:'flex-start',flexGrow:1,flexShrink:1,flexBasis:0}}><span style={{color:c.primary,fontSize:13,fontWeight:900,flexShrink:0,lineHeight:1.2}}>►</span><div style={{display:'flex',flexDirection:'column'}}><span style={{fontFamily:ff(b),fontSize:11,color:'#222',lineHeight:1.35,fontWeight:isHindi(b)?500:700}}>{b}</span>{en[i]&&<span style={{fontFamily:BC,fontSize:8,color:'#999',marginTop:1}}>{en[i]}</span>}</div></div>)})}</div>))}</div><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 18px 8px'}}><Species sp={p.species} c={c}/><div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}><span style={{fontFamily:BC,fontSize:9,color:'#aaa'}}>FORMULATION</span><span style={{fontFamily:BC,fontSize:12,fontWeight:700,color:c.primary}}>{p.formulation}</span></div></div><AllProductsTag c={c}/><Footer c={c} logoImg={logoImg}/></div>)}
+// ── SHARED COMPONENTS ─────────────────────────────────────────────────────────
 
-function CardShield({p,c,productImg,logoImg}){const{hi,en}=augmentBenefits(splitBenefitsSafe(p.usp_benefits_hi,p.benefits),splitBenefits(p.benefits),p.indication,p.description);const ns=p.name.length>14?34:p.name.length>10?44:54;return(<div style={{display:'flex',flexDirection:'column',width:480,background:'#fff',fontFamily:BC}}><div style={{display:'flex',flexDirection:'column',background:`linear-gradient(125deg,${c.darkest} 0%,${c.primary} 100%)`,padding:'18px 20px 22px 20px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}><Logo size={0.88} logoImg={logoImg}/><div style={{display:'flex',flexDirection:'column',background:'rgba(255,255,255,0.18)',borderRadius:5,padding:'4px 12px',alignItems:'center'}}><span style={{fontFamily:OW,fontSize:11,color:'#FFE000',fontWeight:700,letterSpacing:2}}>{(p.formulation||'').toUpperCase()}</span><span style={{fontFamily:BC,fontSize:8.5,color:'rgba(255,255,255,0.65)'}}>{p.packaging}</span></div></div><div style={{display:'flex',alignItems:'flex-end',gap:16}}><div style={{display:'flex',flexDirection:'column',flexGrow:1,flexShrink:1,flexBasis:0}}><span style={{fontFamily:OW,fontWeight:700,fontSize:ns,color:'#fff',letterSpacing:2,lineHeight:1}}>{p.name}</span><span style={{fontFamily:BC,fontSize:11,color:'rgba(255,255,255,0.72)',marginTop:6}}>{p.salt}</span><div style={{display:'flex',marginTop:10}}><div style={{background:'#FFE000',borderRadius:5,padding:'5px 14px',display:'flex'}}><span style={{fontFamily:ND,fontSize:13,fontWeight:800,color:c.darkest}}>{hi[0]||p.indication}</span></div></div></div><ImgBox uri={productImg} w={108} h={108} c={c} emoji={p.formulation==='Spray'?'🫧':'🧼'}/></div></div><div style={{display:'flex',flexDirection:'column',padding:'14px 18px 6px 18px'}}><DescBar desc={getDescExcerpt(p.description)} tags={getIndicationTags(p.indication)} c={c}/><span style={{fontFamily:ND,fontSize:13,fontWeight:800,color:c.primary,marginBottom:10,marginTop:8}}>लाभ एवं उपयोग :</span>{hi.slice(0,5).map((b,i)=>(<div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:7,padding:'8px 12px',borderRadius:7,background:c.pale,borderLeftWidth:4,borderLeftStyle:'solid',borderLeftColor:i===0?c.primary:c.bright,borderTopWidth:0,borderRightWidth:0,borderBottomWidth:0}}><div style={{width:22,height:22,borderRadius:11,background:c.primary,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{fontSize:13,color:'#fff',fontWeight:900}}>✓</span></div><div style={{display:'flex',flexDirection:'column'}}><span style={{fontFamily:ff(b),fontSize:12,color:'#111',fontWeight:isHindi(b)?600:700,lineHeight:1.35}}>{b}</span>{en[i]&&<span style={{fontFamily:BC,fontSize:9.5,color:'#888',marginTop:1}}>{en[i]}</span>}</div></div>))}</div><div style={{display:'flex',padding:'4px 18px 8px 18px'}}><Species sp={p.species} c={c}/></div><AllProductsTag c={c}/><Footer c={c} logoImg={logoImg}/></div>)}
+function Header({ p, c, logoImg, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', background: `linear-gradient(135deg,${c.darkest} 0%,${c.primary} 60%,${c.bright} 100%)`, padding: '18px 22px 20px' }}>
+      {/* Logo row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ background: '#fff', borderRadius: 8, padding: 4, display: 'flex' }}>
+            {logoImg
+              ? <img src={logoImg} width={32} height={32} style={{ width: 32, height: 32, objectFit: 'contain' }} />
+              : <span style={{ fontSize: 24 }}>🐾</span>
+            }
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>MADVET</span>
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.65)', letterSpacing: 2 }}>ANIMAL HEALTH CARE</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.15)', borderRadius: 4, padding: '2px 8px' }}>{p.formulation}</span>
+          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>{p.packaging}</span>
+        </div>
+      </div>
+      {/* Product name */}
+      <span style={{ fontSize: p.name.length > 14 ? 34 : p.name.length > 10 ? 44 : 54, fontWeight: 900, color: '#fff', letterSpacing: 2, lineHeight: 1 }}>{p.name}</span>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 6 }}>{p.salt}</span>
+      {children}
+    </div>
+  )
+}
+
+function BenefitsList({ hi, en, c }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '14px 20px 8px' }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: c.primary, letterSpacing: 1, marginBottom: 4 }}>प्रमुख लाभ / KEY BENEFITS</span>
+      {hi.slice(0, 5).map((b, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 12px', borderRadius: 8, background: i === 0 ? c.pale : i % 2 === 0 ? '#f8f8f8' : '#ffffff', borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: i === 0 ? c.primary : c.bright, borderTopWidth: 0, borderRightWidth: 0, borderBottomWidth: 0 }}>
+          <div style={{ width: 22, height: 22, borderRadius: 11, background: i === 0 ? c.primary : c.mid, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontSize: 12, color: '#fff', fontWeight: 800 }}>{i + 1}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, flexShrink: 1, flexBasis: 0 }}>
+            <span style={{ fontSize: 13, color: '#111', fontWeight: 600, lineHeight: 1.35 }}>{b}</span>
+            {en[i] && <span style={{ fontSize: 10, color: '#888', marginTop: 1 }}>{en[i]}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DescBar({ desc, tags, c }) {
+  if (!desc && !tags.length) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', padding: '10px 20px 8px', background: c.pale }}>
+      {desc && <span style={{ fontSize: 11, color: '#333', lineHeight: 1.5, marginBottom: tags.length ? 6 : 0 }}>{desc}</span>}
+      {tags.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 9, color: c.primary, fontWeight: 800, letterSpacing: 1 }}>TREATS:</span>
+          {tags.map((t, i) => (
+            <div key={i} style={{ display: 'flex', fontSize: 9, color: c.dark, background: c.p12, borderRadius: 20, padding: '2px 8px', fontWeight: 600 }}>
+              <span>{t}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Species({ sp, c }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '4px 20px 10px' }}>
+      {(sp || '').split(/[,\/]/).map(s => s.trim()).filter(Boolean).slice(0, 6).map((s, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, background: c.pale, borderRadius: 20, padding: '3px 10px' }}>
+          <span style={{ fontSize: 13 }}>{SP_EMOJI[s] || '🐾'}</span>
+          <span style={{ fontSize: 10, color: c.primary, fontWeight: 600 }}>{s}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ProductImg({ uri, c, emoji = '🧴' }) {
+  return (
+    <div style={{ width: 110, height: 130, flexShrink: 0, borderRadius: 10, background: c.pale, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '12px 20px 0 0' }}>
+      {uri
+        ? <img src={uri} width={106} height={126} style={{ objectFit: 'contain', width: 106, height: 126 }} />
+        : <span style={{ fontSize: 40 }}>{emoji}</span>
+      }
+    </div>
+  )
+}
+
+function Footer({ c, logoImg }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', marginTop: 8 }}>
+      {/* CTA bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: `linear-gradient(90deg,${c.darkest},${c.primary})`, padding: '8px 20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: 2 }}>VIEW ALL PRODUCTS</span>
+          <span style={{ fontSize: 14, color: '#fff', fontWeight: 800, letterSpacing: 1 }}>madvet.in/products</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.12)', borderRadius: 6, padding: '4px 12px', alignItems: 'center' }}>
+          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)' }}>AI ASSISTANT</span>
+          <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>ai.madvet.in</span>
+        </div>
+      </div>
+      {/* Gold footer */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFD700', padding: '12px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ background: '#fff', borderRadius: 8, padding: '3px 5px', display: 'flex' }}>
+            {logoImg
+              ? <img src={logoImg} width={36} height={36} style={{ width: 36, height: 36, objectFit: 'contain' }} />
+              : <span style={{ fontSize: 28 }}>🐾</span>
+            }
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: '#1a2f8a', letterSpacing: 3, lineHeight: 1 }}>MADVET</span>
+            <span style={{ fontSize: 9, color: '#1a2f8a', letterSpacing: 1.5, fontWeight: 700 }}>ANIMAL HEALTH CARE</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          <span style={{ fontSize: 9, color: '#111', fontWeight: 800 }}>ISO 9001:2013 COMPANY</span>
+          <span style={{ fontSize: 9, color: '#333', marginTop: 2 }}>madvet.animal@gmail.com</span>
+          <span style={{ fontSize: 10, color: '#1a2f8a', fontWeight: 800, marginTop: 2 }}>📞 9935257750 · 8400347331</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── MAIN CARD ─────────────────────────────────────────────────────────────────
+
+function Card({ p, c, productImg, logoImg }) {
+  const hiRaw = splitBenefitsSafe(p.usp_benefits_hi, p.benefits)
+  const enRaw = splitBenefits(p.benefits)
+  const { hi, en } = augmentBenefits(hiRaw, enRaw, p.indication)
+  const desc = getDescExcerpt(p.description)
+  const tags = getIndTags(p.indication)
+  const isInj = p.formulation === 'Injection'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: 480, background: '#fff' }}>
+      <Header p={p} c={c} logoImg={logoImg}>
+        {/* Gold tagline */}
+        {hi[0] && (
+          <div style={{ display: 'flex', marginTop: 12, alignSelf: 'flex-start' }}>
+            <div style={{ background: '#FFE000', borderRadius: 6, padding: '6px 14px', display: 'flex' }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: c.darkest }}>{hi[0]}</span>
+            </div>
+          </div>
+        )}
+      </Header>
+
+      <DescBar desc={desc} tags={tags} c={c} />
+
+      {/* Benefits + image row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, flexShrink: 1, flexBasis: 0 }}>
+          <BenefitsList hi={hi.slice(1)} en={en.slice(1)} c={c} />
+        </div>
+        <ProductImg uri={productImg} c={c} emoji={isInj ? '💉' : p.formulation === 'Bolus' ? '💊' : '🧴'} />
+      </div>
+
+      <div style={{ height: 2, background: `linear-gradient(90deg,${c.darkest},${c.bright})`, display: 'flex' }} />
+      <Species sp={p.species} c={c} />
+      <Footer c={c} logoImg={logoImg} />
+    </div>
+  )
+}
+
+// ── GET ───────────────────────────────────────────────────────────────────────
 
 export async function GET(_req, { params }) {
   const { id: rawId } = await params
   const id = parseInt(rawId, 10)
   if (isNaN(id)) return new Response('Bad ID', { status: 400 })
 
-  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  const sb = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
   const table = (process.env.NEXT_PUBLIC_SUPABASE_TABLE ?? 'products_enriched').trim()
 
   const [{ data, error }, logoImg] = await Promise.all([
-    sb.from(table).select('id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,usp_benefits_hi,image_url').eq('id', id).single(),
+    sb.from(table)
+      .select('id,product_name,salt_ingredient,packaging,formulation,category,species,indication,description,usp_benefits,usp_benefits_hi,image_url')
+      .eq('id', id)
+      .single(),
     imgURI('https://ai.madvet.in/madvet-icon.png'),
   ])
 
@@ -139,30 +332,33 @@ export async function GET(_req, { params }) {
   const rawCat = (data.category || '').trim()
   const category = CAT_NORMALIZE[rawCat] || rawCat
   const p = {
-    id, name:(data.product_name||'').trim(), salt:(data.salt_ingredient||'').trim(),
-    packaging:(data.packaging||'').trim(), formulation:(data.formulation||'').trim(),
-    category, species:(data.species||'').trim(), indication:(data.indication||'').trim(),
-    description:(data.description||'').trim(), benefits:(data.usp_benefits||'').trim(),
-    usp_benefits_hi:(data.usp_benefits_hi||'').trim(), image_url:(data.image_url||'').trim(),
+    id,
+    name:            (data.product_name    || '').trim(),
+    salt:            (data.salt_ingredient || '').trim(),
+    packaging:       (data.packaging       || '').trim(),
+    formulation:     (data.formulation     || '').trim(),
+    category,
+    species:         (data.species         || '').trim(),
+    indication:      (data.indication      || '').trim(),
+    description:     (data.description     || '').trim(),
+    benefits:        (data.usp_benefits    || '').trim(),
+    usp_benefits_hi: (data.usp_benefits_hi || '').trim(),
+    image_url:       (data.image_url       || '').trim(),
   }
 
   const c = getColors(id, category)
   const productImg = await imgURI(p.image_url)
-  const tmpl = getTemplate(category)
-  const CardMap = { vitality:CardVitality, digest:CardDigest, herbal:CardHerbal, shield:CardShield, clinical:CardClinical }
-  const CardComp = CardMap[tmpl] || CardClinical
-  const numBenefits = Math.min(splitBenefitsSafe(p.usp_benefits_hi,p.benefits).length+1, 7)
-  const height = Math.min(900, Math.max(640, 220 + numBenefits*46 + 280))
-
-  console.log('[share-card]', { id, tmpl, fontsLoaded: FONTS.length, hasImg: !!productImg, height })
+  const numBenefits = Math.min(splitBenefitsSafe(p.usp_benefits_hi, p.benefits).length, 6)
+  const height = Math.min(900, Math.max(600, 200 + numBenefits * 52 + 260))
 
   try {
     return new ImageResponse(
-      <CardComp p={p} c={c} productImg={productImg} logoImg={logoImg} />,
-      { width: 480, height, fonts: FONTS }
+      <Card p={p} c={c} productImg={productImg} logoImg={logoImg} />,
+      { width: 480, height }
+      // NO fonts parameter — system fonts work perfectly and never crash
     )
   } catch (err) {
-    console.error('[share-card] render error:', String(err?.message || err))
-    return new Response('Render error: ' + String(err?.message || err).slice(0, 200), { status: 500 })
+    console.error('[share-card] error:', String(err?.message || err))
+    return new Response('Error: ' + String(err?.message || err).slice(0, 200), { status: 500 })
   }
 }
