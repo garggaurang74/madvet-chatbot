@@ -48,7 +48,7 @@ function Card({p,c,productImg,logoImg}){
   const desc=getDesc(p.description),tags=getTags(p.indication)
   const ns=p.name.length>14?32:p.name.length>10?42:52
   return(
-    <div style={{display:'flex',flexDirection:'column',width:480,background:'#fff'}}>
+    <div style={{display:'flex',flexDirection:'column',width:1200,background:'#fff'}}>
       <div style={{display:'flex',flexDirection:'column',background:`linear-gradient(135deg,${c.darkest} 0%,${c.primary} 55%,${c.bright} 100%)`,padding:'18px 22px 20px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
