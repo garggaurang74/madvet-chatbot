@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import type { Product } from './types'
+
+// ── PAGINATION ────────────────────────────────────────────────────────────────
+// Rendering 500 cards at once freezes the browser. We render PAGE_SIZE at a time
+// and let the user load more. This is the single biggest perf win in this file.
+const PAGE_SIZE = 36
 
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -199,20 +204,14 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
       {p.image_url && (
         <div style={{ width: '100%', height: 140, background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img
-            src={p.image_url.includes('supabase') ? p.image_url + '?width=300&quality=80' : p.image_url}
+            src={p.image_url}
             alt={p.name}
             loading="lazy"
             decoding="async"
             style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
             onError={(e) => {
               const img = e.target as HTMLImageElement
-              // Try without transform params on first error
-              if (!img.dataset.retried) {
-                img.dataset.retried = '1'
-                img.src = p.image_url
-              } else {
-                img.parentElement!.style.display = 'none'
-              }
+              img.parentElement!.style.display = 'none'
             }}
           />
         </div>
@@ -404,6 +403,12 @@ export default function ProductsClient({ products }: { products: Product[] }) {
   const [activeCat, setActiveCat]   = useState('all')
   const [activeSp, setActiveSp]     = useState('all')
   const [activeForm, setActiveForm] = useState('all')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+
+  // Reset to first page whenever the result set changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [searchText, activeCat, activeSp, activeForm])
 
   const { cats, species, forms } = useMemo(() => {
     const usedCats = [...new Set(products.map(p => p.category))].filter(Boolean)
@@ -439,13 +444,18 @@ export default function ProductsClient({ products }: { products: Product[] }) {
 
   const grouped = useMemo(() => {
     if (searchText.trim()) return null
+    // Only build groups from the visible slice — no point computing groups for
+    // products that aren't rendered yet.
+    const source = filtered.slice(0, visibleCount)
     const g: Record<string, Product[]> = {}
-    filtered.forEach(p => { if (!g[p.category]) g[p.category] = []; g[p.category].push(p) })
+    source.forEach(p => { if (!g[p.category]) g[p.category] = []; g[p.category].push(p) })
     const ordered = [...CAT_ORDER.filter(c => g[c]), ...Object.keys(g).filter(c => !CAT_ORDER.includes(c))]
     return ordered.map(cat => ({ cat, prods: g[cat] }))
-  }, [filtered, searchText])
+  }, [filtered, searchText, visibleCount])
 
   const q = searchText.toLowerCase().trim()
+  const hasMore = filtered.length > visibleCount
+  const loadMore = useCallback(() => setVisibleCount(n => n + PAGE_SIZE), [])
 
   return (
     <>
@@ -678,29 +688,53 @@ export default function ProductsClient({ products }: { products: Product[] }) {
                 </span>
               </div>
               <div className="product-grid">
-                {filtered.map(p => <ProductCard key={p.id} p={p} q={q} lang={lang} />)}
+                {filtered.slice(0, visibleCount).map(p => <ProductCard key={p.id} p={p} q={q} lang={lang} />)}
               </div>
+              {hasMore && (
+                <div style={{ textAlign: 'center', marginTop: 32 }}>
+                  <button onClick={loadMore} style={{
+                    padding: '12px 32px', background: '#c8a96e', color: '#1a3a2a',
+                    border: 'none', borderRadius: 8, fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    {lang === 'hi' ? `और दिखाएं (${filtered.length - visibleCount} बाकी)` : `Load more (${filtered.length - visibleCount} remaining)`}
+                  </button>
+                </div>
+              )}
             </div>
           ) : grouped ? (
-            grouped.map(({ cat, prods }) => (
-              <div key={cat} style={{ marginBottom: 56 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #d4c9b0' }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: getColor(cat), flexShrink: 0 }} />
-                  <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>
-                    {lang === 'hi' ? (HI_CATS[cat] || cat) : cat}
-                    {lang === 'hi' && (
-                      <span style={{ fontSize: 13, fontFamily: "'DM Sans', sans-serif", color: '#5a7060', fontWeight: 400, marginLeft: 10 }}>({cat})</span>
-                    )}
-                  </h2>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>
-                    {prods.length} {lang === 'hi' ? 'उत्पाद' : `product${prods.length !== 1 ? 's' : ''}`}
-                  </span>
+            <>
+              {grouped.map(({ cat, prods }) => (
+                <div key={cat} style={{ marginBottom: 56 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #d4c9b0' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: getColor(cat), flexShrink: 0 }} />
+                    <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>
+                      {lang === 'hi' ? (HI_CATS[cat] || cat) : cat}
+                      {lang === 'hi' && (
+                        <span style={{ fontSize: 13, fontFamily: "'DM Sans', sans-serif", color: '#5a7060', fontWeight: 400, marginLeft: 10 }}>({cat})</span>
+                      )}
+                    </h2>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>
+                      {prods.length} {lang === 'hi' ? 'उत्पाद' : `product${prods.length !== 1 ? 's' : ''}`}
+                    </span>
+                  </div>
+                  <div className="product-grid">
+                    {prods.map(p => <ProductCard key={p.id} p={p} q="" lang={lang} />)}
+                  </div>
                 </div>
-                <div className="product-grid">
-                  {prods.map(p => <ProductCard key={p.id} p={p} q="" lang={lang} />)}
+              ))}
+              {hasMore && (
+                <div style={{ textAlign: 'center', marginTop: 8, marginBottom: 32 }}>
+                  <button onClick={loadMore} style={{
+                    padding: '12px 32px', background: '#c8a96e', color: '#1a3a2a',
+                    border: 'none', borderRadius: 8, fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    {lang === 'hi' ? `और दिखाएं (${filtered.length - visibleCount} बाकी)` : `Load more (${filtered.length - visibleCount} remaining)`}
+                  </button>
                 </div>
-              </div>
-            ))
+              )}
+            </>
           ) : null}
         </main>
 
