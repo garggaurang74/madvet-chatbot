@@ -647,7 +647,7 @@ function renderLearn() {
         <div class="form-badge">${p.formulation||p.packaging}</div>
       </div>
       <div class="lc-name">${p.name}</div>
-      ${p.image_url?`<div style="width:100%;max-width:180px;margin:10px auto;background:#f5f0e8;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #e8dfc8;height:160px;"><img src="${p.image_url.includes('supabase') ? p.image_url+'?width=300&quality=80' : p.image_url}" alt="${p.name}" style="max-width:100%;max-height:155px;object-fit:contain;padding:8px;" onerror="if(!this.dataset.r){this.dataset.r=1;this.src=this.src.split('?')[0];}else if(this.dataset.r==='1'){this.dataset.r='2';this.src=this.src+'?v=2';}else{this.parentElement.style.display='none';}"></div>`:''}
+      ${p.image_url?`<div style="width:100%;max-width:180px;margin:10px auto;background:#f5f0e8;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #e8dfc8;height:160px;"><img src="${p.image_url}" alt="${p.name}" style="max-width:100%;max-height:155px;object-fit:contain;padding:8px;" onerror="this.parentElement.style.display='none';"></div>`:''}
       <div class="lc-salt"><span>${saltLabel}</span> ${p.salt||'—'}</div>
       ${p.description?`
         <div class="lc-section">
@@ -806,7 +806,7 @@ function renderQuiz() {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${options.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o.name)}','${escQ(p.name)}')">${o.name}</button>`).join('')}
+        ${options.map(o=>`<button class="opt" ${o.name===p.name?'data-correct="1"':''} onclick="checkOpt(this,'${escQ(o.name)}','${escQ(p.name)}')">${o.name}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -830,7 +830,7 @@ function renderFormQuiz(question, hint, formOpts, correctForm) {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${formOpts.map(f=>`<button class="opt" onclick="checkOpt(this,'${f}','${correctForm}')">${f}</button>`).join('')}
+        ${formOpts.map(f=>`<button class="opt" ${f===correctForm?'data-correct="1"':''} onclick="checkOpt(this,'${f}','${correctForm}')">${f}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -845,7 +845,7 @@ function renderSpeciesQuiz(question, hint, opts, correct) {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${opts.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
+        ${opts.map(o=>`<button class="opt" ${o===correct?'data-correct="1"':''} onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -860,7 +860,7 @@ function renderCatQuiz(question, hint, opts, correct) {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${opts.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
+        ${opts.map(o=>`<button class="opt" ${o===correct?'data-correct="1"':''} onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -874,7 +874,7 @@ function checkOpt(btn, chosen, correct) {
   quizAnswered = true;
   document.querySelectorAll('.opt').forEach(b => {
     b.disabled = true;
-    if (b.textContent.trim()===correct) b.classList.add(chosen===correct?'correct':'reveal');
+    if (b.dataset.correct === '1') b.classList.add(chosen===correct?'correct':'reveal');
   });
   if (chosen===correct) { btn.classList.add('correct'); quizCorrect++; }
   else btn.classList.add('wrong');
