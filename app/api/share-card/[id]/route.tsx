@@ -121,9 +121,9 @@ export async function GET(_req, { params }) {
   const c = getColors(id, category)
   const productImg = await imgURI(p.image_url)
   const nb = Math.min(splitBSafe(p.usp_benefits_hi, p.benefits).length, 6)
-  const height = Math.min(900, Math.max(580, 190 + nb * 54 + 260))
+  const height = Math.min(1600, Math.max(900, 300 + nb * 72 + 320))
   try {
-    return new ImageResponse(<Card p={p} c={c} productImg={productImg} logoImg={logoImg}/>, { width: 480, height })
+    return new ImageResponse(<Card p={p} c={c} productImg={productImg} logoImg={logoImg}/>, { width: 1200, height })
   } catch (err) {
     console.error('[share-card]', String(err?.message || err))
     return new Response('Error: ' + String(err?.message || err).slice(0, 200), { status: 500 })
