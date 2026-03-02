@@ -581,6 +581,17 @@ function updateTopProgress() {
 
 // ── SESSION START ─────────────────────────────────────────────────────────────
 function startSession(sessId) {
+  // Guard: don't start if products haven't loaded yet
+  if (ALL_PRODUCTS.length === 0) {
+    const btn = document.querySelector('.session-card[data-id="'+sessId+'"] .start-btn');
+    if (btn) { const orig = btn.textContent; btn.textContent = '⏳ Loading...'; setTimeout(()=>{ btn.textContent = orig; }, 2000); }
+    return;
+  }
+  const prods = getSessionProducts(PLAN.find(s=>s.id===sessId)||{cats:[]});
+  if (prods.length === 0) {
+    alert('No products found for this session. Please refresh the page.');
+    return;
+  }
   currentSess  = PLAN.find(s=>s.id===sessId);
   currentStep  = 'learn';
   learnIdx     = 0;
@@ -614,6 +625,7 @@ function renderLearn() {
   ).join('');
 
   const p     = prods[learnIdx];
+  if (!p) { document.getElementById('studyContent').innerHTML = '<div style="padding:40px;text-align:center;color:#5a7060;">⏳ Loading products...</div>'; return; }
   const color = CAT_COLORS[p.category]||'#94a3b8';
   const tip   = T[LANG].tips[p.category]||'';
 
@@ -635,7 +647,7 @@ function renderLearn() {
         <div class="form-badge">${p.formulation||p.packaging}</div>
       </div>
       <div class="lc-name">${p.name}</div>
-      ${p.image_url?`<div style="width:100%;max-width:180px;margin:10px auto;background:#f5f0e8;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #e8dfc8;height:160px;"><img src="${p.image_url}" alt="${p.name}" style="max-width:100%;max-height:155px;object-fit:contain;padding:8px;" onerror="if(!this.dataset.r){this.dataset.r=1;this.src=this.src.split('?')[0]+'?t='+Date.now();}else{this.style.display='none';}"></div>`:''}
+      ${p.image_url?`<div style="width:100%;max-width:180px;margin:10px auto;background:#f5f0e8;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #e8dfc8;height:160px;"><img src="${p.image_url.includes('supabase') ? p.image_url+'?width=300&quality=80' : p.image_url}" alt="${p.name}" style="max-width:100%;max-height:155px;object-fit:contain;padding:8px;" onerror="if(!this.dataset.r){this.dataset.r=1;this.src=this.src.split('?')[0];}else if(this.dataset.r==='1'){this.dataset.r='2';this.src=this.src+'?v=2';}else{this.parentElement.style.display='none';}"></div>`:''}
       <div class="lc-salt"><span>${saltLabel}</span> ${p.salt||'—'}</div>
       ${p.description?`
         <div class="lc-section">
@@ -916,6 +928,11 @@ function resetAll() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 setLang(LANG);
+// Show loading indicator while fetching
+(function() {
+  const list = document.getElementById('sessionList');
+  if (list) list.innerHTML = '<div style="padding:40px;text-align:center;color:#5a7060;font-family:DM Sans,sans-serif;"><div style="font-size:32px;margin-bottom:12px;">⏳</div><div style="font-size:14px;">Loading products...</div></div>';
+})();
 loadProducts();
 </script>
 </body>

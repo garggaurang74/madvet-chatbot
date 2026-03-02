@@ -12,14 +12,37 @@ import { join } from 'path'
 export const runtime = 'nodejs'  // NOT edge
 export const maxDuration = 30
 
-const FONTS = [
-  { name: 'Oswald',               weight: 700, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/oswald-700.woff2')) },
-  { name: 'Barlow Condensed',     weight: 600, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/barlow-600.woff2')) },
-  { name: 'Barlow Condensed',     weight: 700, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/barlow-700.woff2')) },
-  { name: 'Noto Sans Devanagari', weight: 600, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/noto-devanagari-600.woff2')) },
-  { name: 'Noto Sans Devanagari', weight: 700, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/noto-devanagari-700.woff2')) },
-  { name: 'Noto Sans Devanagari', weight: 800, style: 'normal' as const, data: readFileSync(join(process.cwd(), 'public/fonts/noto-devanagari-800.woff2')) },
-]
+function loadFontsSync() {
+  const defs = [
+    { name: 'Oswald',               weight: 700, file: 'oswald-700.woff2' },
+    { name: 'Barlow Condensed',     weight: 600, file: 'barlow-600.woff2' },
+    { name: 'Barlow Condensed',     weight: 700, file: 'barlow-700.woff2' },
+    { name: 'Noto Sans Devanagari', weight: 600, file: 'noto-devanagari-600.woff2' },
+    { name: 'Noto Sans Devanagari', weight: 700, file: 'noto-devanagari-700.woff2' },
+    { name: 'Noto Sans Devanagari', weight: 800, file: 'noto-devanagari-800.woff2' },
+  ]
+  const loaded: any[] = []
+  for (const d of defs) {
+    // Try multiple paths — Vercel deploys functions differently depending on config
+    const paths = [
+      join(process.cwd(), 'public', 'fonts', d.file),
+      join(process.cwd(), '.next', 'server', 'public', 'fonts', d.file),
+      join('/var/task', 'public', 'fonts', d.file),
+    ]
+    for (const p of paths) {
+      try {
+        const data = readFileSync(p)
+        loaded.push({ name: d.name, weight: d.weight, style: 'normal' as const, data })
+        break
+      } catch {}
+    }
+  }
+  if (loaded.length > 0) console.log(`[share-card] Loaded ${loaded.length} fonts from disk`)
+  else console.warn('[share-card] No fonts found on disk — cards will use system fonts')
+  return loaded
+}
+
+const FONTS = loadFontsSync()
 
 // ── Image → base64 URI ────────────────────────────────────────────────────────
 async function imgURI(url) {
@@ -612,7 +635,7 @@ export async function GET(_req, { params }) {
   try {
     return new ImageResponse(
       <CardComp p={p} c={c} productImg={productImg} logoImg={logoImg} />,
-      { width: 480, height, fonts: FONTS }
+      { width: 480, height, ...(FONTS.length > 0 ? { fonts: FONTS } : {}) }
     )
   } catch(err) {
     console.error('[share-card] RENDER FAILED:', JSON.stringify({

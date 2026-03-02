@@ -199,12 +199,20 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
       {p.image_url && (
         <div style={{ width: '100%', height: 140, background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img
-            src={p.image_url}
+            src={p.image_url.includes('supabase') ? p.image_url + '?width=300&quality=80' : p.image_url}
             alt={p.name}
+            loading="lazy"
+            decoding="async"
             style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
             onError={(e) => {
               const img = e.target as HTMLImageElement
-              img.style.display = 'none'
+              // Try without transform params on first error
+              if (!img.dataset.retried) {
+                img.dataset.retried = '1'
+                img.src = p.image_url
+              } else {
+                img.parentElement!.style.display = 'none'
+              }
             }}
           />
         </div>
@@ -442,7 +450,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+        /* Fonts loaded in layout.tsx */
         *, *::before, *::after { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; overflow-x: hidden; max-width: 100%; }
         :root {

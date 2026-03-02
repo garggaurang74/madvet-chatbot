@@ -1,27 +1,25 @@
 import type { Metadata } from 'next'
-import { Noto_Sans } from 'next/font/google'
 import './globals.css'
 
-const notoSans = Noto_Sans({
-  subsets: ['latin', 'devanagari'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-noto-sans',
-  display: 'swap',
-})
-
 export const metadata: Metadata = {
-  title: 'Dr. Madvet Assistant | Madvet Animal Healthcare',
-  description: 'AI-powered veterinary assistant by Madvet',
+  title: 'Madvet Animal Healthcare',
+  description: 'AI-powered veterinary product assistant',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hi" className={notoSans.variable}>
-      <body className="font-sans antialiased">{children}</body>
+    <html lang="en">
+      <head>
+        {/* Preconnect for faster font loading */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Load fonts once at layout level — not per-component */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
     </html>
   )
 }
