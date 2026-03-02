@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Madvet — 1 Day Training</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   --forest:#1a3a2a; --forest-mid:#264d39; --forest-light:#3d7a57;
@@ -15,6 +15,7 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden;}
 html{overflow-x:hidden;max-width:100%;}
+.hindi{font-family:'Noto Sans Devanagari',sans-serif;}
 
 /* HEADER */
 header{background:var(--forest);padding:12px 16px;display:flex;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.25);flex-wrap:wrap;min-width:0;}
@@ -344,17 +345,25 @@ const T = {
   }
 };
 
-function t(key) { return T[LANG][key] || T['en'][key] || key; }
+function t(key) { 
+  const text = T[LANG][key] || T['en'][key] || key;
+  return LANG === 'hi' && /[\u0900-\u097F]/.test(text) ? `<span class="hindi">${text}</span>` : text;
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = typeof text === 'string' ? text : text;
+}
 
 function setLang(l) {
   LANG = l;
   store.set('mdv_lang', l);
   document.getElementById('btnEN').classList.toggle('active', l==='en');
   document.getElementById('btnHI').classList.toggle('active', l==='hi');
-  document.getElementById('hdrTitle').textContent  = t('hdrTitle');
-  document.getElementById('hdrSub').textContent    = t('hdrSub');
-  document.getElementById('prodLink').textContent  = t('prodLink');
-  document.getElementById('progressLabel').textContent = t('progressLabel');
+  setText('hdrTitle', t('hdrTitle'));
+  setText('hdrSub', t('hdrSub'));
+  setText('prodLink', t('prodLink'));
+  setText('progressLabel', t('progressLabel'));
   // Re-render current view
   if (document.getElementById('homeScreen').style.display !== 'none' ||
       !document.getElementById('homeScreen').style.display) {
@@ -501,13 +510,13 @@ function getSessionProducts(sess) {
 // ── HOME ──────────────────────────────────────────────────────────────────────
 function renderHome() {
   // Update static text
-  document.getElementById('homeTitle').textContent = t('homeTitle');
+  setText('homeTitle', t('homeTitle'));
   // Dynamic count — computed at render time so it reflects actual loaded products
   const prodCount = ALL_PRODUCTS.length;
   const sessCount = PLAN.length;
   const subEN = `${prodCount} products · ${sessCount} sessions · Learn → Quiz → Done ✓`;
-  const subHI = `${prodCount} products · ${sessCount} sessions · पढ़ो → Quiz → Done ✓`;
-  document.getElementById('homeSub').textContent = LANG === 'hi' ? subHI : subEN;
+  const subHI = `${prodCount} products · ${sessCount} sessions · <span class="hindi">पढ़ो</span> → Quiz → Done ✓`;
+  setText('homeSub', LANG === 'hi' ? subHI : subEN);
   updateTopProgress();
 
   const list = document.getElementById('sessionList');
