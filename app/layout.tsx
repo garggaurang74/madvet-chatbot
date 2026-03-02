@@ -6,6 +6,7 @@ const notoSans = Noto_Sans({
   subsets: ['latin', 'devanagari'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-noto-sans',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
