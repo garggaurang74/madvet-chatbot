@@ -28,6 +28,11 @@ const nextConfig = {
       source: '/api/(.*)', 
       headers: [{ key: 'Cache-Control', value: 'public, max-age=60, stale-while-revalidate=30' }] 
     },
+    // Image proxy - medium cache
+    { 
+      source: '/api/images/proxy', 
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=3600' }] 
+    },
     // Share cards - medium cache
     { 
       source: '/api/share-card/(.*)', 

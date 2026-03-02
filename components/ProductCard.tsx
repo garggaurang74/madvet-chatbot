@@ -14,6 +14,19 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
   const species     = product.species
   const benefits    = product.usp_benefits
   const description = product.description
+  const imageUrl    = product.image_url
+
+  // Use proxy for Supabase images to avoid CORS issues
+  const getProxyUrl = (url: string) => {
+    if (!url) return url
+    if (url.includes('pzijwpqaadhdfcjjtobf.supabase.co')) {
+      const imagePath = url.replace('https://pzijwpqaadhdfcjjtobf.supabase.co/storage/v1/object/public/', '')
+      return `/api/images/proxy?path=${encodeURIComponent(imagePath)}`
+    }
+    return url
+  }
+
+  const proxyImageUrl = getProxyUrl(imageUrl || '')
 
   // Trim indication to first clean chunk only — avoid keyword dumps
   const rawIndication = product.indication ?? ''
@@ -41,10 +54,10 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
     }`}>
 
       {/* Product Image */}
-      {product.image_url && (
+      {imageUrl && (
         <div className="w-full overflow-hidden" style={{ background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', aspectRatio:'1/1', maxHeight: 220 }}>
           <img
-            src={product.image_url}
+            src={proxyImageUrl}
             alt={name}
             className="w-full h-full object-contain transition-opacity duration-300"
             style={{ padding: '8px' }}
@@ -52,10 +65,16 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
             decoding="async"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             onError={(e) => {
+              console.log('[ProductCard] Image failed to load via proxy, trying direct URL:', imageUrl)
               const img = e.target as HTMLImageElement
-              img.style.display = 'none'
-              const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
-              if (placeholder) placeholder.style.display = 'flex'
+              // Fallback to direct URL if proxy fails
+              if (img.src !== imageUrl) {
+                img.src = imageUrl
+              } else {
+                img.style.display = 'none'
+                const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
+                if (placeholder) placeholder.style.display = 'flex'
+              }
             }}
             onLoad={(e) => {
               const img = e.target as HTMLImageElement
