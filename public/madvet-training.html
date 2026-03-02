@@ -16,6 +16,8 @@
 body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden;}
 html{overflow-x:hidden;max-width:100%;}
 .hindi{font-family:'Noto Sans Devanagari',sans-serif;}
+.header-text{font-family:'DM Sans',sans-serif;}
+.header-text.hindi{font-family:'Noto Sans Devanagari',sans-serif;}
 
 /* HEADER */
 header{background:var(--forest);padding:12px 16px;display:flex;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.25);flex-wrap:wrap;min-width:0;}
@@ -196,15 +198,15 @@ header p{color:rgba(245,240,232,.5);font-size:11px;margin-top:1px;}
 <header>
   <img src="/madvet-icon.png" alt="Madvet" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;" />
   <div>
-    <h1 id="hdrTitle">Madvet Training</h1>
-    <p id="hdrSub">Complete 1-Day Program</p>
+    <h1 id="hdrTitle" class="header-text">Madvet Training</h1>
+    <p id="hdrSub" class="header-text">Complete 1-Day Program</p>
   </div>
   <div class="hdr-right">
     <div class="lang-toggle">
       <button class="lang-btn active" id="btnEN" onclick="setLang('en')">EN</button>
       <button class="lang-btn" id="btnHI" onclick="setLang('hi')">हिंदी</button>
     </div>
-    <a href="/products" style="text-decoration:none;padding:6px 14px;border:1px solid rgba(200,169,110,0.3);border-radius:6px;color:rgba(245,240,232,0.7);font-size:12px;font-weight:500;" id="prodLink">← Products</a>
+    <a href="/products" style="text-decoration:none;padding:6px 14px;border:1px solid rgba(200,169,110,0.3);border-radius:6px;color:rgba(245,240,232,0.7);font-size:12px;font-weight:500;" id="prodLink" class="header-text">← Products</a>
     <div class="day-badge" id="dayBadge">📅 Day 1</div>
   </div>
 </header>
@@ -352,7 +354,13 @@ function t(key) {
 
 function setText(id, text) {
   const el = document.getElementById(id);
-  if (el) el.innerHTML = typeof text === 'string' ? text : text;
+  if (el) {
+    el.innerHTML = typeof text === 'string' ? text : text;
+    // Add/remove hindi class for header elements
+    if (['hdrTitle', 'hdrSub', 'prodLink'].includes(id)) {
+      el.classList.toggle('hindi', LANG === 'hi' && /[\u0900-\u097F]/.test(text));
+    }
+  }
 }
 
 function setLang(l) {
