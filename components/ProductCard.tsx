@@ -32,8 +32,7 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
     return url
   }
 
-  // TEMP: Disable proxy for testing - use direct URLs
-  const proxyImageUrl = imageUrl || ''
+  const proxyImageUrl = getProxyUrl(imageUrl || '')
 
   // Trim indication to first clean chunk only — avoid keyword dumps
   const rawIndication = product.indication ?? ''
@@ -77,11 +76,25 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
               img.style.opacity = '1'
             }}
             onError={(e) => {
-              console.log('[ProductCard] Image failed to load:', imageUrl, e)
+              console.log('[ProductCard] Image failed to load:', proxyImageUrl, e)
               const img = e.target as HTMLImageElement
-              img.style.display = 'none'
-              const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
-              if (placeholder) placeholder.style.display = 'flex'
+              
+              // First fallback: try direct URL if proxy failed
+              if (img.src !== imageUrl) {
+                console.log('[ProductCard] Trying direct URL fallback:', imageUrl)
+                img.src = imageUrl
+                img.onerror = () => {
+                  console.log('[ProductCard] Direct URL also failed, showing placeholder')
+                  img.style.display = 'none'
+                  const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
+                  if (placeholder) placeholder.style.display = 'flex'
+                }
+              } else {
+                console.log('[ProductCard] Showing placeholder')
+                img.style.display = 'none'
+                const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
+                if (placeholder) placeholder.style.display = 'flex'
+              }
             }}
           />
           <div className="img-placeholder" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🐄</div>
