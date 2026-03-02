@@ -933,6 +933,11 @@ setLang(LANG);
   const list = document.getElementById('sessionList');
   if (list) list.innerHTML = '<div style="padding:40px;text-align:center;color:#5a7060;font-family:DM Sans,sans-serif;"><div style="font-size:32px;margin-bottom:12px;">⏳</div><div style="font-size:14px;">Loading products...</div></div>';
 })();
+// Show spinner while products load
+(function(){
+  var list = document.getElementById('sessionList');
+  if(list) list.innerHTML = '<div style="padding:60px 20px;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">⏳</div><div style="font-size:15px;color:#5a7060;font-family:DM Sans,sans-serif;font-weight:500;">Loading products...</div><div style="font-size:12px;color:#aaa;margin-top:8px;">This takes a few seconds on first load</div></div>';
+})();
 loadProducts();
 </script>
 </body>
