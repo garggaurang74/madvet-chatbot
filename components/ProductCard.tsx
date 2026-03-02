@@ -18,11 +18,17 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
 
   // Use proxy for Supabase images to avoid CORS issues
   const getProxyUrl = (url: string) => {
-    if (!url) return url
+    if (!url) {
+      console.log('[ProductCard] No image URL provided')
+      return url
+    }
     if (url.includes('pzijwpqaadhdfcjjtobf.supabase.co')) {
       const imagePath = url.replace('https://pzijwpqaadhdfcjjtobf.supabase.co/storage/v1/object/public/', '')
-      return `/api/images/proxy?path=${encodeURIComponent(imagePath)}`
+      const proxyUrl = `/api/images/proxy?path=${encodeURIComponent(imagePath)}`
+      console.log('[ProductCard] Using proxy URL:', proxyUrl, 'for image:', imagePath)
+      return proxyUrl
     }
+    console.log('[ProductCard] Using direct URL:', url)
     return url
   }
 
@@ -60,25 +66,33 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
             src={proxyImageUrl}
             alt={name}
             className="w-full h-full object-contain transition-opacity duration-300"
-            style={{ padding: '8px' }}
+            style={{ padding: '8px', opacity: 0 }}
             loading="lazy"
             decoding="async"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            onError={(e) => {
-              console.log('[ProductCard] Image failed to load via proxy, trying direct URL:', imageUrl)
+            onLoad={(e) => {
+              console.log('[ProductCard] Image loaded successfully:', proxyImageUrl)
               const img = e.target as HTMLImageElement
-              // Fallback to direct URL if proxy fails
+              img.style.opacity = '1'
+            }}
+            onError={(e) => {
+              const img = e.target as HTMLImageElement
+              console.log('[ProductCard] Proxy failed, trying direct URL:', imageUrl)
+              
+              // First fallback: try direct URL
               if (img.src !== imageUrl) {
                 img.src = imageUrl
+                img.onerror = () => {
+                  console.log('[ProductCard] Direct URL also failed, showing placeholder')
+                  img.style.display = 'none'
+                  const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
+                  if (placeholder) placeholder.style.display = 'flex'
+                }
               } else {
                 img.style.display = 'none'
                 const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
                 if (placeholder) placeholder.style.display = 'flex'
               }
-            }}
-            onLoad={(e) => {
-              const img = e.target as HTMLImageElement
-              img.style.opacity = '1'
             }}
           />
           <div className="img-placeholder" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🐄</div>
