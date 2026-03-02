@@ -599,6 +599,7 @@ export async function GET(_req, { params }) {
 
   const c          = getColors(id, category)
   const productImg = await imgURI(p.image_url)
+  const logoImg    = await imgURI('https://ai.madvet.in/madvet-icon.png')
   const tmpl       = getTemplate(category)
   const CardMap    = { vitality:CardVitality, digest:CardDigest, herbal:CardHerbal, shield:CardShield, clinical:CardClinical }
   const CardComp   = CardMap[tmpl]||CardClinical
@@ -606,13 +607,22 @@ export async function GET(_req, { params }) {
   const numBenefits = Math.min(splitBenefitsSafe(p.usp_benefits_hi,p.benefits).length+1, 7)
   const height      = Math.min(900, Math.max(640, 220 + numBenefits*46 + 280))
 
+  console.log('[share-card] attempting render', { fontsLoaded: FONTS?.length, hasProductImg: !!productImg, hasLogoImg: !!logoImg, height, tmpl })
+
   try {
     return new ImageResponse(
-      <CardComp p={p} c={c} productImg={productImg} />,
-      { width:480, height, fonts: FONTS }
+      <CardComp p={p} c={c} productImg={productImg} logoImg={logoImg} />,
+      { width: 480, height, fonts: FONTS }
     )
   } catch(err) {
-    console.error('[share-card] render error:', String(err?.message||err))
-    return new Response('Render error: '+String(err?.message||err).slice(0,200), { status:500 })
+    console.error('[share-card] RENDER FAILED:', JSON.stringify({
+      message: String(err?.message || err),
+      fontsLoaded: FONTS?.length,
+      productImg: !!productImg,
+      logoImg: !!logoImg,
+      template: tmpl,
+      height,
+    }))
+    return new Response('Error: ' + String(err?.message || err), { status: 500 })
   }
 }
