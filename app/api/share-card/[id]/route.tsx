@@ -122,10 +122,33 @@ export async function GET(_req, { params }) {
   const productImg = await imgURI(p.image_url)
   const nb = Math.min(splitBSafe(p.usp_benefits_hi, p.benefits).length, 6)
   const height = Math.min(1600, Math.max(900, 300 + nb * 72 + 320))
+  
+  console.log('[share-card] Generating card:', { 
+    id, 
+    width: 1200, 
+    calculatedHeight: height,
+    hasProductImg: !!productImg,
+    hasLogoImg: !!logoImg,
+    productName: p.name,
+    imageUrl: p.image_url
+  })
+  
   try {
-    return new ImageResponse(<Card p={p} c={c} productImg={productImg} logoImg={logoImg}/>, { width: 1200, height })
+    const response = new ImageResponse(<Card p={p} c={c} productImg={productImg} logoImg={logoImg}/>, { width: 1200, height })
+    console.log('[share-card] ImageResponse created successfully')
+    return response
   } catch (err) {
-    console.error('[share-card]', String(err?.message || err))
+    console.error('[share-card] RENDER FAILED:', {
+      message: String(err?.message || err),
+      stack: err?.stack,
+      fontsLoaded: FONTS?.length,
+      hasProductImg: !!productImg,
+      hasLogoImg: !!logoImg,
+      width: 1200,
+      height,
+      productName: p.name,
+      imageUrl: p.image_url
+    })
     return new Response('Error: ' + String(err?.message || err).slice(0, 200), { status: 500 })
   }
 }
