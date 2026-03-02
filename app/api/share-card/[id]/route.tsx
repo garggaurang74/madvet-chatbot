@@ -120,6 +120,9 @@ export async function GET(_req, { params }) {
   const p = { id, name:(data.product_name||'').trim(), salt:(data.salt_ingredient||'').trim(), packaging:(data.packaging||'').trim(), formulation:(data.formulation||'').trim(), category, species:(data.species||'').trim(), indication:(data.indication||'').trim(), description:(data.description||'').trim(), benefits:(data.usp_benefits||'').trim(), usp_benefits_hi:(data.usp_benefits_hi||'').trim(), image_url:(data.image_url||'').trim() }
   const c = getColors(id, category)
   const productImg = await imgURI(p.image_url)
+  console.log('[share-card] FONTS array length:', FONTS?.length)
+console.log('[share-card] Font details:', FONTS?.map(f => ({ name: f.name, weight: f.weight, hasData: !!f.data })))
+  
   const nb = Math.min(splitBSafe(p.usp_benefits_hi, p.benefits).length, 6)
   const height = Math.min(1600, Math.max(900, 300 + nb * 72 + 320))
   
@@ -130,11 +133,11 @@ export async function GET(_req, { params }) {
     hasProductImg: !!productImg,
     hasLogoImg: !!logoImg,
     productName: p.name,
-    imageUrl: p.image_url
+    productImageUrl: p.image_url
   })
   
   try {
-    const response = new ImageResponse(<Card p={p} c={c} productImg={productImg} logoImg={logoImg}/>, { width: 1200, height })
+    const response = new ImageResponse(<Card p={p} c={c} productImg={productImg} logoImg={logoImg}/>, { width: 1200, height, fonts: FONTS })
     console.log('[share-card] ImageResponse created successfully')
     return response
   } catch (err) {
@@ -147,7 +150,7 @@ export async function GET(_req, { params }) {
       width: 1200,
       height,
       productName: p.name,
-      imageUrl: p.image_url
+      productImageUrl: p.image_url
     })
     return new Response('Error: ' + String(err?.message || err).slice(0, 200), { status: 500 })
   }

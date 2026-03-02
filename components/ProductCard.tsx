@@ -66,7 +66,7 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
             src={proxyImageUrl}
             alt={name}
             className="w-full h-full object-contain transition-opacity duration-300"
-            style={{ padding: '8px', opacity: 0 }}
+            style={{ padding: '8px' }}
             loading="lazy"
             decoding="async"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -76,54 +76,11 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
               img.style.opacity = '1'
             }}
             onError={(e) => {
-              console.log('[ProductCard] Image failed to load:', proxyImageUrl, 'Error:', e)
+              console.log('[ProductCard] Image failed to load:', proxyImageUrl, e)
               const img = e.target as HTMLImageElement
-              
-              // Try multiple fallback strategies
-              const tryDirect = () => {
-                console.log('[ProductCard] Trying direct URL fallback:', imageUrl)
-                img.src = imageUrl
-              }
-              
-              const tryDataUrl = () => {
-                if (imageUrl && imageUrl.includes('supabase.co')) {
-                  // Try removing query parameters if any
-                  const cleanUrl = imageUrl.split('?')[0]
-                  console.log('[ProductCard] Trying clean URL:', cleanUrl)
-                  img.src = cleanUrl
-                }
-              }
-              
-              const tryProxyAgain = () => {
-                console.log('[ProductCard] Trying proxy again with timestamp:')
-                const timestampedUrl = `${proxyImageUrl}&t=${Date.now()}`
-                img.src = timestampedUrl
-              }
-              
-              // Sequential fallback attempts
-              setTimeout(() => {
-                tryDirect()
-                setTimeout(() => {
-                  if (img.src !== imageUrl) {
-                    tryDataUrl()
-                  }
-                }, 2000)
-                setTimeout(() => {
-                  if (img.src !== imageUrl && !img.src.includes('?t=')) {
-                    tryProxyAgain()
-                  }
-                }, 4000)
-              }, 100)
-              
-              // Final fallback after all attempts
-              setTimeout(() => {
-                if (img.src !== imageUrl && img.style.display !== 'none') {
-                  console.log('[ProductCard] All attempts failed, showing placeholder')
-                  img.style.display = 'none'
-                  const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
-                  if (placeholder) placeholder.style.display = 'flex'
-                }
-              }, 8000)
+              img.style.display = 'none'
+              const placeholder = img.parentElement!.querySelector('.img-placeholder') as HTMLElement | null
+              if (placeholder) placeholder.style.display = 'flex'
             }}
           />
           <div className="img-placeholder" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🐄</div>
