@@ -1,23 +1,5 @@
 import type { Metadata } from 'next'
-import { DM_Serif_Display, DM_Sans } from 'next/font/google'
 import './globals.css'
-
-// next/font self-hosts these at build time — no external network request,
-// no render-blocking stylesheet, font-display:swap is automatic.
-const dmSerif = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: ['400'],
-  style: ['normal', 'italic'],
-  display: 'swap',
-  variable: '--font-dm-serif',
-})
-
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-dm-sans',
-})
 
 export const metadata: Metadata = {
   title: 'Madvet Animal Healthcare',
@@ -25,14 +7,21 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Applying both variables to <html> injects @font-face rules globally,
-  // so inline styles like font-family:"'DM Serif Display', serif" resolve correctly.
   return (
-    <html lang="en" className={`${dmSerif.variable} ${dmSans.variable}`}>
+    <html lang="en">
       <head>
+        {/* Supabase image CDN */}
         <link rel="dns-prefetch" href="https://pzijwpqaadhdfcjjtobf.supabase.co" />
+
+        {/* Fonts — preconnect first, then the stylesheet */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
-      <body className={dmSans.className}>{children}</body>
+      <body>{children}</body>
     </html>
   )
 }
