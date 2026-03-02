@@ -228,7 +228,7 @@ function TemplateVitality({ p, c }) {
   const nameSz = p.name.length > 15 ? 38 : p.name.length > 11 ? 50 : p.name.length > 8 ? 60 : 72;
 
   return (
-    <div style={{ width: 480, background: "#fff", overflow: "hidden", fontFamily: "'Barlow Condensed',sans-serif", boxShadow: "0 24px 80px rgba(0,0,0,0.3)" }}>
+    <div style={{ width: 1200, background: "#fff", overflow: "hidden", fontFamily: "'Barlow Condensed',sans-serif", boxShadow: "0 24px 80px rgba(0,0,0,0.3)" }}>
       {/* HERO */}
       <div style={{ position: "relative", overflow: "hidden", background: `linear-gradient(140deg, ${c.darkest} 0%, ${c.primary} 50%, ${c.mid} 100%)`, padding: "18px 20px 0" }}>
         <div style={{ position: "absolute", inset: 0, opacity: 0.05, backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`, backgroundSize: "180px" }} />
@@ -436,7 +436,7 @@ function TemplateShield({ p, c }) {
   const hi = splitBenefits(p.usp_benefits_hi || p.usp_benefits);
   const en = splitBenefits(p.usp_benefits);
   return (
-    <div style={{ width: 480, background: "#fff", overflow: "hidden", fontFamily: "'Barlow Condensed',sans-serif", boxShadow: "0 24px 80px rgba(0,0,0,0.3)" }}>
+    <div style={{ width: 1200, background: "#fff", overflow: "hidden", fontFamily: "'Barlow Condensed',sans-serif", boxShadow: "0 24px 80px rgba(0,0,0,0.3)" }}>
       <div style={{ background: `linear-gradient(125deg,${c.darkest} 0%,${c.primary} 100%)`, padding: "18px 20px 22px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "45%", background: `linear-gradient(135deg,transparent 35%,rgba(255,255,255,0.06) 100%)` }} />
         <div style={{ position: "absolute", bottom: -35, right: -35, width: 160, height: 160, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.10)" }} />
