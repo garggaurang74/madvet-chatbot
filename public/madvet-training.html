@@ -457,9 +457,7 @@ async function loadProducts() {
       formulation: (r.formulation || guessForm(r.packaging||'')).trim(),
       species: (r.species||'').trim(),
       packaging: (r.packaging||'').trim(),
-      // English uses only — no Hindi in use tags
       uses: (r.indication||'').split(',').map(s=>s.trim()).filter(s=>s.length>3 && !/[\u0900-\u097F]/.test(s)).slice(0,4),
-      // Hindi uses — only Hindi/Hinglish terms
       usesHi: (r.indication||'').split(',').map(s=>s.trim()).filter(s=>s.length>2 && /[\u0900-\u097F]/.test(s)).slice(0,4),
       description: (r.description||'').trim(),
       description_hi: (r.description_hi||'').trim(),
@@ -468,11 +466,26 @@ async function loadProducts() {
       video_url: (r.video_url||'').trim(),
       image_url: (r.image_url||'').trim(),
     }));
+    try { buildDynamicPlan(); } catch(e) { PLAN = [...BASE_PLAN]; }
+    try { renderHome(); } catch(e) { console.error('Render failed:', e); }
   } catch(e) {
-    console.warn('Product load failed — demo mode:', e.message || e);
+    console.error('Product load failed:', e.message || e);
+    // Show a visible error with retry button instead of silently showing broken UI
+    const list = document.getElementById('sessionList');
+    if (list) list.innerHTML = `
+      <div style="padding:40px 20px;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+        <div style="font-size:15px;font-weight:600;color:#1a3a2a;margin-bottom:8px;">Failed to load products</div>
+        <div style="font-size:13px;color:#5a7060;margin-bottom:20px;">Check your internet connection and try again.</div>
+        <button onclick="retryLoad()" style="padding:10px 24px;background:#1a3a2a;color:#f5f0e8;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">🔄 Retry</button>
+      </div>`;
   }
-  try { buildDynamicPlan(); } catch(e) { PLAN = [...BASE_PLAN]; console.warn('Plan build failed:', e); }
-  try { renderHome(); } catch(e) { console.error('Render failed:', e); }
+}
+
+function retryLoad() {
+  const list = document.getElementById('sessionList');
+  if (list) list.innerHTML = '<div style="padding:60px 20px;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">⏳</div><div style="font-size:15px;color:#5a7060;font-family:\'DM Sans\',sans-serif;font-weight:500;">Loading products...</div></div>';
+  loadProducts();
 }
 
 function guessForm(pkg) {
@@ -499,7 +512,7 @@ function renderHome() {
   // Update static text
   document.getElementById('homeTitle').textContent = t('homeTitle');
   // Dynamic count — computed at render time so it reflects actual loaded products
-  const prodCount = ALL_PRODUCTS.length || 89;
+  const prodCount = ALL_PRODUCTS.length;
   const sessCount = PLAN.length;
   const subEN = `${prodCount} products · ${sessCount} sessions · Learn → Quiz → Done ✓`;
   const subHI = `${prodCount} products · ${sessCount} sessions · पढ़ो → Quiz → Done ✓`;
@@ -581,10 +594,15 @@ function updateTopProgress() {
 
 // ── SESSION START ─────────────────────────────────────────────────────────────
 function startSession(sessId) {
-  // Guard: don't start if products haven't loaded yet
+  // Guard: products haven't loaded yet — show visible feedback on the button
   if (ALL_PRODUCTS.length === 0) {
-    const btn = document.querySelector('.session-card[data-id="'+sessId+'"] .start-btn');
-    if (btn) { const orig = btn.textContent; btn.textContent = '⏳ Loading...'; setTimeout(()=>{ btn.textContent = orig; }, 2000); }
+    // Find the clicked start button by iterating all start buttons
+    const allBtns = document.querySelectorAll('.start-btn');
+    allBtns.forEach(btn => {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ Loading...';
+      setTimeout(() => { btn.textContent = orig; }, 2500);
+    });
     return;
   }
   const prods = getSessionProducts(PLAN.find(s=>s.id===sessId)||{cats:[]});
@@ -647,7 +665,7 @@ function renderLearn() {
         <div class="form-badge">${p.formulation||p.packaging}</div>
       </div>
       <div class="lc-name">${p.name}</div>
-      ${p.image_url?`<div style="width:100%;max-width:180px;margin:10px auto;background:#f5f0e8;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #e8dfc8;height:160px;"><img src="${p.image_url.includes('supabase') ? p.image_url+'?width=300&quality=80' : p.image_url}" alt="${p.name}" style="max-width:100%;max-height:155px;object-fit:contain;padding:8px;" onerror="if(!this.dataset.r){this.dataset.r=1;this.src=this.src.split('?')[0];}else if(this.dataset.r==='1'){this.dataset.r='2';this.src=this.src+'?v=2';}else{this.parentElement.style.display='none';}"></div>`:''}
+      ${p.image_url?`<div style="width:100%;max-width:180px;margin:10px auto;background:#f5f0e8;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #e8dfc8;height:160px;"><img src="${p.image_url}" alt="${p.name}" style="max-width:100%;max-height:155px;object-fit:contain;padding:8px;" onerror="this.parentElement.style.display='none';"></div>`:''}
       <div class="lc-salt"><span>${saltLabel}</span> ${p.salt||'—'}</div>
       ${p.description?`
         <div class="lc-section">
@@ -806,7 +824,7 @@ function renderQuiz() {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${options.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o.name)}','${escQ(p.name)}')">${o.name}</button>`).join('')}
+        ${options.map(o=>`<button class="opt" ${o.name===p.name?'data-correct="1"':''} onclick="checkOpt(this,'${escQ(o.name)}','${escQ(p.name)}')">${o.name}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -830,7 +848,7 @@ function renderFormQuiz(question, hint, formOpts, correctForm) {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${formOpts.map(f=>`<button class="opt" onclick="checkOpt(this,'${f}','${correctForm}')">${f}</button>`).join('')}
+        ${formOpts.map(f=>`<button class="opt" ${f===correctForm?'data-correct="1"':''} onclick="checkOpt(this,'${f}','${correctForm}')">${f}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -845,7 +863,7 @@ function renderSpeciesQuiz(question, hint, opts, correct) {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${opts.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
+        ${opts.map(o=>`<button class="opt" ${o===correct?'data-correct="1"':''} onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -860,7 +878,7 @@ function renderCatQuiz(question, hint, opts, correct) {
       <div class="quiz-question">${question}</div>
       <div class="quiz-hint">${hint}</div>
       <div class="options">
-        ${opts.map(o=>`<button class="opt" onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
+        ${opts.map(o=>`<button class="opt" ${o===correct?'data-correct="1"':''} onclick="checkOpt(this,'${escQ(o)}','${escQ(correct)}')">${o}</button>`).join('')}
       </div>
       <button class="quiz-next-btn" id="qNext" onclick="nextQuiz()">${quizIdx<quizQ.length-1?t('nextQ'):t('finishSess')}</button>
     </div>
@@ -874,7 +892,7 @@ function checkOpt(btn, chosen, correct) {
   quizAnswered = true;
   document.querySelectorAll('.opt').forEach(b => {
     b.disabled = true;
-    if (b.textContent.trim()===correct) b.classList.add(chosen===correct?'correct':'reveal');
+    if (b.dataset.correct === '1') b.classList.add(chosen===correct?'correct':'reveal');
   });
   if (chosen===correct) { btn.classList.add('correct'); quizCorrect++; }
   else btn.classList.add('wrong');
