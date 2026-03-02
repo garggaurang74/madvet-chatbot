@@ -1,3 +1,12 @@
+#!/bin/bash
+# Run from project root: bash fix.sh
+set -e
+
+echo "🔧 Starting fixes..."
+
+# ── 1. SHARE CARD ─────────────────────────────────────────────────────────────
+mkdir -p "app/api/share-card/[id]"
+cat > "app/api/share-card/[id]/route.tsx" << 'ENDROUTE'
 // @ts-nocheck
 import React from 'react'
 import { ImageResponse } from 'next/og'
@@ -129,3 +138,112 @@ export async function GET(_req, { params }) {
     return new Response('Error: ' + String(err?.message || err).slice(0, 200), { status: 500 })
   }
 }
+ENDROUTE
+echo "✅ route.tsx written"
+
+# ── 2. LAYOUT ─────────────────────────────────────────────────────────────────
+cat > app/layout.tsx << 'ENDLAYOUT'
+import type { Metadata } from 'next'
+import './globals.css'
+
+export const metadata: Metadata = {
+  title: 'Madvet Animal Healthcare',
+  description: 'AI-powered veterinary product assistant',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <link rel="dns-prefetch" href="https://pzijwpqaadhdfcjjtobf.supabase.co" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
+      <body>{children}</body>
+    </html>
+  )
+}
+ENDLAYOUT
+echo "✅ layout.tsx written"
+
+# ── 3. NEXT.CONFIG.JS ─────────────────────────────────────────────────────────
+cat > next.config.js << 'ENDCONFIG'
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  compress: true,
+  poweredByHeader: false,
+  experimental: { optimizeCss: true },
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: 'pzijwpqaadhdfcjjtobf.supabase.co', pathname: '/storage/v1/object/public/**' }],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 3600,
+  },
+  headers: async () => [
+    { source: '/_next/static/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+    { source: '/api/share-card/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=3600' }] },
+  ],
+}
+module.exports = nextConfig
+ENDCONFIG
+echo "✅ next.config.js written"
+
+# ── 4. FIX PRODUCTS CLIENT - remove duplicate font import ─────────────────────
+sed -i "s|@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');|/* Fonts loaded in layout.tsx */|g" app/products/ProductsClient.tsx
+echo "✅ ProductsClient.tsx - duplicate font import removed"
+
+# ── 5. FIX TRAINING HTML ──────────────────────────────────────────────────────
+# Guard startSession against empty products
+node << 'ENDNODE'
+const fs = require('fs')
+let c = fs.readFileSync('public/madvet-training.html', 'utf8')
+
+// Add loading spinner before loadProducts()
+c = c.replace(
+  'loadProducts();',
+  `(function(){var l=document.getElementById('sessionList');if(l)l.innerHTML='<div style="padding:60px 20px;text-align:center;font-family:sans-serif;"><div style="font-size:36px;margin-bottom:12px;">⏳</div><div style="font-size:15px;color:#5a7060;">Loading products...</div><div style="font-size:12px;color:#aaa;margin-top:8px;">Takes a few seconds on first load</div></div>';})();
+loadProducts();`
+)
+
+// Guard startSession
+c = c.replace(
+  'function startSession(sessId) {\n  currentSess  = PLAN.find(s=>s.id===sessId);',
+  `function startSession(sessId) {
+  if(ALL_PRODUCTS.length===0){alert('Still loading. Please wait a moment and try again.');return;}
+  var sess=PLAN.find(s=>s.id===sessId);
+  if(!sess||getSessionProducts(sess).length===0){alert('No products for this session. Please refresh.');return;}
+  currentSess  = PLAN.find(s=>s.id===sessId);`
+)
+
+// Guard renderLearn
+c = c.replace(
+  "  const p     = prods[learnIdx];\n  const color = CAT_COLORS[p.category]||'#94a3b8';",
+  `  var p=prods[learnIdx];
+  if(!p){document.getElementById('studyContent').innerHTML='<div style="padding:60px;text-align:center;color:#888;">⏳ Loading...</div>';return;}
+  const color=CAT_COLORS[p.category]||'#94a3b8';`
+)
+
+// Fix image src - add supabase transform
+c = c.replace(
+  /src="\$\{p\.image_url\}" alt="\$\{p\.name\}" style="max-width:100%;max-height:155px/g,
+  `src="\${p.image_url&&p.image_url.includes('supabase')?p.image_url+'?width=300&quality=80':p.image_url}" alt="\${p.name}" style="max-width:100%;max-height:155px`
+)
+
+// Fix image error handler
+c = c.replace(
+  /onerror="if\(!this\.dataset\.r\)\{this\.dataset\.r=1;this\.src=this\.src\.split\('\\?'\)\[0\]\+'\\?t='\+Date\.now\(\);\}else\{this\.style\.display='none';\}"/g,
+  `onerror="if(!this.dataset.r){this.dataset.r='1';this.src=this.src.split('?')[0];}else{this.parentElement.style.display='none';}"`
+)
+
+fs.writeFileSync('public/madvet-training.html', c)
+console.log('✅ madvet-training.html fixed')
+ENDNODE
+
+# ── 6. COMMIT AND PUSH ────────────────────────────────────────────────────────
+git add .
+git commit -m "fix: share card, slow loading, images, training cards"
+git push
+
+echo ""
+echo "✅ ALL DONE - deploying to Vercel now (~1 min)"
+echo "   Share card: https://ai.madvet.in/api/share-card/7"

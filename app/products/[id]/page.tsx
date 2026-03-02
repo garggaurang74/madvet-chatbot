@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import type { Product } from '../types'
 import ProductDetailClient from './ProductDetailClient'
 
-export const revalidate = 60
+export const revalidate = 3600
 
 const CAT_NORMALIZE: Record<string, string> = {
   'Anti-inflammatory':                               'Anti-inflammatory / Analgesic',
