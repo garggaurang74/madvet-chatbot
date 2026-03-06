@@ -249,7 +249,6 @@ function TemplateVitality({ p, c }) {
             {hi[0] || "जानवरों के लिए सर्वश्रेष्ठ उत्पाद"}
           </div>
         </div>
-        </div>
         {/* Full-width name band */}
         <div style={{ position: "relative", marginTop: 10, marginLeft: -20, marginRight: -20, background: "rgba(0,0,0,0.28)", borderTop: `3px solid ${c.bright}`, borderBottom: `3px solid ${c.bright}`, padding: "10px 20px" }}>
           <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: nameSz, color: "#fff", letterSpacing: 2, lineHeight: 0.95, textShadow: `0 4px 24px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3)` }}>{p.name}</div>
