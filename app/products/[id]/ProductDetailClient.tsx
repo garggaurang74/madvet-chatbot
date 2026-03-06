@@ -681,9 +681,6 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const [errMsg, setErrMsg] = useState('')
   const [previewW, setPreviewW] = useState(0)
   const previewContainerRef = useRef<HTMLDivElement>(null)
-  // cardRef points to the hidden full-size card — this is what gets captured
-  const cardRef = useRef<HTMLDivElement>(null)
-
   const tmpl     = getTemplate(product.category)
   const c        = getShareColors(product.id, product.category)
   const CardComp = SHARE_CARD_TEMPLATES[tmpl]
@@ -735,40 +732,57 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   }
 
   const handleSave = async (shareIntent: boolean) => {
-    if (!cardRef.current) return
     setStatus('loading')
     setErrMsg('')
+    let container: HTMLDivElement | null = null
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const el = cardRef.current
-      // Wait for all fonts (Noto Sans Devanagari, Barlow Condensed, Oswald) to load.
-      // Without this, html2canvas captures before custom fonts are ready and falls back
-      // to system fonts with different metrics — causing text to shift down in the PNG.
+      const [html2canvas, { createRoot }] = await Promise.all([
+        import('html2canvas').then(m => m.default),
+        import('react-dom/client'),
+      ])
+
+      // Mount card directly on document.body — outside fixed/overflow containers.
+      // html2canvas position calculation breaks inside position:fixed modals.
+      container = document.createElement('div')
+      container.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;z-index:-1;pointer-events:none;'
+      document.body.appendChild(container)
+
+      const root = createRoot(container)
+      await new Promise<void>(resolve => {
+        root.render(<CardComp p={product} c={c} />)
+        // Two rAFs: first lets React commit, second lets the browser paint + load fonts
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
       await document.fonts.ready
+
+      const el = container.firstElementChild as HTMLElement
       const canvas = await html2canvas(el, {
-        height: el.scrollHeight,
-        windowHeight: el.scrollHeight,
         scale: 2,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false,
-        // Strip SVG data-URI background patterns in the cloned doc —
-        // html2canvas tries to fetch them as URLs and gets 404, crashing the capture.
+        width: 480,
+        height: el.scrollHeight,
+        windowWidth: 480,
+        windowHeight: el.scrollHeight,
+        x: 0,
+        y: 0,
         onclone: (clonedDoc: Document) => {
           clonedDoc.querySelectorAll<HTMLElement>('*').forEach(node => {
             const bg = node.style.backgroundImage
-            if (bg && bg.includes('data:image/svg')) {
-              node.style.backgroundImage = 'none'
-            }
+            if (bg && bg.includes('data:image/svg')) node.style.backgroundImage = 'none'
           })
         },
       })
-      if (canvas.width === 0 || canvas.height === 0) {
-        throw new Error('Canvas empty — try again')
-      }
+
+      root.unmount()
+      document.body.removeChild(container)
+      container = null
+
+      if (canvas.width === 0 || canvas.height === 0) throw new Error('Canvas empty — try again')
       const blob = await new Promise<Blob>((res, rej) =>
-        canvas.toBlob(b => (b && b.size > 500) ? res(b) : rej(new Error('0kb output — card not rendered')), 'image/png')
+        canvas.toBlob(b => (b && b.size > 500) ? res(b) : rej(new Error('0kb output')), 'image/png')
       )
       const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
       await saveBlob(blob, filename, shareIntent)
@@ -777,6 +791,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       setErrMsg(e?.message || 'Failed to generate image')
       setStatus('error')
     } finally {
+      if (container && document.body.contains(container)) document.body.removeChild(container)
       setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
     }
   }
@@ -788,13 +803,6 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.92)', overflowY: 'auto' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* Hidden full-size card inside viewport — html2canvas won't paint off-screen elements */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: 480, opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
-        <div ref={cardRef}>
-          <CardComp p={product} c={c} />
-        </div>
-      </div>
-
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 12px 40px' }}>
         <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
 
