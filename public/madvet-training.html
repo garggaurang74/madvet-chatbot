@@ -642,8 +642,8 @@ function renderLearn() {
   const prods = getSessionProducts(sess);
   const sessInfo = T[LANG].sess[sess.id] || { name: sess.cats.join(' & '), time: `Session ${sess.id+1}`, desc: '' };
 
-  document.getElementById('studyTitle').textContent    = sessInfo.name + t('studyLabel');
-  document.getElementById('studySubtitle').textContent = `${t('cardOf')} ${learnIdx+1} ${t('of')} ${prods.length}`;
+  document.getElementById('studyTitle').innerHTML      = sessInfo.name + t('studyLabel');
+  document.getElementById('studySubtitle').innerHTML   = `${t('cardOf')} ${learnIdx+1} ${t('of')} ${prods.length}`;
 
   const dots = document.getElementById('studyDots');
   dots.innerHTML = prods.slice(0, Math.min(prods.length,12)).map((_,i)=>
@@ -747,8 +747,8 @@ function startQuiz() {
   quizQ = buildQuizQuestions(shuffled, targetQ);
 
   const sessInfo = T[LANG].sess[sess.id] || { name: sess.cats.join(' & '), time: `Session ${sess.id+1}`, desc: '' };
-  document.getElementById('studyTitle').textContent    = sessInfo.name + t('quizLabel');
-  document.getElementById('studySubtitle').textContent = `${quizQ.length} ${t('questions')}`;
+  document.getElementById('studyTitle').innerHTML      = sessInfo.name + t('quizLabel');
+  document.getElementById('studySubtitle').innerHTML   = `${quizQ.length} ${t('questions')}`;
   renderQuiz();
 }
 
@@ -905,7 +905,7 @@ function checkOpt(btn, chosen, correct) {
   if (chosen===correct) { btn.classList.add('correct'); quizCorrect++; }
   else btn.classList.add('wrong');
   const nb = document.getElementById('qNext');
-  if (nb) { nb.style.display='block'; nb.textContent = quizIdx<quizQ.length-1 ? t('nextQ') : t('finishSess'); }
+  if (nb) { nb.style.display='block'; nb.innerHTML   = quizIdx<quizQ.length-1 ? t('nextQ') : t('finishSess'); }
 }
 
 function nextQuiz() { quizIdx++; renderQuiz(); }
@@ -926,7 +926,7 @@ function renderSessionComplete() {
   document.getElementById('studyDots').innerHTML='';
   const sessInfo = T[LANG].sess[sess.id] || { name: sess.cats.join(' & '), time: `Session ${sess.id+1}`, desc: '' };
   document.getElementById('studyTitle').textContent    = sessInfo.name;
-  document.getElementById('studySubtitle').textContent = LANG==='hi'?'Session पूरा':'Session complete';
+  document.getElementById('studySubtitle').innerHTML   = LANG==='hi'?'Session पूरा':'Session complete';
 
   document.getElementById('studyContent').innerHTML = `
     <div class="sess-complete">

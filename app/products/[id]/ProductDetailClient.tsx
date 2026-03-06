@@ -734,28 +734,41 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const handleSave = async (shareIntent: boolean) => {
     setStatus('loading')
     setErrMsg('')
-    let container: HTMLDivElement | null = null
+    let iframe: HTMLIFrameElement | null = null
     try {
       const [html2canvas, { createRoot }] = await Promise.all([
         import('html2canvas').then(m => m.default),
         import('react-dom/client'),
       ])
 
-      // Mount card directly on document.body — outside fixed/overflow containers.
-      // html2canvas position calculation breaks inside position:fixed modals.
-      container = document.createElement('div')
-      container.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;z-index:-1;pointer-events:none;'
-      document.body.appendChild(container)
+      // Render card inside a hidden iframe — completely isolated from main page styles,
+      // scroll position, and fixed/overflow ancestors that corrupt html2canvas positioning.
+      iframe = document.createElement('iframe')
+      iframe.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;height:800px;border:none;visibility:hidden;'
+      document.body.appendChild(iframe)
 
-      const root = createRoot(container)
+      const iframeDoc = iframe.contentDocument!
+      iframeDoc.open()
+      iframeDoc.write(`<!DOCTYPE html><html><head>
+        <style>*{margin:0;padding:0;box-sizing:border-box;}body{width:480px;}</style>
+        <link rel="stylesheet" href="/globals.css" />
+      </head><body><div id="card-root"></div></body></html>`)
+      iframeDoc.close()
+
+      const iframeWin = iframe.contentWindow!
+      const mountEl = iframeDoc.getElementById('card-root')!
+
+      const root = createRoot(mountEl)
       await new Promise<void>(resolve => {
         root.render(<CardComp p={product} c={c} />)
-        // Two rAFs: first lets React commit, second lets the browser paint + load fonts
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       })
-      await document.fonts.ready
+      await iframeWin.document.fonts.ready
 
-      const el = container.firstElementChild as HTMLElement
+      const el = mountEl.firstElementChild as HTMLElement
+      const h = el.scrollHeight
+      iframe.style.height = h + 'px'
+
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,
@@ -763,11 +776,9 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         backgroundColor: '#ffffff',
         logging: false,
         width: 480,
-        height: el.scrollHeight,
+        height: h,
         windowWidth: 480,
-        windowHeight: el.scrollHeight,
-        x: 0,
-        y: 0,
+        windowHeight: h,
         onclone: (clonedDoc: Document) => {
           clonedDoc.querySelectorAll<HTMLElement>('*').forEach(node => {
             const bg = node.style.backgroundImage
@@ -777,8 +788,8 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       })
 
       root.unmount()
-      document.body.removeChild(container)
-      container = null
+      document.body.removeChild(iframe)
+      iframe = null
 
       if (canvas.width === 0 || canvas.height === 0) throw new Error('Canvas empty — try again')
       const blob = await new Promise<Blob>((res, rej) =>
@@ -791,7 +802,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       setErrMsg(e?.message || 'Failed to generate image')
       setStatus('error')
     } finally {
-      if (container && document.body.contains(container)) document.body.removeChild(container)
+      if (iframe && document.body.contains(iframe)) document.body.removeChild(iframe)
       setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
     }
   }
