@@ -751,7 +751,9 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       iframeDoc.open()
       iframeDoc.write(`<!DOCTYPE html><html><head>
         <style>*{margin:0;padding:0;box-sizing:border-box;}body{width:480px;}</style>
-        <link rel="stylesheet" href="/globals.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Oswald:wght@400;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet" />
       </head><body><div id="card-root"></div></body></html>`)
       iframeDoc.close()
 
@@ -763,7 +765,10 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         root.render(<CardComp p={product} c={c} />)
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       })
+      // Wait for fonts inside the iframe to fully load
       await iframeWin.document.fonts.ready
+      // Extra wait for Noto Sans Devanagari which loads slower
+      await new Promise(r => setTimeout(r, 600))
 
       const el = mountEl.firstElementChild as HTMLElement
       const h = el.scrollHeight
