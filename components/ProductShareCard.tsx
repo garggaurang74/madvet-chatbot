@@ -246,8 +246,9 @@ function TemplateVitality({ p, c }) {
         <div style={{ position: "relative", marginTop: 14, display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 3, height: 32, background: "#FFE000", borderRadius: 2 }} />
           <div style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.92)", lineHeight: 1.3 }}>
-            {p.tagline_hi || hi[0] || "जानवरों के लिए सर्वश्रेष्ठ उत्पाद"}
+            {hi[0] || "जानवरों के लिए सर्वश्रेष्ठ उत्पाद"}
           </div>
+        </div>
         </div>
         {/* Full-width name band */}
         <div style={{ position: "relative", marginTop: 10, marginLeft: -20, marginRight: -20, background: "rgba(0,0,0,0.28)", borderTop: `3px solid ${c.bright}`, borderBottom: `3px solid ${c.bright}`, padding: "10px 20px" }}>
@@ -256,12 +257,14 @@ function TemplateVitality({ p, c }) {
         </div>
       </div>
 
-      {/* Gold tagline */}
-      <div style={{ margin: "-1px 0 0", padding: "8px 18px", background: `linear-gradient(90deg, #FFE000, #FFD000)` }}>
-        <div style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontWeight: 800, fontSize: 13.5, color: c.darkest }}>
-          {p.tagline_hi ? hi[0] || "" : hi[1] || ""}
+      {/* Gold strip — always shows hi[1], since hi[0] is already shown in the hero band above */}
+      {hi[1] && (
+        <div style={{ margin: "-1px 0 0", padding: "8px 18px", background: `linear-gradient(90deg, #FFE000, #FFD000)` }}>
+          <div style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontWeight: 800, fontSize: 13.5, color: c.darkest }}>
+            {hi[1]}
+          </div>
         </div>
-      </div>
+      )}
 
       <DescBar p={p} c={c} />
 
@@ -311,7 +314,7 @@ function TemplateDigest({ p, c }) {
       <div style={{ position: "relative", padding: "18px 20px 0", background: "#fff" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ flex: 1, paddingRight: 138 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#c8220a", fontFamily: "'Noto Sans Devanagari',sans-serif", lineHeight: 1.3, marginBottom: 5 }}>{p.tagline_hi || "असरदार पाचन सुधारक"}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#c8220a", fontFamily: "'Noto Sans Devanagari',sans-serif", lineHeight: 1.3, marginBottom: 5 }}>{hi[0] || "असरदार पाचन सुधारक"}</div>
             <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 12 ? 36 : p.name.length > 8 ? 48 : 58, color: c.primary, letterSpacing: 1.5, lineHeight: 1, textShadow: `3px 3px 0 ${c.dark}44` }}>{p.name}</div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 7 }}>
               <div style={{ background: c.pale, border: `1.5px solid ${c.primary}40`, borderRadius: 5, padding: "3px 10px" }}>
@@ -324,7 +327,7 @@ function TemplateDigest({ p, c }) {
             </div>
           </div>
           <div style={{ position: "absolute", top: 14, right: 14 }}>
-            <ImgBox url={p.image_url} w={130} h={130} c={c} emoji="💊" round />
+            <ImgBox url={p.image_url} w={130} h={130} c={c} emoji="💊" />
           </div>
         </div>
       </div>
@@ -386,7 +389,7 @@ function TemplateHerbal({ p, c }) {
         <div style={{ marginTop: 12, display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 14 ? 32 : p.name.length > 10 ? 44 : 52, lineHeight: 1, letterSpacing: 2, textShadow: "0 3px 16px rgba(0,0,0,0.35)" }}>
-              {p.name.split(/[-\s]/).map((w, i) => (<span key={i} style={{ color: i % 2 === 0 ? "#fff" : "#FFE000", marginRight: 4 }}>{w}</span>))}
+              {p.name.split(/\s+/).filter(Boolean).map((w, i) => (<span key={i} style={{ color: i % 2 === 0 ? "#fff" : "#FFE000", marginRight: 4 }}>{w}</span>))}
             </div>
             <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.72)", marginTop: 5, letterSpacing: 0.3 }}>{p.salt?.split(",")[0]?.trim()}</div>
           </div>
@@ -394,19 +397,20 @@ function TemplateHerbal({ p, c }) {
         </div>
         <div style={{ marginTop: 12, background: "rgba(255,255,255,0.13)", borderRadius: 7, padding: "7px 15px", border: "1px solid rgba(255,255,255,0.22)", display: "inline-flex", gap: 9, alignItems: "center" }}>
           <span style={{ fontSize: 16, lineHeight: 1 }}>🌱</span>
-          <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13.5, color: "#FFE000", fontWeight: 800 }}>{p.tagline_hi || hi[0]}</span>
+          <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13.5, color: "#FFE000", fontWeight: 800 }}>{hi[0]}</span>
         </div>
       </div>
+      <DescBar p={p} c={c} />
       <div style={{ padding: "14px 18px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <div style={{ width: 4, height: 16, background: c.primary, borderRadius: 2 }} />
           <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रमुख लाभ एवं उपयोग :</span>
           <div style={{ flex: 1, height: 1, background: `${c.primary}20` }} />
         </div>
-        <DescBar p={p} c={c} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 8 }}>
+        {/* flexbox wrap instead of CSS Grid — display:grid crashes Satori/next/og */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
           {hi.slice(0, 6).map((b, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, padding: "8px 11px", background: i < 2 ? c.pale : "#fafafa", borderRadius: 8, border: `1px solid ${i < 2 ? c.primary + "30" : "#eeeeee"}`, alignItems: "flex-start", boxShadow: i === 0 ? `2px 2px 10px ${c.glow}` : "none" }}>
+            <div key={i} style={{ display: "flex", gap: 8, padding: "8px 11px", background: i < 2 ? c.pale : "#fafafa", borderRadius: 8, border: `1px solid ${i < 2 ? c.primary + "30" : "#eeeeee"}`, alignItems: "flex-start", boxShadow: i === 0 ? `2px 2px 10px ${c.glow}` : "none", width: "46%", flexShrink: 0 }}>
               <span style={{ color: c.primary, fontSize: 14, fontWeight: 900, flexShrink: 0, lineHeight: 1.2 }}>►</span>
               <div>
                 <p style={{ margin: 0, fontSize: 11.5, fontFamily: "'Noto Sans Devanagari',sans-serif", color: "#1e1e1e", lineHeight: 1.35, fontWeight: 600 }}>{b}</p>
@@ -453,7 +457,7 @@ function TemplateShield({ p, c }) {
               <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 14 ? 34 : p.name.length > 10 ? 46 : 56, color: "#fff", letterSpacing: 2, lineHeight: 1, textShadow: "0 3px 22px rgba(0,0,0,0.42)" }}>{p.name}</div>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.68)", marginTop: 5, letterSpacing: 0.4 }}>{p.salt}</div>
               <div style={{ marginTop: 11, background: "#FFE000", borderRadius: 6, padding: "6px 15px", display: "inline-block", boxShadow: "0 4px 14px rgba(0,0,0,0.2)" }}>
-                <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13.5, fontWeight: 800, color: c.darkest }}>{p.tagline_hi || hi[0]}</span>
+                <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13.5, fontWeight: 800, color: c.darkest }}>{hi[0]}</span>
               </div>
             </div>
             <ImgBox url={p.image_url} w={108} h={108} c={c} emoji={p.formulation === "Spray" ? "🫧" : "🧼"} />
@@ -516,7 +520,7 @@ function TemplateClinical({ p, c }) {
                 </div>
               </div>
               <div style={{ marginTop: 9 }}>
-                <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, color: "#FFE000", fontWeight: 700 }}>{p.tagline_hi || hi[0]}</span>
+                <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, color: "#FFE000", fontWeight: 700 }}>{hi[0]}</span>
               </div>
             </div>
             <ImgBox url={p.image_url} w={100} h={106} c={c} emoji={isInj ? "💉" : "💊"} />
@@ -543,12 +547,6 @@ function TemplateClinical({ p, c }) {
       </div>
       <div style={{ padding: "4px 18px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SpeciesRow sp={p.species} c={c} />
-        {p.dosage && (
-          <div style={{ maxWidth: 165, textAlign: "right" }}>
-            <div style={{ fontSize: 8.5, color: "#bbb", letterSpacing: 0.5 }}>DOSAGE</div>
-            <div style={{ fontSize: 9.5, color: "#444", lineHeight: 1.4 }}>{p.dosage.slice(0, 80)}</div>
-          </div>
-        )}
       </div>
       <Divider c={c} />
       <FooterStrip c={c} />
