@@ -325,7 +325,7 @@ function ShareAllProductsTag({ c }: { c: ReturnType<typeof getShareColors> }) {
   return (
     <div style={{ margin: '8px 0 0', background: `linear-gradient(90deg, ${c.darkest}, ${c.primary})`, padding: '9px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🔗</div>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff', fontWeight: 700 }}>→</div>
         <div>
           <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 2, textTransform: 'uppercase' }}>View all products · सभी उत्पाद</div>
           <div style={{ fontSize: 14, color: '#fff', fontWeight: 700, fontFamily: "'Oswald',sans-serif", letterSpacing: 1, lineHeight: 1.2 }}>madvet.in/products</div>
@@ -390,7 +390,7 @@ function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShare
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   const nameFontSize = p.name.length > 12 ? 44 : p.name.length > 9 ? 54 : 66
   return (
-    <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
+    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
       <div style={{ position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg,${c.darkest} 0%,${c.primary} 55%,${c.bright} 100%)`, padding: '18px 20px 60px' }}>
 
         <div style={{ position: 'absolute', right: -60, top: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
@@ -432,10 +432,10 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   return (
-    <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
-      <div style={{ position: 'relative', padding: '16px 20px 0', background: '#fff' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, paddingRight: 140 }}>
+    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
+      <div style={{ padding: '16px 20px 0', background: '#fff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#c8220a', fontFamily: "'Noto Sans Devanagari',sans-serif", lineHeight: 1.3, marginBottom: 6 }}>{p.indication || 'असरदार और तुरंत राहत'}</div>
             <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 12 ? 36 : p.name.length > 8 ? 46 : 56, color: c.primary, textShadow: `3px 3px 0 ${c.dark}55, 5px 5px 0 rgba(0,0,0,0.08)`, letterSpacing: 2, lineHeight: 1 }}>{p.name}</div>
             <div style={{ display: 'inline-block', marginTop: 6, background: c.pale, border: `1.5px solid ${c.primary}40`, borderRadius: 4, padding: '3px 10px' }}>
@@ -445,8 +445,8 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
               <span style={{ fontSize: 13, color: '#fff', fontFamily: "'Noto Sans Devanagari',sans-serif", fontWeight: 700 }}>{hi[0] || 'तुरंत असर, लंबे समय तक फायदा'}</span>
             </div>
           </div>
-          <div style={{ position: 'absolute', top: 12, right: 16 }}>
-            <ShareImgBox url={p.image_url} w={128} h={128} c={c} emoji="💊" round />
+          <div style={{ flexShrink: 0, paddingTop: 4 }}>
+            <ShareImgBox url={p.image_url} w={120} h={120} c={c} emoji="💊" round />
           </div>
         </div>
       </div>
@@ -493,7 +493,7 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   const c2 = `hsl(${(c.h + 40) % 360},75%,36%)`
   return (
-    <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
+    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
       <div style={{ background: `linear-gradient(160deg,${c.darkest} 0%,${c.primary} 60%,${c2} 100%)`, padding: '16px 20px 18px', position: 'relative', overflow: 'hidden' }}>
 
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -527,7 +527,7 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 8 }}>
           {hi.slice(0, 6).map((b, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 10px', background: i < 2 ? c.pale : '#fafafa', borderRadius: 7, border: `1px solid ${i < 2 ? c.primary + '33' : '#eeeeee'}`, alignItems: 'flex-start' }}>
-              <span style={{ color: c.primary, fontSize: 15, fontWeight: 900, flexShrink: 0, lineHeight: 1.2 }}>►</span>
+              <span style={{ color: c.primary, fontSize: 15, fontWeight: 900, flexShrink: 0, lineHeight: 1.2, marginTop: 2 }}>►</span>
               <div>
                 <p style={{ margin: 0, fontSize: benefitFontSize(b, 11), fontFamily: benefitFont(b), color: '#222', lineHeight: 1.35, fontWeight: isHindi(b) ? 500 : 700 }}>{b}</p>
                 {en[i] && <p style={{ margin: '1px 0 0', fontSize: 8.5, color: '#999', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</p>}
@@ -554,7 +554,7 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   return (
-    <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
+    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
       <div style={{ background: `linear-gradient(125deg,${c.darkest} 0%,${c.primary} 100%)`, padding: '18px 20px 22px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '45%', background: 'linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.07) 100%)' }} />
         <div style={{ position: 'absolute', bottom: -30, right: -30, width: 150, height: 150, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.12)' }} />
@@ -583,7 +583,7 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
         <div style={{ fontSize: 13, fontWeight: 800, color: c.primary, fontFamily: "'Noto Sans Devanagari',sans-serif", marginBottom: 10, marginTop: 8 }}>लाभ एवं उपयोग :</div>
         {hi.slice(0, 5).map((b, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 7, background: `linear-gradient(90deg,${c.pale},white)`, border: `1px solid ${c.primary}25`, borderLeft: `4px solid ${i === 0 ? c.primary : c.bright}`, boxShadow: i === 0 ? `2px 2px 12px ${c.glow}` : 'none' }}>
-            <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 8px ${c.glow}` }}>
+            <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2, boxShadow: `0 2px 8px ${c.glow}` }}>
               <span style={{ fontSize: 13, color: '#fff', fontWeight: 900 }}>✓</span>
             </div>
             <div>
@@ -608,7 +608,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
   const isInj = p.formulation === 'Injection'
   return (
-    <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
+    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
       <div style={{ background: `linear-gradient(135deg,hsl(${c.h},${c.s}%,${c.l - 18}%) 0%,hsl(${c.h},${c.s}%,${c.l - 10}%) 50%,${c.primary} 100%)`, padding: '16px 20px 20px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 24px,rgba(255,255,255,1) 24px,rgba(255,255,255,1) 25px),repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(255,255,255,1) 24px,rgba(255,255,255,1) 25px)' }} />
         <div style={{ position: 'relative' }}>
@@ -626,7 +626,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
               <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.72)', marginTop: 5, letterSpacing: 0.3, fontStyle: 'italic' }}>{p.salt}</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 4, padding: '3px 10px', border: '1px solid rgba(255,255,255,0.2)' }}>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: 1 }}>{p.formulation} · {p.packaging}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: 1 }}>{p.packaging}</span>
                 </div>
               </div>
             </div>
@@ -643,8 +643,8 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
           <div style={{ fontSize: 9.5, color: '#aaa', fontStyle: 'italic' }}>Key Benefits</div>
         </div>
         {hi.slice(0, 5).map((b, i) => (
-          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 8, background: i === 0 ? c.pale : i === 1 ? `${c.pale}88` : '#fafafa', border: `1px solid ${i < 2 ? c.primary + '30' : '#eeeeee'}`, boxShadow: i === 0 ? `2px 3px 12px ${c.glow}` : 'none' }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: i === 0 ? c.primary : i === 1 ? c.mid : c.bright, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', fontWeight: 800, flexShrink: 0, boxShadow: `0 2px 6px ${c.glow}` }}>{i + 1}</div>
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 8, background: i === 0 ? c.pale : i === 1 ? `${c.pale}88` : '#fafafa', border: `1px solid ${i < 2 ? c.primary + '30' : '#eeeeee'}`, boxShadow: i === 0 ? `2px 3px 12px ${c.glow}` : 'none' }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', background: i === 0 ? c.primary : i === 1 ? c.mid : c.bright, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', fontWeight: 800, flexShrink: 0, marginTop: 2, boxShadow: `0 2px 6px ${c.glow}` }}>{i + 1}</div>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', lineHeight: 1.35, fontWeight: isHindi(b) ? 600 : 700 }}>{b}</p>
               {en[i] && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</p>}
@@ -740,7 +740,10 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     setErrMsg('')
     try {
       const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(cardRef.current, {
+      const el = cardRef.current
+      const canvas = await html2canvas(el, {
+        height: el.scrollHeight,
+        windowHeight: el.scrollHeight,
         scale: 2,
         useCORS: true,
         allowTaint: false,
