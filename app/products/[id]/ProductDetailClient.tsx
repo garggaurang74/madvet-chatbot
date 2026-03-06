@@ -741,6 +741,10 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     try {
       const html2canvas = (await import('html2canvas')).default
       const el = cardRef.current
+      // Wait for all fonts (Noto Sans Devanagari, Barlow Condensed, Oswald) to load.
+      // Without this, html2canvas captures before custom fonts are ready and falls back
+      // to system fonts with different metrics — causing text to shift down in the PNG.
+      await document.fonts.ready
       const canvas = await html2canvas(el, {
         height: el.scrollHeight,
         windowHeight: el.scrollHeight,
