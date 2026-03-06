@@ -392,7 +392,7 @@ function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShare
   return (
     <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
       <div style={{ position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg,${c.darkest} 0%,${c.primary} 55%,${c.bright} 100%)`, padding: '18px 20px 60px' }}>
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.06, backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`, backgroundSize: '180px' }} />
+
         <div style={{ position: 'absolute', right: -60, top: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <ShareMadvetLogoLight size={0.9} />
@@ -495,7 +495,7 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
   return (
     <div style={{ width: 480, background: '#fff', overflow: 'hidden', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
       <div style={{ background: `linear-gradient(160deg,${c.darkest} 0%,${c.primary} 60%,${c2} 100%)`, padding: '16px 20px 18px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.05, backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, backgroundSize: '60px' }} />
+
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <ShareMadvetLogoLight size={0.88} />
           <div style={{ textAlign: 'right' }}>
@@ -672,22 +672,22 @@ const SHARE_CARD_TEMPLATES: Record<string, any> = {
 }
 
 // ── Share card modal ───────────────────────────────────────────────────────────────────────────
-// PNG generation is now 100% server-side via /api/share-card/[id].
-// The modal only displays a live React preview and delegates PNG creation to the server.
-// This eliminates: html2canvas font misalignment, transform scale bugs, CORS issues,
-// Android hang on font loading, and every other client-side capture problem.
+// PNG generation is 100% client-side via html2canvas.
+// A full-size (480px) card is rendered off-screen, captured, then saved/shared.
+// No server route needed — eliminates all runtime/font/binary issues.
 
 function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [errMsg, setErrMsg] = useState('')
   const [previewW, setPreviewW] = useState(0)
   const previewContainerRef = useRef<HTMLDivElement>(null)
+  // cardRef points to the hidden full-size card — this is what gets captured
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const tmpl     = getTemplate(product.category)
   const c        = getShareColors(product.id, product.category)
   const CardComp = SHARE_CARD_TEMPLATES[tmpl]
 
-  // Measure preview container for scale calculation
   useEffect(() => {
     const measure = () => {
       const w = previewContainerRef.current?.offsetWidth || 0
@@ -713,13 +713,12 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
           await navigator.share({ title: product.name + ' — Madvet', files: [file] })
           return
         } catch (e: any) {
-          if (e?.name === 'AbortError') return // user cancelled — not an error
+          if (e?.name === 'AbortError') return
         }
       }
     }
 
     if (!isAndroid) {
-      // Desktop: standard anchor-download
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = filename
@@ -730,30 +729,45 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       return
     }
 
-    // Android fallback: open in new tab → user long-presses "Save image"
     const url = URL.createObjectURL(blob)
     window.open(url, '_blank')
     setTimeout(() => URL.revokeObjectURL(url), 30000)
   }
 
   const handleSave = async (shareIntent: boolean) => {
+    if (!cardRef.current) return
     setStatus('loading')
     setErrMsg('')
     try {
-      // Fetch the PNG from the server — perfect fonts, no CORS, no html2canvas
-      const res = await fetch(`/api/share-card/${product.id}`, {
-        signal: AbortSignal.timeout(30000), // 30s max on slow connections
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        // Strip SVG data-URI background patterns in the cloned doc —
+        // html2canvas tries to fetch them as URLs and gets 404, crashing the capture.
+        onclone: (clonedDoc: Document) => {
+          clonedDoc.querySelectorAll<HTMLElement>('*').forEach(node => {
+            const bg = node.style.backgroundImage
+            if (bg && bg.includes('data:image/svg')) {
+              node.style.backgroundImage = 'none'
+            }
+          })
+        },
       })
-      if (!res.ok) throw new Error(`Server returned ${res.status}`)
-      const blob = await res.blob()
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error('Canvas empty — try again')
+      }
+      const blob = await new Promise<Blob>((res, rej) =>
+        canvas.toBlob(b => (b && b.size > 500) ? res(b) : rej(new Error('0kb output — card not rendered')), 'image/png')
+      )
       const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
       await saveBlob(blob, filename, shareIntent)
       setStatus('done')
     } catch (e: any) {
-      const msg = e?.name === 'TimeoutError'
-        ? 'Timed out — check connection'
-        : (e?.message || 'Failed to generate image')
-      setErrMsg(msg)
+      setErrMsg(e?.message || 'Failed to generate image')
       setStatus('error')
     } finally {
       setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
@@ -767,6 +781,13 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.92)', overflowY: 'auto' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
+      {/* Hidden full-size card inside viewport — html2canvas won't paint off-screen elements */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: 480, opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
+        <div ref={cardRef}>
+          <CardComp p={product} c={c} />
+        </div>
+      </div>
+
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 12px 40px' }}>
         <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
 
@@ -779,45 +800,26 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
 
-          {/* Preview: live React card at scaled size */}
+          {/* Visible scaled preview */}
           <div
             ref={previewContainerRef}
-            style={{
-              width: '100%',
-              height: scale > 0 ? Math.round(700 * scale) : 340,
-              position: 'relative',
-              overflow: 'hidden',
-              borderRadius: 8,
-              background: '#0a0d14',
-            }}
+            style={{ width: '100%', height: scale > 0 ? Math.round(700 * scale) : 340, position: 'relative', overflow: 'hidden', borderRadius: 8, background: '#0a0d14' }}
           >
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: 480,
-                transformOrigin: 'top left',
-                transform: scale > 0 ? `scale(${scale})` : 'none',
-                pointerEvents: 'none',
-              }}
-            >
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 480, transformOrigin: 'top left', transform: scale > 0 ? `scale(${scale})` : 'none', pointerEvents: 'none' }}>
               <CardComp p={product} c={c} />
             </div>
           </div>
 
           <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 6, marginBottom: 0, textAlign: 'center' }}>
-            Preview — the downloaded PNG is rendered server-side with perfect fonts
+            Preview — tap Save to download as PNG
           </p>
 
-          {/* Status */}
           {busy && (
             <div style={{ textAlign: 'center', padding: '8px 0 0', color: '#FFE000', fontSize: 12 }}>
-              ⏳ Generating image on server…
+              ⏳ Generating image…
             </div>
           )}
 
-          {/* Buttons */}
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <button
               onClick={() => handleSave(false)}
