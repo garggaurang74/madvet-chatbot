@@ -376,7 +376,7 @@ function ArrowSlab({ text, enText, c, big = true }: { text: string; enText: stri
     <div style={{ position: 'relative', marginBottom: big ? 7 : 5, display: 'flex' }}>
       <div style={{ flex: 1, background: big ? `linear-gradient(90deg,${c.darkest},${c.primary})` : `linear-gradient(90deg,${c.primary},${c.mid})`, borderRadius: '6px 0 0 6px', padding: big ? '9px 40px 9px 14px' : '6px 36px 6px 12px', boxShadow: big ? `2px 3px 14px ${c.glow}` : 'none' }}>
         <div style={{ position: 'absolute', right: -15, top: 0, bottom: 0, width: 0, borderTop: `${big ? 22 : 17}px solid transparent`, borderBottom: `${big ? 22 : 17}px solid transparent`, borderLeft: `15px solid ${big ? c.primary : c.mid}` }} />
-        <div style={{ margin: 0, fontSize: benefitFontSize(text, big ? 12.5 : 11), fontFamily: benefitFont(text), color: '#fff', fontWeight: big ? 800 : 600, lineHeight: 1.3 }}>{text}</div>
+        <div style={{ marginTop: -3, fontSize: benefitFontSize(text, big ? 12.5 : 11), fontFamily: benefitFont(text), color: '#fff', fontWeight: big ? 800 : 600, lineHeight: 1.3 }}>{text}</div>
         {enText && <div style={{ margin: 0, paddingTop: 2, fontSize: 9, color: 'rgba(255,255,255,0.58)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.3 }}>{enText}</div>}
       </div>
     </div>
@@ -462,7 +462,7 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8, padding: '6px 10px', borderRadius: 6, background: i % 2 === 0 ? c.pale : 'transparent', borderLeft: `3px solid ${i % 2 === 0 ? c.primary : c.bright}` }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: c.primary, flexShrink: 0, marginTop: 5 }} />
               <div>
-                <div style={{ fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#1a1a1a', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</div>
+                <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#1a1a1a', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</div>
                 {en[i] && <div style={{ paddingTop: 1, fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
               </div>
             </div>
@@ -529,7 +529,7 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
             <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 10px', background: i < 2 ? c.pale : '#fafafa', borderRadius: 7, border: `1px solid ${i < 2 ? c.primary + '33' : '#eeeeee'}`, alignItems: 'flex-start' }}>
               <span style={{ color: c.primary, fontSize: 15, fontWeight: 900, flexShrink: 0, lineHeight: 1.2, marginTop: 2 }}>►</span>
               <div>
-                <div style={{ fontSize: benefitFontSize(b, 11), fontFamily: benefitFont(b), color: '#222', lineHeight: 1.35, fontWeight: isHindi(b) ? 500 : 700 }}>{b}</div>
+                <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 11), fontFamily: benefitFont(b), color: '#222', lineHeight: 1.35, fontWeight: isHindi(b) ? 500 : 700 }}>{b}</div>
                 {en[i] && <div style={{ paddingTop: 1, fontSize: 8.5, color: '#999', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
               </div>
             </div>
@@ -587,7 +587,7 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
               <span style={{ fontSize: 13, color: '#fff', fontWeight: 900 }}>✓</span>
             </div>
             <div>
-              <div style={{ fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</div>
+              <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</div>
               {en[i] && <div style={{ paddingTop: 1, fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
             </div>
           </div>
@@ -646,7 +646,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 8, background: i === 0 ? c.pale : i === 1 ? `${c.pale}88` : '#fafafa', border: `1px solid ${i < 2 ? c.primary + '30' : '#eeeeee'}`, boxShadow: i === 0 ? `2px 3px 12px ${c.glow}` : 'none' }}>
             <div style={{ width: 24, height: 24, borderRadius: '50%', background: i === 0 ? c.primary : i === 1 ? c.mid : c.bright, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', fontWeight: 800, flexShrink: 0, marginTop: 2, boxShadow: `0 2px 6px ${c.glow}` }}>{i + 1}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', lineHeight: 1.35, fontWeight: isHindi(b) ? 600 : 700 }}>{b}</div>
+              <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', lineHeight: 1.35, fontWeight: isHindi(b) ? 600 : 700 }}>{b}</div>
               {en[i] && <div style={{ paddingTop: 1, fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
             </div>
           </div>
