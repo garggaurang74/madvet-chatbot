@@ -686,36 +686,38 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const [logoB64, setLogoB64] = useState<string | null>(null)
   const [logoOrigB64, setLogoOrigB64] = useState<string | null>(null)
   const [productImgB64, setProductImgB64] = useState<string | null>(null)
+  // Track when all image pre-loading is complete (or failed) so we can enable Save
+  const [imagesReady, setImagesReady] = useState(false)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)  // ref to the full-size card for capture
   const tmpl     = getTemplate(product.category)
   const c        = getShareColors(product.id, product.category)
   const CardComp = SHARE_CARD_TEMPLATES[tmpl]
 
-  // Pre-load logo + product image as base64 on mount
-  // This ensures html-to-image can embed them (no CORS, no CSS filter issues)
+  // Pre-load logo + product image as base64 on mount.
+  // This ensures html-to-image can embed them (no CORS, no CSS filter issues).
+  // We mark imagesReady=true only after BOTH loaders complete (success or failure)
+  // so the Save button is never enabled before base64 images are in React state.
   useEffect(() => {
+    setImagesReady(false)
+
     const toB64 = (url: string): Promise<string | null> => {
       if (!url || url.trim() === '') return Promise.resolve(null)
-      // Already base64 — just return as-is
       if (url.startsWith('data:')) return Promise.resolve(url)
-      // Route ALL external images through our proxy to avoid CORS
-      // The proxy handles Supabase URLs; for others, it fetches server-side
+      // Only Supabase storage images go through the proxy (avoids CORS).
+      // Local/relative paths are fetched directly (same origin, no CORS issue).
       const supaMatch = url.match(/supabase\.co\/storage\/v1\/object\/public\/(.+?)(?:\?|$)/)
       let fetchUrl: string
       if (supaMatch) {
         fetchUrl = `/api/images/proxy?path=${encodeURIComponent(supaMatch[1])}`
-      } else if (url.startsWith('http')) {
-        // Route external URLs through proxy too — direct fetch hits CORS
-        fetchUrl = `/api/images/proxy?url=${encodeURIComponent(url)}`
       } else {
-        // Relative path (e.g. /madvet-icon.png)
-        fetchUrl = url.startsWith('/') ? url : '/' + url
+        // Relative or same-origin URL — fetch directly, no proxy needed
+        fetchUrl = url.startsWith('/') ? url : url.startsWith('http') ? url : '/' + url
       }
       return fetch(fetchUrl)
         .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.blob() })
         .then(blob => {
-          if (blob.size < 100) return null  // empty/broken image
+          if (blob.size < 100) return null
           return new Promise<string>((res) => {
             const fr = new FileReader()
             fr.onload = () => res(fr.result as string)
@@ -726,47 +728,48 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         .catch(() => null)
     }
 
-    // Logo — we need a WHITE version for dark headers.
-    // Instead of relying on CSS filter (which html-to-image can't render),
-    // we draw it to a canvas and invert it.
-    const loadLogo = async () => {
+    // Logo — canvas-invert to white so header background shows correctly.
+    // Doing it via canvas avoids relying on CSS `filter` which html-to-image cannot render.
+    const loadLogo = async (): Promise<void> => {
       try {
         const img = new Image()
         img.crossOrigin = 'anonymous'
-        img.src = window.location.origin + '/madvet-icon.png'
-        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej })
-        // Save original (for yellow footer)
+        // Add cache-bust only if served from same origin to ensure fresh CORS headers
+        img.src = window.location.origin + '/madvet-icon.png?_cb=1'
+        await new Promise<void>((res, rej) => {
+          img.onload = () => res()
+          img.onerror = () => rej(new Error('logo load failed'))
+          setTimeout(() => rej(new Error('logo timeout')), 8000)
+        })
+        // Original (for yellow footer)
         const canvasOrig = document.createElement('canvas')
-        canvasOrig.width = img.naturalWidth
-        canvasOrig.height = img.naturalHeight
-        const ctxOrig = canvasOrig.getContext('2d')!
-        ctxOrig.drawImage(img, 0, 0)
+        canvasOrig.width = img.naturalWidth; canvasOrig.height = img.naturalHeight
+        canvasOrig.getContext('2d')!.drawImage(img, 0, 0)
         setLogoOrigB64(canvasOrig.toDataURL('image/png'))
-        // Invert to white (for dark header backgrounds)
+        // White-inverted (for dark header backgrounds)
         const canvas = document.createElement('canvas')
-        canvas.width = img.naturalWidth
-        canvas.height = img.naturalHeight
+        canvas.width = img.naturalWidth; canvas.height = img.naturalHeight
         const ctx = canvas.getContext('2d')!
         ctx.filter = 'brightness(0) invert(1)'
         ctx.drawImage(img, 0, 0)
         setLogoB64(canvas.toDataURL('image/png'))
       } catch {
-        // Fallback: just use the raw base64 (dark logo, better than nothing)
+        // Fallback: proxy-fetch the logo and use as-is (dark logo on dark bg is still better than broken)
         const b64 = await toB64('/madvet-icon.png')
         if (b64) { setLogoB64(b64); setLogoOrigB64(b64) }
       }
     }
 
-    // Product image
-    const loadProductImg = async () => {
+    // Product image — always route through proxy so we get raw bytes we can base64-encode
+    const loadProductImg = async (): Promise<void> => {
       if (product.image_url) {
         const b64 = await toB64(product.image_url)
         if (b64) setProductImgB64(b64)
       }
     }
 
-    loadLogo()
-    loadProductImg()
+    // Run both loaders in parallel; mark ready when both settle (success OR failure)
+    Promise.all([loadLogo(), loadProductImg()]).finally(() => setImagesReady(true))
   }, [product.image_url])
 
   useEffect(() => {
@@ -816,45 +819,28 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   }
 
   const handleSave = async (shareIntent: boolean) => {
-    if (!cardRef.current) return
+    if (!cardRef.current || !imagesReady) return
     setStatus('loading')
     setErrMsg('')
     try {
       const { toPng } = await import('html-to-image')
 
-      const el = cardRef.current
+      // Critical: wait two animation frames so React commits the latest render
+      // (with base64 image srcs) to the DOM before we capture it.
+      // Without this, setStatus('loading') can trigger a mid-capture re-render.
+      await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+      const el = cardRef.current!
       const prev = el.style.transform
       el.style.transform = 'none'
 
-      // Pre-fetch all images as base64 so html-to-image can embed them in the SVG.
-      // Skip images that are already base64 (pre-loaded by the modal).
-      const imgEls = Array.from(el.querySelectorAll<HTMLImageElement>('img'))
-      const origSrcs = imgEls.map(i => i.src)
-      await Promise.all(imgEls.map(async img => {
-        const src = img.src
-        // Already base64 — nothing to do
-        if (src.startsWith('data:')) return
-        try {
-          let fetchUrl: string
-          // For Supabase storage images — route through our proxy to avoid browser CORS
-          const supabaseMatch = src.match(/supabase\.co\/storage\/v1\/object\/public\/(.+?)(?:\?|$)/)
-          if (supabaseMatch) {
-            fetchUrl = `/api/images/proxy?path=${encodeURIComponent(supabaseMatch[1])}`
-          } else if (src.startsWith('http')) {
-            fetchUrl = `/api/images/proxy?url=${encodeURIComponent(src)}`
-          } else {
-            fetchUrl = window.location.origin + img.getAttribute('src')
-          }
-          const b64 = await fetch(fetchUrl).then(r => r.blob()).then(blob => new Promise<string>(r => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(blob) }))
-          // Swap src AND wait for browser to finish loading the new base64 src
-          await new Promise<void>(resolve => {
-            img.onload = () => resolve()
-            img.onerror = () => resolve() // don't block if it fails
-            img.src = b64
-          })
-        } catch {}
-      }))
+      // One more frame to let the transform change settle
+      await new Promise<void>(r => requestAnimationFrame(r))
 
+      // NOTE: We do NOT manually mutate img.src here.
+      // All images are already base64 in the React state (logoB64, productImgB64)
+      // and have been passed as props to the CardComp, so the DOM already has
+      // data: URLs. Mutating the DOM would race against React re-renders.
       const dataUrl = await toPng(el, {
         width: 480,
         height: el.scrollHeight,
@@ -862,8 +848,6 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         style: { transform: 'none' },
       })
 
-      // Restore original srcs
-      imgEls.forEach((img, i) => { img.src = origSrcs[i] })
       el.style.transform = prev
 
       const blob = await (await fetch(dataUrl)).blob()
@@ -919,17 +903,17 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <button
               onClick={() => handleSave(false)}
-              disabled={busy}
-              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#2a2a2a' : '#1d4ed8', color: busy ? '#555' : '#fff', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
+              disabled={busy || !imagesReady}
+              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: (busy || !imagesReady) ? '#2a2a2a' : '#1d4ed8', color: (busy || !imagesReady) ? '#555' : '#fff', border: 'none', cursor: (busy || !imagesReady) ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
             >
-              {busy ? '⏳ Working…' : '↓ SAVE IMAGE'}
+              {busy ? '⏳ Working…' : !imagesReady ? '⏳ Loading…' : '↓ SAVE IMAGE'}
             </button>
             <button
               onClick={() => handleSave(true)}
-              disabled={busy}
-              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: busy ? '#3a3a2a' : '#FFE000', color: busy ? '#777' : '#1a2f8a', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
+              disabled={busy || !imagesReady}
+              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: (busy || !imagesReady) ? '#3a3a2a' : '#FFE000', color: (busy || !imagesReady) ? '#777' : '#1a2f8a', border: 'none', cursor: (busy || !imagesReady) ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
             >
-              {busy ? '⏳ Working…' : '↗ SHARE / WHATSAPP'}
+              {busy ? '⏳ Working…' : !imagesReady ? '⏳ Loading…' : '↗ SHARE / WHATSAPP'}
             </button>
           </div>
 
