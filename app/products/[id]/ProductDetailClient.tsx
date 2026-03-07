@@ -285,6 +285,8 @@ function ShareMadvetLogoLight({ size = 1, logoSrc }: { size?: number; logoSrc?: 
 
 function ShareImgBox({ url, w, h, c, emoji = '🧴', round = false }: { url: string; w: number; h: number; c: ReturnType<typeof getShareColors>; emoji?: string; round?: boolean }) {
   const [err, setErr] = useState(false)
+  // Reset error when URL changes (e.g. from Supabase URL → base64 data URL)
+  useEffect(() => { setErr(false) }, [url])
   const style: { width: number; height: number; flexShrink: number; overflow: string; borderRadius: number | string; background: string; border: string; display: string; alignItems: string; justifyContent: string; boxShadow: string } = {
     width: w, height: h, flexShrink: 0, overflow: 'hidden',
     borderRadius: 12,
@@ -694,19 +696,33 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   // This ensures html-to-image can embed them (no CORS, no CSS filter issues)
   useEffect(() => {
     const toB64 = (url: string): Promise<string | null> => {
-      // Route Supabase images through proxy to avoid CORS
+      if (!url || url.trim() === '') return Promise.resolve(null)
+      // Already base64 — just return as-is
+      if (url.startsWith('data:')) return Promise.resolve(url)
+      // Route ALL external images through our proxy to avoid CORS
+      // The proxy handles Supabase URLs; for others, it fetches server-side
       const supaMatch = url.match(/supabase\.co\/storage\/v1\/object\/public\/(.+?)(?:\?|$)/)
-      const fetchUrl = supaMatch
-        ? `/api/images/proxy?path=${encodeURIComponent(supaMatch[1])}`
-        : url.startsWith('http') ? url : window.location.origin + url
+      let fetchUrl: string
+      if (supaMatch) {
+        fetchUrl = `/api/images/proxy?path=${encodeURIComponent(supaMatch[1])}`
+      } else if (url.startsWith('http')) {
+        // Route external URLs through proxy too — direct fetch hits CORS
+        fetchUrl = `/api/images/proxy?url=${encodeURIComponent(url)}`
+      } else {
+        // Relative path (e.g. /madvet-icon.png)
+        fetchUrl = url.startsWith('/') ? url : '/' + url
+      }
       return fetch(fetchUrl)
-        .then(r => r.blob())
-        .then(blob => new Promise<string>((res) => {
-          const fr = new FileReader()
-          fr.onload = () => res(fr.result as string)
-          fr.onerror = () => res('')
-          fr.readAsDataURL(blob)
-        }))
+        .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.blob() })
+        .then(blob => {
+          if (blob.size < 100) return null  // empty/broken image
+          return new Promise<string>((res) => {
+            const fr = new FileReader()
+            fr.onload = () => res(fr.result as string)
+            fr.onerror = () => res('')
+            fr.readAsDataURL(blob)
+          })
+        })
         .catch(() => null)
     }
 
@@ -811,20 +827,21 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       el.style.transform = 'none'
 
       // Pre-fetch all images as base64 so html-to-image can embed them in the SVG.
-      // Relative paths (/madvet-icon.png) and cross-origin Supabase URLs both fail
-      // inside SVG foreignObject without this step.
+      // Skip images that are already base64 (pre-loaded by the modal).
       const imgEls = Array.from(el.querySelectorAll<HTMLImageElement>('img'))
       const origSrcs = imgEls.map(i => i.src)
       await Promise.all(imgEls.map(async img => {
+        const src = img.src
+        // Already base64 — nothing to do
+        if (src.startsWith('data:')) return
         try {
           let fetchUrl: string
-          const src = img.src
           // For Supabase storage images — route through our proxy to avoid browser CORS
           const supabaseMatch = src.match(/supabase\.co\/storage\/v1\/object\/public\/(.+?)(?:\?|$)/)
           if (supabaseMatch) {
             fetchUrl = `/api/images/proxy?path=${encodeURIComponent(supabaseMatch[1])}`
           } else if (src.startsWith('http')) {
-            fetchUrl = src.split('?')[0]
+            fetchUrl = `/api/images/proxy?url=${encodeURIComponent(src)}`
           } else {
             fetchUrl = window.location.origin + img.getAttribute('src')
           }
