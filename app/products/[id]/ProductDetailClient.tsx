@@ -266,12 +266,14 @@ function ShareDescBar({ p, c }: { p: Product; c: ReturnType<typeof getShareColor
 
 // ── Shared share-card sub-components ────────────────────────────────────────
 /* ── Real logo using actual uploaded images ── */
-function ShareMadvetLogoLight({ size = 1 }: { size?: number }) {
+function ShareMadvetLogoLight({ size = 1, logoSrc }: { size?: number; logoSrc?: string }) {
   const h = Math.round(52 * size)
+  // logoSrc is a pre-inverted base64 version passed during export so html2canvas can render it
+  const src = logoSrc || '/madvet-icon.png'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: Math.round(8 * size), flexShrink: 0 }}>
-      <img src="/madvet-icon.png" alt="Madvet"
-        style={{ height: h, width: h, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+      <img src={src} alt="Madvet"
+        style={{ height: h, width: h, objectFit: 'contain', ...(logoSrc ? {} : { filter: 'brightness(0) invert(1)' }) }} />
       <div>
         <div style={{ fontFamily: "'Oswald','Arial Black',sans-serif", fontSize: Math.round(22 * size), fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>MADVET</div>
         <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", fontSize: Math.round(9 * size), color: 'rgba(255,255,255,0.75)', letterSpacing: 1.5, marginTop: 1, fontWeight: 600 }}>ANIMAL HEALTH CARE</div>
@@ -383,7 +385,7 @@ function ArrowSlab({ text, enText, c, big = true }: { text: string; enText: stri
 }
 
 // ── 5 share card templates ───────────────────────────────────────────────────
-function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
+function ShareCardVitality({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -394,7 +396,7 @@ function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShare
 
         <div style={{ position: 'absolute', right: -60, top: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <ShareMadvetLogoLight size={0.9} />
+          <ShareMadvetLogoLight size={0.9} logoSrc={logoSrc} />
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 1 }}>{p.packaging}</div>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 }}>{p.formulation}</div>
@@ -426,7 +428,7 @@ function ShareCardVitality({ p, c }: { p: Product; c: ReturnType<typeof getShare
   )
 }
 
-function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
+function ShareCardDigest({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -486,7 +488,7 @@ function ShareCardDigest({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
   )
 }
 
-function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
+function ShareCardHerbal({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -496,7 +498,7 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
       <div style={{ background: `linear-gradient(160deg,${c.darkest} 0%,${c.primary} 60%,${c2} 100%)`, padding: '16px 20px 18px', position: 'relative', overflow: 'hidden' }}>
 
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <ShareMadvetLogoLight size={0.88} />
+          <ShareMadvetLogoLight size={0.88} logoSrc={logoSrc} />
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', letterSpacing: 1, fontStyle: 'italic' }}>{p.category}</div>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>{p.packaging}</div>
@@ -548,7 +550,7 @@ function ShareCardHerbal({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
   )
 }
 
-function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
+function ShareCardShield({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -559,7 +561,7 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
         <div style={{ position: 'absolute', bottom: -30, right: -30, width: 150, height: 150, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.12)' }} />
         <div style={{ position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-            <ShareMadvetLogoLight size={0.88} />
+            <ShareMadvetLogoLight size={0.88} logoSrc={logoSrc} />
             <div style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 5, padding: '4px 12px', border: '1px solid rgba(255,255,255,0.3)' }}>
               <div style={{ fontSize: 11, color: '#FFE000', fontWeight: 700, letterSpacing: 2 }}>{p.formulation?.toUpperCase()}</div>
               <div style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.65)', textAlign: 'center' }}>{p.packaging}</div>
@@ -601,7 +603,7 @@ function ShareCardShield({ p, c }: { p: Product; c: ReturnType<typeof getShareCo
   )
 }
 
-function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
+function ShareCardClinical({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -612,7 +614,7 @@ function ShareCardClinical({ p, c }: { p: Product; c: ReturnType<typeof getShare
         <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 24px,rgba(255,255,255,1) 24px,rgba(255,255,255,1) 25px),repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(255,255,255,1) 24px,rgba(255,255,255,1) 25px)' }} />
         <div style={{ position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <ShareMadvetLogoLight size={0.88} />
+            <ShareMadvetLogoLight size={0.88} logoSrc={logoSrc} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
               <div style={{ background: c.primary, borderRadius: 4, padding: '3px 10px' }}>
                 <span style={{ fontSize: 10, color: '#fff', fontWeight: 700, letterSpacing: 1 }}>{p.category?.split('/')[0]?.trim()}</span>
@@ -733,133 +735,82 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const handleSave = async (shareIntent: boolean) => {
     setStatus('loading')
     setErrMsg('')
-    let iframe: HTMLIFrameElement | null = null
     try {
-      const [html2canvas, { createRoot }] = await Promise.all([
-        import('html2canvas').then(m => m.default),
-        import('react-dom/client'),
-      ])
+      const html2canvas = (await import('html2canvas')).default
 
-      // Render card inside a hidden iframe — completely isolated from main page styles,
-      // scroll position, and fixed/overflow ancestors that corrupt html2canvas positioning.
-      iframe = document.createElement('iframe')
-      iframe.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;height:800px;border:none;opacity:0;pointer-events:none;'
-      document.body.appendChild(iframe)
-
-      const iframeDoc = iframe.contentDocument!
-      iframeDoc.open()
-      // Use local woff2 fonts — avoids Google Fonts CDN latency/blocking in the iframe
-      // which was the root cause of misaligned text in exported PNGs.
-      const origin = window.location.origin
-      iframeDoc.write(`<!DOCTYPE html><html><head>
-        <style>
-          *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-          body { width:480px; }
-          /* Oswald — all weights map to our single 700 file so nothing falls back */
-          @font-face {
-            font-family: 'Oswald';
-            font-weight: 100 900;
-            font-display: block;
-            src: url('${origin}/fonts/oswald-700.woff2') format('woff2');
-          }
-          /* Barlow Condensed — cover every weight so no system-font fallback */
-          @font-face {
-            font-family: 'Barlow Condensed';
-            font-weight: 100 649;
-            font-display: block;
-            src: url('${origin}/fonts/barlow-condensed-600.woff2') format('woff2');
-          }
-          @font-face {
-            font-family: 'Barlow Condensed';
-            font-weight: 650 900;
-            font-display: block;
-            src: url('${origin}/fonts/barlow-condensed-700.woff2') format('woff2');
-          }
-          /* Noto Sans Devanagari — full weight range */
-          @font-face {
-            font-family: 'Noto Sans Devanagari';
-            font-weight: 100 649;
-            font-display: block;
-            src: url('${origin}/fonts/noto-devanagari-600.woff2') format('woff2');
-          }
-          @font-face {
-            font-family: 'Noto Sans Devanagari';
-            font-weight: 650 749;
-            font-display: block;
-            src: url('${origin}/fonts/noto-devanagari-700.woff2') format('woff2');
-          }
-          @font-face {
-            font-family: 'Noto Sans Devanagari';
-            font-weight: 750 900;
-            font-display: block;
-            src: url('${origin}/fonts/noto-devanagari-800.woff2') format('woff2');
-          }
-        </style>
-      </head><body><div id="card-root"></div></body></html>`)
-      iframeDoc.close()
-
-      const iframeWin = iframe.contentWindow!
-      const mountEl = iframeDoc.getElementById('card-root')!
-
-      // Pre-fetch product image as base64 so html2canvas can render it without CORS issues.
-      // Remote Supabase URLs get blocked inside the iframe by the browser's taint rules.
-      let productForCard = product
-      if (product.image_url) {
-        try {
-          const imgResp = await fetch(product.image_url.split('?')[0])
-          const blob = await imgResp.blob()
-          const b64 = await new Promise<string>(res => {
-            const reader = new FileReader()
-            reader.onload = () => res(reader.result as string)
-            reader.readAsDataURL(blob)
-          })
-          productForCard = { ...product, image_url: b64 }
-        } catch {
-          // If fetch fails just use original URL — image may not appear but layout won't break
+      // Step 1: Pre-fetch the logo and invert it on a canvas so html2canvas can render it
+      // (html2canvas doesn't support CSS filter: brightness/invert)
+      let invertedLogoSrc = ''
+      try {
+        const logoResp = await fetch('/madvet-icon.png')
+        const logoBlob = await logoResp.blob()
+        const logoDataUrl = await new Promise<string>(res => {
+          const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(logoBlob)
+        })
+        // Draw on canvas with invert effect
+        const logoImg = new Image()
+        await new Promise<void>(res => { logoImg.onload = () => res(); logoImg.src = logoDataUrl })
+        const cv = document.createElement('canvas')
+        cv.width = logoImg.width; cv.height = logoImg.height
+        const ctx = cv.getContext('2d')!
+        ctx.drawImage(logoImg, 0, 0)
+        // Invert pixel data to simulate brightness(0) invert(1)
+        const imgData = ctx.getImageData(0, 0, cv.width, cv.height)
+        for (let i = 0; i < imgData.data.length; i += 4) {
+          imgData.data[i]   = 255 - imgData.data[i]
+          imgData.data[i+1] = 255 - imgData.data[i+1]
+          imgData.data[i+2] = 255 - imgData.data[i+2]
         }
-      }
+        ctx.putImageData(imgData, 0, 0)
+        invertedLogoSrc = cv.toDataURL('image/png')
+      } catch { /* logo stays empty, card still exports */ }
 
-      const root = createRoot(mountEl)
+      // Step 2: Pre-fetch product image as base64 to avoid CORS issues in capture
+      let imageUrl = product.image_url
+      if (imageUrl) {
+        try {
+          const imgResp = await fetch(imageUrl.split('?')[0])
+          const imgBlob = await imgResp.blob()
+          imageUrl = await new Promise<string>(res => {
+            const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(imgBlob)
+          })
+        } catch { /* use original URL */ }
+      }
+      const productForCard = { ...product, image_url: imageUrl }
+
+      // Step 3: Render a hidden full-size (480px) card off-screen in the real DOM.
+      // This uses the exact same fonts/styles as the preview — no iframe, no re-render guesswork.
+      const hiddenDiv = document.createElement('div')
+      hiddenDiv.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;pointer-events:none;'
+      document.body.appendChild(hiddenDiv)
+
+      const { createRoot } = await import('react-dom/client')
+      const root = createRoot(hiddenDiv)
       await new Promise<void>(resolve => {
-        root.render(<CardComp p={productForCard} c={c} />)
+        root.render(<CardComp p={productForCard} c={c} logoSrc={invertedLogoSrc} />)
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       })
-      // Wait for fonts to download
-      await iframeWin.document.fonts.ready
 
-      // CRITICAL: fonts.ready fires when fonts are downloaded, but the browser
-      // hasn't reflowed the layout yet with the new font metrics.
-      // Force a reflow by reading a layout property, then wait 2 more paint cycles
-      // so the layout stabilises before we measure height and capture.
-      const el = mountEl.firstElementChild as HTMLElement
-      void el.getBoundingClientRect()  // force synchronous reflow
-      await new Promise(r => setTimeout(r, 100))  // let paint settle
-      await new Promise<void>(r => iframeWin.requestAnimationFrame(() => iframeWin.requestAnimationFrame(() => r())))
+      // Wait for page fonts (already loaded from layout.tsx) + layout settle
+      await document.fonts.ready
+      void hiddenDiv.getBoundingClientRect()
+      await new Promise(r => setTimeout(r, 80))
 
-      const h = el.scrollHeight
-      iframe.style.height = h + 'px'
-
+      const el = hiddenDiv.firstElementChild as HTMLElement
       const canvas = await html2canvas(el, {
-        scale: 3,  // 3x for sharp WhatsApp/print quality
+        scale: 3,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false,
         width: 480,
-        height: h,
+        height: el.scrollHeight,
         windowWidth: 480,
-        windowHeight: h,
-        onclone: (clonedDoc: Document) => {
-          clonedDoc.querySelectorAll<HTMLElement>('*').forEach(node => {
-            const bg = node.style.backgroundImage
-            if (bg && bg.includes('data:image/svg')) node.style.backgroundImage = 'none'
-          })
-        },
+        windowHeight: el.scrollHeight,
       })
 
       root.unmount()
-      document.body.removeChild(iframe)
-      iframe = null
+      document.body.removeChild(hiddenDiv)
 
       if (canvas.width === 0 || canvas.height === 0) throw new Error('Canvas empty — try again')
       const blob = await new Promise<Blob>((res, rej) =>
@@ -872,12 +823,11 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       setErrMsg(e?.message || 'Failed to generate image')
       setStatus('error')
     } finally {
-      if (iframe && document.body.contains(iframe)) document.body.removeChild(iframe)
       setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
     }
   }
 
-  const busy = status === 'loading'
+    const busy = status === 'loading'
 
   return (
     <div
