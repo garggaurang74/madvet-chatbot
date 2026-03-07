@@ -45,7 +45,15 @@ async function fetchProduct(id: number): Promise<Product | null> {
   const table = process.env.NEXT_PUBLIC_SUPABASE_TABLE || 'products_enriched'
   if (!url || !key) return null
 
-  const supabase = createClient(url, key)
+  // Pass cache: 'no-store' so Next.js doesn't cache the Supabase fetch response
+  // separately from the page. Without this, even after revalidatePath() the fetch
+  // result stays stale until Next.js's internal fetch cache also expires.
+  const supabase = createClient(url, key, {
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: 'no-store' }),
+    },
+  })
   const { data, error } = await supabase
     .from(table)
     .select('id, product_name, salt_ingredient, packaging, formulation, category, species, indication, description, usp_benefits, description_hi, usp_benefits_hi, aliases, image_url, video_url')
