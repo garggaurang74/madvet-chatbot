@@ -294,7 +294,7 @@ function ShareImgBox({ url, w, h, c, emoji = '🧴', round = false }: { url: str
   if (url && !err) return (
     <div style={style}>
       <img src={url} onError={() => setErr(true)}
-        style={{ width: '100%', height: '100%', objectFit: round ? 'cover' : 'contain', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))' }} />
+        style={{ width: '100%', height: '100%', objectFit: round ? 'cover' : 'contain' }} />
     </div>
   )
   return (
@@ -744,7 +744,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       // Render card inside a hidden iframe — completely isolated from main page styles,
       // scroll position, and fixed/overflow ancestors that corrupt html2canvas positioning.
       iframe = document.createElement('iframe')
-      iframe.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;height:800px;border:none;visibility:hidden;'
+      iframe.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;height:800px;border:none;opacity:0;pointer-events:none;'
       document.body.appendChild(iframe)
 
       const iframeDoc = iframe.contentDocument!
@@ -799,15 +799,41 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       const iframeWin = iframe.contentWindow!
       const mountEl = iframeDoc.getElementById('card-root')!
 
+      // Pre-fetch product image as base64 so html2canvas can render it without CORS issues.
+      // Remote Supabase URLs get blocked inside the iframe by the browser's taint rules.
+      let productForCard = product
+      if (product.image_url) {
+        try {
+          const imgResp = await fetch(product.image_url.split('?')[0])
+          const blob = await imgResp.blob()
+          const b64 = await new Promise<string>(res => {
+            const reader = new FileReader()
+            reader.onload = () => res(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          productForCard = { ...product, image_url: b64 }
+        } catch {
+          // If fetch fails just use original URL — image may not appear but layout won't break
+        }
+      }
+
       const root = createRoot(mountEl)
       await new Promise<void>(resolve => {
-        root.render(<CardComp p={product} c={c} />)
+        root.render(<CardComp p={productForCard} c={c} />)
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       })
-      // Wait for all local fonts to be fully parsed and ready
+      // Wait for fonts to download
       await iframeWin.document.fonts.ready
 
+      // CRITICAL: fonts.ready fires when fonts are downloaded, but the browser
+      // hasn't reflowed the layout yet with the new font metrics.
+      // Force a reflow by reading a layout property, then wait 2 more paint cycles
+      // so the layout stabilises before we measure height and capture.
       const el = mountEl.firstElementChild as HTMLElement
+      void el.getBoundingClientRect()  // force synchronous reflow
+      await new Promise(r => setTimeout(r, 100))  // let paint settle
+      await new Promise<void>(r => iframeWin.requestAnimationFrame(() => iframeWin.requestAnimationFrame(() => r())))
+
       const h = el.scrollHeight
       iframe.style.height = h + 'px'
 

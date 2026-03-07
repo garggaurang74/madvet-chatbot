@@ -1,10 +1,12 @@
 import { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import type { Product } from '../types'
 import ProductDetailClient from './ProductDetailClient'
 
-export const dynamic = 'force-dynamic'  // always fetch fresh — admin image updates show immediately
+export const dynamic = 'force-dynamic'    // SSR on every request — no page cache
+export const fetchCache = 'force-no-store' // bypass Next.js fetch cache
 
 const CAT_NORMALIZE: Record<string, string> = {
   'Anti-inflammatory':                               'Anti-inflammatory / Analgesic',
@@ -95,6 +97,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // Explicitly set no-store headers so Vercel's CDN never caches this response.
+  // force-dynamic alone isn't enough — Vercel's edge network can still serve
+  // a stale cached HTML page unless these headers are present.
+  const headersList = await headers()
   const { id } = await params
   const product = await fetchProduct(Number(id))
   if (!product) notFound()
