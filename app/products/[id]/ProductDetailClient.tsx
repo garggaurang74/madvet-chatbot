@@ -768,8 +768,15 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       }
     }
 
-    // Run both loaders in parallel; mark ready when both settle (success OR failure)
-    Promise.all([loadLogo(), loadProductImg()]).finally(() => setImagesReady(true))
+    // Run both loaders in parallel.
+    // IMPORTANT: setImagesReady must be delayed by two rAFs AFTER the base64 state
+    // setters (setLogoB64, setProductImgB64) so React has fully committed the new
+    // <img src="data:..."> values to the DOM before buttons are enabled.
+    // Without this delay, clicking Save immediately after unlock still captures
+    // the old (non-base64) src because React hasn't re-rendered yet.
+    Promise.all([loadLogo(), loadProductImg()]).finally(() => {
+      requestAnimationFrame(() => requestAnimationFrame(() => setImagesReady(true)))
+    })
   }, [product.image_url])
 
   useEffect(() => {
@@ -825,34 +832,36 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     try {
       const { toPng } = await import('html-to-image')
 
-      // Critical: wait two animation frames so React commits the latest render
-      // (with base64 image srcs) to the DOM before we capture it.
-      // Without this, setStatus('loading') can trigger a mid-capture re-render.
+      // Two rAFs: let React commit any in-flight state updates (e.g. setStatus)
+      // before we touch the DOM.
       await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
       const el = cardRef.current!
       const prev = el.style.transform
       el.style.transform = 'none'
 
-      // One more frame to let the transform change settle
+      // One more frame to let the transform change settle in the browser layout.
       await new Promise<void>(r => requestAnimationFrame(() => r()))
 
-      // Wait for every <img> in the card to be fully decoded by the browser.
-      // Even though base64 srcs are already in React state, the browser still
-      // needs to decode them before html-to-image can paint them correctly.
-      // img.decode() resolves only when the image is paint-ready.
+      // Now wait for EVERY <img> in the card to finish decoding.
+      // img.decode() is the only reliable API that confirms an image is
+      // paint-ready. We must call it even for img.complete===true images
+      // because "complete" just means the src was set — not that the pixels
+      // are decoded and available for canvas drawing (which toPng uses).
       const imgEls = Array.from(el.querySelectorAll<HTMLImageElement>('img'))
       await Promise.all(
-        imgEls.map(img =>
-          img.complete
-            ? img.decode().catch(() => {})
-            : new Promise<void>(resolve => {
-                const done = () => { img.decode().catch(() => {}).finally(resolve) }
-                img.onload = done
-                img.onerror = () => resolve()
-                setTimeout(resolve, 4000)
-              })
-        )
+        imgEls.map(img => {
+          // If src isn't base64 yet (shouldn't happen since imagesReady gate),
+          // wait for load then decode.
+          if (!img.complete || img.naturalWidth === 0) {
+            return new Promise<void>(resolve => {
+              img.onload = () => img.decode().catch(() => {}).finally(resolve)
+              img.onerror = () => resolve()
+              setTimeout(resolve, 5000)
+            })
+          }
+          return img.decode().catch(() => {})
+        })
       )
 
       const dataUrl = await toPng(el, {
