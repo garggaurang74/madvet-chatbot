@@ -737,68 +737,33 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     if (!cardRef.current) return
     setStatus('loading')
     setErrMsg('')
-    let clone: HTMLDivElement | null = null
     try {
-      const html2canvas = (await import('html2canvas')).default
+      const { toPng } = await import('html-to-image')
 
-      // Pre-fetch logo as white base64 (html2canvas ignores CSS filter)
-      let whiteLogo = ''
-      try {
-        const resp = await fetch('/madvet-icon.png')
-        const blob = await resp.blob()
-        const dataUrl = await new Promise<string>(r => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(blob) })
-        const img = new Image(); await new Promise<void>(r => { img.onload = () => r(); img.src = dataUrl })
-        const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height
-        const ctx = cv.getContext('2d')!; ctx.drawImage(img, 0, 0)
-        const d = ctx.getImageData(0, 0, cv.width, cv.height)
-        for (let i = 0; i < d.data.length; i += 4) { d.data[i] = d.data[i+1] = d.data[i+2] = 255 }
-        ctx.putImageData(d, 0, 0); whiteLogo = cv.toDataURL()
-      } catch {}
+      // html-to-image uses SVG foreignObject — handles CSS filters, transforms, fonts natively.
+      // Capture the full-size card div directly from the live DOM.
+      const el = cardRef.current
 
-      // Clone the card out of its scaled/clipped container into body at true 480px
-      clone = document.createElement('div')
-      clone.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;z-index:-1;'
-      clone.innerHTML = cardRef.current.innerHTML
-      document.body.appendChild(clone)
+      // Temporarily remove scale transform so output is full 480px
+      const prev = el.style.transform
+      el.style.transform = 'none'
 
-      // Fix logos in clone only — never touch live DOM
-      if (whiteLogo) {
-        clone.querySelectorAll<HTMLImageElement>('img').forEach(img => {
-          if (img.src.includes('madvet-icon')) {
-            img.src = whiteLogo
-            img.style.filter = 'none'
-          }
-        })
-      }
-
-      await document.fonts.ready
-      void clone.getBoundingClientRect()
-
-      const el = clone.firstElementChild as HTMLElement ?? clone
-      const canvas = await html2canvas(el, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false,
+      const dataUrl = await toPng(el, {
         width: 480,
         height: el.scrollHeight,
-        windowWidth: 480,
-        windowHeight: el.scrollHeight,
+        pixelRatio: 3,
+        style: { transform: 'none' },
       })
 
-      document.body.removeChild(clone); clone = null
+      el.style.transform = prev
 
-      if (canvas.width === 0 || canvas.height === 0) throw new Error('Canvas empty')
-      const blob = await new Promise<Blob>((res, rej) =>
-        canvas.toBlob(b => b && b.size > 500 ? res(b) : rej(new Error('0kb')), 'image/png')
-      )
+      const blob = await (await fetch(dataUrl)).blob()
+      if (blob.size < 500) throw new Error('Empty image — try again')
       await saveBlob(blob, `${product.name.replace(/\s+/g, '-')}-madvet.png`, shareIntent)
       setStatus('done')
     } catch (e: any) {
       setErrMsg(e?.message || 'Failed'); setStatus('error')
     } finally {
-      if (clone && document.body.contains(clone)) document.body.removeChild(clone)
       setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
     }
   }
