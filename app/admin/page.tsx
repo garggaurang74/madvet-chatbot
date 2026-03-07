@@ -161,7 +161,9 @@ async function uploadToStorage(base64: string, mime: string, name: string): Prom
       console.error('[Storage] upload error:', error.message, error)
       throw new Error(`Storage: ${error.message}`)
     }
-    return sb.storage.from('product-images').getPublicUrl(file).data?.publicUrl ?? null
+    const publicUrl = sb.storage.from('product-images').getPublicUrl(file).data?.publicUrl
+    // Append a timestamp so browsers don't serve a stale cached version after an image update
+    return publicUrl ? `${publicUrl}?t=${Date.now()}` : null
   } catch(e) { console.error('[Storage]',e); throw e }
 }
 
