@@ -737,46 +737,44 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     if (!cardRef.current) return
     setStatus('loading')
     setErrMsg('')
+    let clone: HTMLDivElement | null = null
     try {
       const html2canvas = (await import('html2canvas')).default
 
-      // The preview card is already correctly rendered in the DOM at 480px.
-      // We capture it directly — no re-render, no iframe, no font issues.
-      // Temporarily remove the CSS transform so html2canvas sees the full 480px card.
-      const el = cardRef.current
-      const prevTransform = el.style.transform
-      el.style.transform = 'none'
+      // Pre-fetch logo as white base64 (html2canvas ignores CSS filter)
+      let whiteLogo = ''
+      try {
+        const resp = await fetch('/madvet-icon.png')
+        const blob = await resp.blob()
+        const dataUrl = await new Promise<string>(r => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(blob) })
+        const img = new Image(); await new Promise<void>(r => { img.onload = () => r(); img.src = dataUrl })
+        const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height
+        const ctx = cv.getContext('2d')!; ctx.drawImage(img, 0, 0)
+        const d = ctx.getImageData(0, 0, cv.width, cv.height)
+        for (let i = 0; i < d.data.length; i += 4) { d.data[i] = d.data[i+1] = d.data[i+2] = 255 }
+        ctx.putImageData(d, 0, 0); whiteLogo = cv.toDataURL()
+      } catch {}
 
-      // Fix logo: html2canvas can't render CSS filter:brightness/invert.
-      // Swap logo img src to a pre-inverted base64 just for capture, then restore.
-      const logoImgs = el.querySelectorAll<HTMLImageElement>('img[src="/madvet-icon.png"]')
-      let invertedSrc = ''
-      if (logoImgs.length > 0) {
-        try {
-          const logoResp = await fetch('/madvet-icon.png')
-          const logoBlob = await logoResp.blob()
-          const logoDataUrl = await new Promise<string>(res => {
-            const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(logoBlob)
-          })
-          const logoImg = new Image()
-          await new Promise<void>(res => { logoImg.onload = () => res(); logoImg.src = logoDataUrl })
-          const cv = document.createElement('canvas')
-          cv.width = logoImg.width; cv.height = logoImg.height
-          const ctx = cv.getContext('2d')!
-          ctx.drawImage(logoImg, 0, 0)
-          const imgData = ctx.getImageData(0, 0, cv.width, cv.height)
-          for (let i = 0; i < imgData.data.length; i += 4) {
-            imgData.data[i] = imgData.data[i+1] = imgData.data[i+2] = 255
+      // Clone the card out of its scaled/clipped container into body at true 480px
+      clone = document.createElement('div')
+      clone.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;z-index:-1;'
+      clone.innerHTML = cardRef.current.innerHTML
+      document.body.appendChild(clone)
+
+      // Fix logos in clone only — never touch live DOM
+      if (whiteLogo) {
+        clone.querySelectorAll<HTMLImageElement>('img').forEach(img => {
+          if (img.src.includes('madvet-icon')) {
+            img.src = whiteLogo
+            img.style.filter = 'none'
           }
-          ctx.putImageData(imgData, 0, 0)
-          invertedSrc = cv.toDataURL('image/png')
-          logoImgs.forEach(img => { img.src = invertedSrc; img.style.filter = 'none' })
-        } catch { /* logo may appear dark but card still exports */ }
+        })
       }
 
       await document.fonts.ready
-      void el.getBoundingClientRect()
+      void clone.getBoundingClientRect()
 
+      const el = clone.firstElementChild as HTMLElement ?? clone
       const canvas = await html2canvas(el, {
         scale: 3,
         useCORS: true,
@@ -789,21 +787,18 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         windowHeight: el.scrollHeight,
       })
 
-      // Restore transform and logo src
-      el.style.transform = prevTransform
-      logoImgs.forEach(img => { img.src = '/madvet-icon.png'; img.style.filter = 'brightness(0) invert(1)' })
+      document.body.removeChild(clone); clone = null
 
-      if (canvas.width === 0 || canvas.height === 0) throw new Error('Canvas empty — try again')
+      if (canvas.width === 0 || canvas.height === 0) throw new Error('Canvas empty')
       const blob = await new Promise<Blob>((res, rej) =>
-        canvas.toBlob(b => (b && b.size > 500) ? res(b) : rej(new Error('0kb output')), 'image/png')
+        canvas.toBlob(b => b && b.size > 500 ? res(b) : rej(new Error('0kb')), 'image/png')
       )
-      const filename = `${product.name.replace(/\s+/g, '-')}-madvet.png`
-      await saveBlob(blob, filename, shareIntent)
+      await saveBlob(blob, `${product.name.replace(/\s+/g, '-')}-madvet.png`, shareIntent)
       setStatus('done')
     } catch (e: any) {
-      setErrMsg(e?.message || 'Failed to generate image')
-      setStatus('error')
+      setErrMsg(e?.message || 'Failed'); setStatus('error')
     } finally {
+      if (clone && document.body.contains(clone)) document.body.removeChild(clone)
       setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
     }
   }
