@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import type { Product } from '../types'
 import ProductDetailClient from './ProductDetailClient'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'  // always fetch fresh — admin image updates show immediately
 
 const CAT_NORMALIZE: Record<string, string> = {
   'Anti-inflammatory':                               'Anti-inflammatory / Analgesic',
