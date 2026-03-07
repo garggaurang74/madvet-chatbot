@@ -287,7 +287,7 @@ function ShareImgBox({ url, w, h, c, emoji = '🧴', round = false }: { url: str
   const [err, setErr] = useState(false)
   const style: { width: number; height: number; flexShrink: number; overflow: string; borderRadius: number | string; background: string; border: string; display: string; alignItems: string; justifyContent: string; boxShadow: string } = {
     width: w, height: h, flexShrink: 0, overflow: 'hidden',
-    borderRadius: round ? '50%' : 12,
+    borderRadius: 12,
     background: `linear-gradient(145deg,${c.pale},white)`,
     border: `2px solid ${c.primary}30`,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -312,10 +312,10 @@ function ShareImgBox({ url, w, h, c, emoji = '🧴', round = false }: { url: str
 function ShareSpecies({ sp = '', c }: { sp: string; c: ReturnType<typeof getShareColors> }) {
   const arr = sp.split(/[,/]/).map(s => s.trim()).filter(Boolean).slice(0, 5)
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', overflow: 'hidden' }}>
       {arr.map(s => (
-        <div key={s} style={{ background: `${c.primary}18`, border: `1.5px solid ${c.primary}55`, borderRadius: 4, padding: '3px 7px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 6px ${c.glow}` }}>
-          <span style={{ fontSize: 9, fontWeight: 700, color: c.dark, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5, textTransform: 'uppercase' }}>{s}</span>
+        <div key={s} style={{ background: `${c.primary}18`, border: `1.5px solid ${c.primary}55`, borderRadius: 4, padding: '3px 7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: c.dark, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{s}</span>
         </div>
       ))}
     </div>
@@ -447,7 +447,7 @@ function ShareCardDigest({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof g
             </div>
           </div>
           <div style={{ flexShrink: 0, paddingTop: 4 }}>
-            <ShareImgBox url={p.image_url} w={120} h={120} c={c} emoji="💊" round />
+            <ShareImgBox url={p.image_url} w={120} h={120} c={c} emoji="💊" />
           </div>
         </div>
       </div>
@@ -753,8 +753,12 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         try {
           const url = img.src.startsWith('http') ? img.src.split('?')[0] : window.location.origin + img.getAttribute('src')
           const b64 = await fetch(url).then(r => r.blob()).then(blob => new Promise<string>(r => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(blob) }))
-          img.src = b64
-          img.style.filter = img.alt === 'Madvet' ? 'brightness(0) invert(1)' : img.style.filter
+          // Swap src AND wait for browser to finish loading the new base64 src
+          await new Promise<void>(resolve => {
+            img.onload = () => resolve()
+            img.onerror = () => resolve() // don't block if it fails
+            img.src = b64
+          })
         } catch {}
       }))
 
