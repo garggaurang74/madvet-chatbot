@@ -828,7 +828,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       // Critical: wait two animation frames so React commits the latest render
       // (with base64 image srcs) to the DOM before we capture it.
       // Without this, setStatus('loading') can trigger a mid-capture re-render.
-      await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+      await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
       const el = cardRef.current!
       const prev = el.style.transform
