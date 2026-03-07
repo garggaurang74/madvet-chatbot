@@ -837,10 +837,24 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       // One more frame to let the transform change settle
       await new Promise<void>(r => requestAnimationFrame(() => r()))
 
-      // NOTE: We do NOT manually mutate img.src here.
-      // All images are already base64 in the React state (logoB64, productImgB64)
-      // and have been passed as props to the CardComp, so the DOM already has
-      // data: URLs. Mutating the DOM would race against React re-renders.
+      // Wait for every <img> in the card to be fully decoded by the browser.
+      // Even though base64 srcs are already in React state, the browser still
+      // needs to decode them before html-to-image can paint them correctly.
+      // img.decode() resolves only when the image is paint-ready.
+      const imgEls = Array.from(el.querySelectorAll<HTMLImageElement>('img'))
+      await Promise.all(
+        imgEls.map(img =>
+          img.complete
+            ? img.decode().catch(() => {})
+            : new Promise<void>(resolve => {
+                const done = () => { img.decode().catch(() => {}).finally(resolve) }
+                img.onload = done
+                img.onerror = () => resolve()
+                setTimeout(resolve, 4000)
+              })
+        )
+      )
+
       const dataUrl = await toPng(el, {
         width: 480,
         height: el.scrollHeight,
