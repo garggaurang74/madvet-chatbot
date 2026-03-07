@@ -864,12 +864,19 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         })
       )
 
-      const dataUrl = await toPng(el, {
+      // html-to-image has a known first-call bug: on the first invocation it
+      // doesn't fully embed images (its internal fetch cache is cold).
+      // The fix is to call toPng twice — discard the first result, use the second.
+      // This is the standard workaround used across html-to-image issues.
+      const captureOpts = {
         width: 480,
         height: el.scrollHeight,
         pixelRatio: 3,
         style: { transform: 'none' },
-      })
+        cacheBust: true,
+      }
+      await toPng(el, { ...captureOpts, pixelRatio: 1 }) // warm-up pass — discard
+      const dataUrl = await toPng(el, captureOpts)       // real capture
 
       el.style.transform = prev
 
