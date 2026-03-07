@@ -835,7 +835,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       el.style.transform = 'none'
 
       // One more frame to let the transform change settle
-      await new Promise<void>(r => requestAnimationFrame(r))
+      await new Promise<void>(r => requestAnimationFrame(() => r()))
 
       // NOTE: We do NOT manually mutate img.src here.
       // All images are already base64 in the React state (logoB64, productImgB64)
