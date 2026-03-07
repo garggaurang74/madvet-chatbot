@@ -8,6 +8,35 @@ import { Redis } from '@upstash/redis'
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 // ─────────────────────────────────────────────
+// LANGUAGE DETECTION — deterministic, runs BEFORE GPT
+// Hindi is the preferred language. Hinglish → Hindi.
+// ─────────────────────────────────────────────
+type DetectedLang = 'HINDI' | 'ENGLISH'
+
+function detectLanguage(text: string): DetectedLang {
+  // Devanagari script → Hindi (100% certain)
+  if (/[\u0900-\u097F]/.test(text)) return 'HINDI'
+
+  // ── Strong signals: words that don't exist in English ──
+  // 1 match is enough to confirm Hinglish
+  const strongHinglish = /\b(gaay|gaye|bhains|bakri|bhed|murgi|ghoda|kutte|billi|bukhar|bukhaar|dast|pechish|kamzori|kamjori|dawai|dawa|ilaj|chahiye|theek|pashu|janwar|dudh|doodh|sujan|keeda|keede|kide|zakhm|ghav|khujli|khaj|thaan|byaana|bhook|sust|chaara|chamdi|daane|haddi|garbh|nuksan|dikhao|bataye|dijiye|karein|milein|phenke|padega|achha|kaise|kitna|kaam|aata|aati|aaye|khana|peena|paani|kahan|kahaan|kyun|kyunki|zaroor|bahut|abhi|accha|bura|lagta|lagti|laga|pata|dekho|dekh|dekhna|bolo|baat|sunao|suniye|samjhao|samajh|pehle|baad|upar|neeche|andar|aacha|sahi|galat|bimar|sehat|taakat|takleef|dard|suji|sooji|rog|beemari|jaanwar|pashuon|marzi|baccha|bachha|bachchi|bacche|ghar|gaon|khet|zamin|baazar|haldi|chuna|tel|ghee|makhan|aata|atta|chawal|roti|sabzi|namak|cheeni|mirch|adrak|lehsun|pyaaz|nimbu|jeera|dhania|sarson|methi|moong|chana|gehun|bajra|jowar|makai|makka|tamatar|aaloo|gobhi|palak|lauki|tori|bhindi|baingan|matar|gajar|mooli|kakdi)\b/gi
+
+  // ── Weak signals: could appear in English context ──
+  // Need 2+ matches to confirm Hinglish
+  const weakHinglish = /\b(kya|hai|mein|dein|batao|nahi|haan|acha|bhi|wala|wali|meri|mera|uska|uski|kaun|konsa|rahi|raha|sakte|hota|hoti|toh|aur|kis|iska|iski|usse|isse|apna|apni|apne|koi|kuch|sab|jab|tab|agar|lekin|par|per|phir|fir|yeh|woh|yaha|waha|idhar|udhar|kal|aaj|subah|shaam|raat|din|waqt|zyada|kam|thoda|bohot|sabse)\b/gi
+
+  const strongMatches = (text.match(strongHinglish) || []).length
+  const weakMatches   = (text.match(weakHinglish) || []).length
+
+  // 1 strong signal is enough (these words don't exist in English)
+  if (strongMatches >= 1) return 'HINDI'
+  // Weak signals need 2+ to be confident
+  if (weakMatches >= 2) return 'HINDI'
+
+  return 'ENGLISH'
+}
+
+// ─────────────────────────────────────────────
 // RATE LIMITER
 // ─────────────────────────────────────────────
 const redis = process.env.UPSTASH_REDIS_REST_URL
@@ -52,32 +81,6 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
   if (entry.count >= RATE_LIMIT) return { allowed: false, remaining: 0 }
   entry.count++
   return { allowed: true, remaining: RATE_LIMIT - entry.count }
-}
-
-// ─────────────────────────────────────────────
-// LANGUAGE DETECTION — deterministic, runs BEFORE GPT
-// Hindi is the preferred language. Hinglish → Hindi.
-// ─────────────────────────────────────────────
-type DetectedLang = 'HINDI' | 'ENGLISH'
-
-function detectLanguage(text: string): DetectedLang {
-  // Devanagari script → Hindi (100% certain)
-  if (/[\u0900-\u097F]/.test(text)) return 'HINDI'
-
-  // Hinglish (Roman script + Hindi words) → treated as Hindi
-  // Split into strong signals (never English) and weak signals (could be English)
-  const strongHinglish = /\b(gaay|gaye|bhains|bakri|bhed|murgi|ghoda|kutte|billi|bukhar|bukhaar|dast|pechish|kamzori|kamjori|dawai|dawa|ilaj|chahiye|theek|pashu|janwar|dudh|doodh|sujan|keeda|keede|kide|zakhm|ghav|khujli|khaj|thaan|byaana|bhook|sust|chaara|chamdi|daane|haddi|garbh|nuksan|dikhao|bataye|dijiye|karein|milein|phenke|padega|bolus|achha|kaise|kitna)\b/gi
-  const weakHinglish = /\b(kya|hai|mein|dein|batao|nahi|haan|acha|bhi|wala|wali|meri|mera|uska|uski|kaun|konsa|rahi|raha|sakte|hota|hoti|toh|aur)\b/gi
-
-  const strongMatches = (text.match(strongHinglish) || []).length
-  const weakMatches   = (text.match(weakHinglish) || []).length
-
-  // 1 strong signal is enough (these words don't exist in English)
-  if (strongMatches >= 1) return 'HINDI'
-  // Weak signals need 2+ to be confident
-  if (weakMatches >= 2) return 'HINDI'
-
-  return 'ENGLISH'
 }
 
 // ─────────────────────────────────────────────
@@ -183,7 +186,7 @@ export async function POST(req: NextRequest) {
     const cleanedHistory   = cleanHistory(messages)
     const detectedLang     = detectLanguage(truncatedMessage)
 
-    // Language instruction placed AFTER catalog so it's the last thing GPT reads
+    // Language instruction placed AFTER catalog — last thing GPT reads before generating
     const langInstruction = detectedLang === 'HINDI'
       ? '\n\n⚠️ भाषा निर्देश: ग्राहक ने हिंदी/हिंगलिश में लिखा है। आपको 100% देवनागरी हिंदी में जवाब देना अनिवार्य है। Product names English में रखें, बाकी सब हिंदी में। ENGLISH में जवाब देना मना है।'
       : ''
