@@ -638,10 +638,11 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
         .from('products_enriched').update({image_url: imageUrl}).eq('id', selected.id)
       if (dbErr) throw new Error(dbErr.message)
 
-      // Bust the Next.js page cache so the new image shows immediately
+      // Bust the Next.js page cache — pass product_id so the specific detail page is also cleared
       await fetch('/api/revalidate', {
         method: 'POST',
-        headers: { 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '' },
+        body: JSON.stringify({ product_id: selected.id }),
       })
 
       setImgStage('done')
