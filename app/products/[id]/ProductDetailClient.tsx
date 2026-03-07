@@ -246,7 +246,7 @@ function ShareDescBar({ p, c }: { p: Product; c: ReturnType<typeof getShareColor
   return (
     <div style={{ margin: '0', padding: '10px 18px 8px', background: c.pale, borderBottom: `1.5px solid ${c.primary}18` }}>
       {desc && (
-        <p style={{ margin: '0 0 6px', fontSize: 10.5, color: '#2a2a2a', lineHeight: 1.5, fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 500, fontStyle: 'italic' }}>
+        <p style={{ margin: '0 0 6px', fontSize: 10.5, color: '#2a2a2a', lineHeight: 1.5, fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, fontStyle: 'italic' }}>
           {desc}
         </p>
       )}
@@ -308,13 +308,12 @@ function ShareImgBox({ url, w, h, c, emoji = '🧴', round = false }: { url: str
 }
 
 function ShareSpecies({ sp = '', c }: { sp: string; c: ReturnType<typeof getShareColors> }) {
-  const M: Record<string, string> = { Cattle: '🐄', Buffalo: '🐃', Sheep: '🐑', Goat: '🐐', Dog: '🐕', Cat: '🐈', Horse: '🐴', Poultry: '🐓', Calf: '🐮' }
   const arr = sp.split(/[,/]/).map(s => s.trim()).filter(Boolean).slice(0, 5)
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
       {arr.map(s => (
-        <div key={s} title={s} style={{ width: 28, height: 28, borderRadius: '50%', background: `${c.primary}18`, border: `1.5px solid ${c.primary}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, boxShadow: `0 2px 6px ${c.glow}` }}>
-          {M[s] || '🐾'}
+        <div key={s} style={{ background: `${c.primary}18`, border: `1.5px solid ${c.primary}55`, borderRadius: 4, padding: '3px 7px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 6px ${c.glow}` }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: c.dark, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5, textTransform: 'uppercase' }}>{s}</span>
         </div>
       ))}
     </div>
@@ -756,39 +755,42 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         <style>
           *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
           body { width:480px; }
+          /* Oswald — all weights map to our single 700 file so nothing falls back */
           @font-face {
             font-family: 'Oswald';
-            font-weight: 700;
+            font-weight: 100 900;
             font-display: block;
             src: url('${origin}/fonts/oswald-700.woff2') format('woff2');
           }
+          /* Barlow Condensed — cover every weight so no system-font fallback */
           @font-face {
             font-family: 'Barlow Condensed';
-            font-weight: 600;
+            font-weight: 100 649;
             font-display: block;
             src: url('${origin}/fonts/barlow-condensed-600.woff2') format('woff2');
           }
           @font-face {
             font-family: 'Barlow Condensed';
-            font-weight: 700;
+            font-weight: 650 900;
             font-display: block;
             src: url('${origin}/fonts/barlow-condensed-700.woff2') format('woff2');
           }
+          /* Noto Sans Devanagari — full weight range */
           @font-face {
             font-family: 'Noto Sans Devanagari';
-            font-weight: 600;
+            font-weight: 100 649;
             font-display: block;
             src: url('${origin}/fonts/noto-devanagari-600.woff2') format('woff2');
           }
           @font-face {
             font-family: 'Noto Sans Devanagari';
-            font-weight: 700;
+            font-weight: 650 749;
             font-display: block;
             src: url('${origin}/fonts/noto-devanagari-700.woff2') format('woff2');
           }
           @font-face {
             font-family: 'Noto Sans Devanagari';
-            font-weight: 800;
+            font-weight: 750 900;
             font-display: block;
             src: url('${origin}/fonts/noto-devanagari-800.woff2') format('woff2');
           }
