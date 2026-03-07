@@ -635,6 +635,13 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
       const { error: dbErr } = await createClient(url, key)
         .from('products_enriched').update({image_url: imageUrl}).eq('id', selected.id)
       if (dbErr) throw new Error(dbErr.message)
+
+      // Bust the Next.js page cache so the new image shows immediately
+      await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '' },
+      })
+
       setImgStage('done')
     } catch(e) { setError(String(e)); setImgStage('error') }
   }
