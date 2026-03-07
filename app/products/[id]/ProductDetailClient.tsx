@@ -682,6 +682,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const [errMsg, setErrMsg] = useState('')
   const [previewW, setPreviewW] = useState(0)
   const previewContainerRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)  // ref to the full-size card for capture
   const tmpl     = getTemplate(product.category)
   const c        = getShareColors(product.id, product.category)
   const CardComp = SHARE_CARD_TEMPLATES[tmpl]
@@ -733,70 +734,49 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   }
 
   const handleSave = async (shareIntent: boolean) => {
+    if (!cardRef.current) return
     setStatus('loading')
     setErrMsg('')
     try {
       const html2canvas = (await import('html2canvas')).default
 
-      // Step 1: Pre-fetch the logo and invert it on a canvas so html2canvas can render it
-      // (html2canvas doesn't support CSS filter: brightness/invert)
-      let invertedLogoSrc = ''
-      try {
-        const logoResp = await fetch('/madvet-icon.png')
-        const logoBlob = await logoResp.blob()
-        const logoDataUrl = await new Promise<string>(res => {
-          const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(logoBlob)
-        })
-        // Draw on canvas with invert effect
-        const logoImg = new Image()
-        await new Promise<void>(res => { logoImg.onload = () => res(); logoImg.src = logoDataUrl })
-        const cv = document.createElement('canvas')
-        cv.width = logoImg.width; cv.height = logoImg.height
-        const ctx = cv.getContext('2d')!
-        ctx.drawImage(logoImg, 0, 0)
-        // Invert pixel data to simulate brightness(0) invert(1)
-        const imgData = ctx.getImageData(0, 0, cv.width, cv.height)
-        for (let i = 0; i < imgData.data.length; i += 4) {
-          imgData.data[i]   = 255 - imgData.data[i]
-          imgData.data[i+1] = 255 - imgData.data[i+1]
-          imgData.data[i+2] = 255 - imgData.data[i+2]
-        }
-        ctx.putImageData(imgData, 0, 0)
-        invertedLogoSrc = cv.toDataURL('image/png')
-      } catch { /* logo stays empty, card still exports */ }
+      // The preview card is already correctly rendered in the DOM at 480px.
+      // We capture it directly — no re-render, no iframe, no font issues.
+      // Temporarily remove the CSS transform so html2canvas sees the full 480px card.
+      const el = cardRef.current
+      const prevTransform = el.style.transform
+      el.style.transform = 'none'
 
-      // Step 2: Pre-fetch product image as base64 to avoid CORS issues in capture
-      let imageUrl = product.image_url
-      if (imageUrl) {
+      // Fix logo: html2canvas can't render CSS filter:brightness/invert.
+      // Swap logo img src to a pre-inverted base64 just for capture, then restore.
+      const logoImgs = el.querySelectorAll<HTMLImageElement>('img[src="/madvet-icon.png"]')
+      let invertedSrc = ''
+      if (logoImgs.length > 0) {
         try {
-          const imgResp = await fetch(imageUrl.split('?')[0])
-          const imgBlob = await imgResp.blob()
-          imageUrl = await new Promise<string>(res => {
-            const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(imgBlob)
+          const logoResp = await fetch('/madvet-icon.png')
+          const logoBlob = await logoResp.blob()
+          const logoDataUrl = await new Promise<string>(res => {
+            const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(logoBlob)
           })
-        } catch { /* use original URL */ }
+          const logoImg = new Image()
+          await new Promise<void>(res => { logoImg.onload = () => res(); logoImg.src = logoDataUrl })
+          const cv = document.createElement('canvas')
+          cv.width = logoImg.width; cv.height = logoImg.height
+          const ctx = cv.getContext('2d')!
+          ctx.drawImage(logoImg, 0, 0)
+          const imgData = ctx.getImageData(0, 0, cv.width, cv.height)
+          for (let i = 0; i < imgData.data.length; i += 4) {
+            imgData.data[i] = imgData.data[i+1] = imgData.data[i+2] = 255
+          }
+          ctx.putImageData(imgData, 0, 0)
+          invertedSrc = cv.toDataURL('image/png')
+          logoImgs.forEach(img => { img.src = invertedSrc; img.style.filter = 'none' })
+        } catch { /* logo may appear dark but card still exports */ }
       }
-      const productForCard = { ...product, image_url: imageUrl }
 
-      // Step 3: Render a hidden full-size (480px) card off-screen in the real DOM.
-      // This uses the exact same fonts/styles as the preview — no iframe, no re-render guesswork.
-      const hiddenDiv = document.createElement('div')
-      hiddenDiv.style.cssText = 'position:fixed;top:0;left:-9999px;width:480px;pointer-events:none;'
-      document.body.appendChild(hiddenDiv)
-
-      const { createRoot } = await import('react-dom/client')
-      const root = createRoot(hiddenDiv)
-      await new Promise<void>(resolve => {
-        root.render(<CardComp p={productForCard} c={c} logoSrc={invertedLogoSrc} />)
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      })
-
-      // Wait for page fonts (already loaded from layout.tsx) + layout settle
       await document.fonts.ready
-      void hiddenDiv.getBoundingClientRect()
-      await new Promise(r => setTimeout(r, 80))
+      void el.getBoundingClientRect()
 
-      const el = hiddenDiv.firstElementChild as HTMLElement
       const canvas = await html2canvas(el, {
         scale: 3,
         useCORS: true,
@@ -809,8 +789,9 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         windowHeight: el.scrollHeight,
       })
 
-      root.unmount()
-      document.body.removeChild(hiddenDiv)
+      // Restore transform and logo src
+      el.style.transform = prevTransform
+      logoImgs.forEach(img => { img.src = '/madvet-icon.png'; img.style.filter = 'brightness(0) invert(1)' })
 
       if (canvas.width === 0 || canvas.height === 0) throw new Error('Canvas empty — try again')
       const blob = await new Promise<Blob>((res, rej) =>
@@ -851,7 +832,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             ref={previewContainerRef}
             style={{ width: '100%', height: scale > 0 ? Math.round(700 * scale) : 340, position: 'relative', overflow: 'hidden', borderRadius: 8, background: '#0a0d14' }}
           >
-            <div style={{ position: 'absolute', top: 0, left: 0, width: 480, transformOrigin: 'top left', transform: scale > 0 ? `scale(${scale})` : 'none', pointerEvents: 'none' }}>
+            <div ref={cardRef} style={{ position: 'absolute', top: 0, left: 0, width: 480, transformOrigin: 'top left', transform: scale > 0 ? `scale(${scale})` : 'none', pointerEvents: 'none' }}>
               <CardComp p={product} c={c} />
             </div>
           </div>
