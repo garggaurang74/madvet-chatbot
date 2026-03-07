@@ -12,6 +12,7 @@ interface MessageBubbleProps {
   content:                string
   primaryProducts?:       MadvetProduct[]
   complementaryProducts?: MadvetProduct[]
+  lang?:                  'HINDI' | 'ENGLISH'
   showFeedback?:          boolean
   dark?:                  boolean
 }
@@ -57,7 +58,7 @@ function getFormBadge(p: MadvetProduct): { label: string; color: string } {
 }
 
 // Primary products — first shown as full card, rest as expandable list
-function PrimaryProductCards({ products, dark }: { products: MadvetProduct[]; dark: boolean }) {
+function PrimaryProductCards({ products, dark, lang }: { products: MadvetProduct[]; dark: boolean; lang?: 'HINDI' | 'ENGLISH' }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   if (products.length === 0) return null
 
@@ -66,11 +67,11 @@ function PrimaryProductCards({ products, dark }: { products: MadvetProduct[]; da
 
   return (
     <div className="space-y-2">
-      <ProductCard product={first} dark={dark} />
+      <ProductCard product={first} dark={dark} lang={lang} />
       {rest.length > 0 && (
         <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
           <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${dark ? 'text-white/40' : 'text-gray-400'}`}>
-            Aur options
+            {lang === 'HINDI' ? 'और विकल्प' : 'Aur options'}
           </p>
           <div className="space-y-1">
             {rest.map((p, i) => {
@@ -98,7 +99,7 @@ function PrimaryProductCards({ products, dark }: { products: MadvetProduct[]; da
                       {badge.label}
                     </span>
                   </button>
-                  {isOpen && <div className="mt-1 ml-5"><ProductCard product={p} dark={dark} /></div>}
+                  {isOpen && <div className="mt-1 ml-5"><ProductCard product={p} dark={dark} lang={lang} /></div>}
                 </div>
               )
             })}
@@ -110,14 +111,14 @@ function PrimaryProductCards({ products, dark }: { products: MadvetProduct[]; da
 }
 
 // Complementary products — shown with a distinct "Also give" header
-function ComplementaryProductCards({ products, dark }: { products: MadvetProduct[]; dark: boolean }) {
+function ComplementaryProductCards({ products, dark, lang }: { products: MadvetProduct[]; dark: boolean; lang?: 'HINDI' | 'ENGLISH' }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   if (products.length === 0) return null
 
   return (
     <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-green-800/50 bg-green-900/10' : 'border-green-200 bg-green-50'}`}>
       <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${dark ? 'text-green-400/70' : 'text-green-600'}`}>
-        ➕ Saath mein dijiye
+        ➕ {lang === 'HINDI' ? 'साथ में दीजिए' : 'Saath mein dijiye'}
       </p>
       <div className="space-y-1">
         {products.map((p, i) => {
@@ -145,7 +146,7 @@ function ComplementaryProductCards({ products, dark }: { products: MadvetProduct
                   {badge.label}
                 </span>
               </button>
-              {isOpen && <div className="mt-1 ml-5"><ProductCard product={p} dark={dark} /></div>}
+              {isOpen && <div className="mt-1 ml-5"><ProductCard product={p} dark={dark} lang={lang} /></div>}
             </div>
           )
         })}
@@ -160,6 +161,7 @@ export default function MessageBubble({
   content,
   primaryProducts       = [],
   complementaryProducts = [],
+  lang,
   showFeedback = false,
   dark = false,
 }: MessageBubbleProps) {
@@ -210,8 +212,8 @@ export default function MessageBubble({
             {/* Product cards — only shown after stream completes */}
             {hasProducts && (
               <div className="space-y-2">
-                <PrimaryProductCards products={primaryProducts} dark={dark} />
-                <ComplementaryProductCards products={complementaryProducts} dark={dark} />
+                <PrimaryProductCards products={primaryProducts} dark={dark} lang={lang} />
+                <ComplementaryProductCards products={complementaryProducts} dark={dark} lang={lang} />
               </div>
             )}
 

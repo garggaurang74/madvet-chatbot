@@ -19,6 +19,7 @@ export interface ChatMessage {
   content: string
   primaryProducts?:       MadvetProduct[]
   complementaryProducts?: MadvetProduct[]
+  lang?: 'HINDI' | 'ENGLISH'
   isError?: boolean
   retryText?: string
 }
@@ -211,7 +212,7 @@ export default function ChatWindow() {
                 if (meta.type === 'products') {
                   setMessages(prev => prev.map(m =>
                     m.id === assistantId
-                      ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [] }
+                      ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [], lang: meta.lang ?? 'ENGLISH' }
                       : m
                   ))
                 }
@@ -227,7 +228,7 @@ export default function ChatWindow() {
             if (meta.type === 'products') {
               setMessages(prev => prev.map(m =>
                 m.id === assistantId
-                  ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [] }
+                  ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [], lang: meta.lang ?? 'ENGLISH' }
                   : m
               ))
             }
@@ -367,6 +368,7 @@ export default function ChatWindow() {
                     content={m.content}
                     primaryProducts={m.primaryProducts}
                     complementaryProducts={m.complementaryProducts}
+                    lang={m.lang}
                     showFeedback={m.role === 'assistant' && m.content.length > 0 && !m.isError}
                     dark={true}
                   />

@@ -5,15 +5,17 @@ import type { MadvetProduct } from '@/lib/supabase'
 interface ProductCardProps {
   product: MadvetProduct
   dark?:   boolean
+  lang?:   'HINDI' | 'ENGLISH'
 }
 
-export default function ProductCard({ product, dark = false }: ProductCardProps) {
+export default function ProductCard({ product, dark = false, lang }: ProductCardProps) {
+  const isHindi     = lang === 'HINDI'
   const name        = product.product_name ?? 'Unknown Product'
   const packing     = product.packaging
   const category    = product.category
   const species     = product.species
-  const benefits    = product.usp_benefits
-  const description = product.description
+  const benefits    = isHindi && product.usp_benefits_hi ? product.usp_benefits_hi : product.usp_benefits
+  const description = isHindi && product.description_hi  ? product.description_hi  : product.description
   const imageUrl    = product.image_url
 
   // Use proxy for Supabase images to avoid CORS issues
@@ -120,9 +122,9 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
       <div className={`space-y-1.5 border-t pt-3 ${
         dark ? 'border-white/10 text-gray-400' : 'border-gray-100 text-gray-500'
       }`}>
-        {packing  && <MetaRow label="Form"    value={packing} />}
-        {species  && <MetaRow label="For"     value={species} />}
-        {benefits && benefits.length < 120 && <MetaRow label="Note" value={benefits} />}
+        {packing  && <MetaRow label={isHindi ? "रूप" : "Form"}    value={packing} />}
+        {species  && <MetaRow label={isHindi ? "जानवर" : "For"}   value={species} />}
+        {benefits && benefits.length < 120 && <MetaRow label={isHindi ? "नोट" : "Note"} value={benefits} />}
       </div>
 
       {/* Vet reminder — ⚕️ is Unicode 2695 (very safe), no 🩺 */}
@@ -131,7 +133,7 @@ export default function ProductCard({ product, dark = false }: ProductCardProps)
           ? 'bg-green-900/25 text-green-400/80'
           : 'bg-green-50 text-green-700'
       }`}>
-        ⚕️ Sahi dose ke liye apne vet se milein 🙏
+        ⚕️ {isHindi ? 'सही खुराक के लिए अपने पशु चिकित्सक से मिलें 🙏' : 'Sahi dose ke liye apne vet se milein 🙏'}
       </p>
       </div>
     </div>

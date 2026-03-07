@@ -55,6 +55,32 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
 }
 
 // ─────────────────────────────────────────────
+// LANGUAGE DETECTION — deterministic, runs BEFORE GPT
+// Hindi is the preferred language. Hinglish → Hindi.
+// ─────────────────────────────────────────────
+type DetectedLang = 'HINDI' | 'ENGLISH'
+
+function detectLanguage(text: string): DetectedLang {
+  // Devanagari script → Hindi (100% certain)
+  if (/[\u0900-\u097F]/.test(text)) return 'HINDI'
+
+  // Hinglish (Roman script + Hindi words) → treated as Hindi
+  // Split into strong signals (never English) and weak signals (could be English)
+  const strongHinglish = /\b(gaay|gaye|bhains|bakri|bhed|murgi|ghoda|kutte|billi|bukhar|bukhaar|dast|pechish|kamzori|kamjori|dawai|dawa|ilaj|chahiye|theek|pashu|janwar|dudh|doodh|sujan|keeda|keede|kide|zakhm|ghav|khujli|khaj|thaan|byaana|bhook|sust|chaara|chamdi|daane|haddi|garbh|nuksan|dikhao|bataye|dijiye|karein|milein|phenke|padega|bolus|achha|kaise|kitna)\b/gi
+  const weakHinglish = /\b(kya|hai|mein|dein|batao|nahi|haan|acha|bhi|wala|wali|meri|mera|uska|uski|kaun|konsa|rahi|raha|sakte|hota|hoti|toh|aur)\b/gi
+
+  const strongMatches = (text.match(strongHinglish) || []).length
+  const weakMatches   = (text.match(weakHinglish) || []).length
+
+  // 1 strong signal is enough (these words don't exist in English)
+  if (strongMatches >= 1) return 'HINDI'
+  // Weak signals need 2+ to be confident
+  if (weakMatches >= 2) return 'HINDI'
+
+  return 'ENGLISH'
+}
+
+// ─────────────────────────────────────────────
 // FORMAT FULL PRODUCT CATALOG
 // Each product gets a numeric ID so GPT can reference it precisely
 // ─────────────────────────────────────────────
@@ -155,11 +181,17 @@ export async function POST(req: NextRequest) {
     const products         = await getCachedProducts()
     const catalog          = formatCatalog(products)
     const cleanedHistory   = cleanHistory(messages)
+    const detectedLang     = detectLanguage(truncatedMessage)
+
+    // Language instruction placed AFTER catalog so it's the last thing GPT reads
+    const langInstruction = detectedLang === 'HINDI'
+      ? '\n\n⚠️ भाषा निर्देश: ग्राहक ने हिंदी/हिंगलिश में लिखा है। आपको 100% देवनागरी हिंदी में जवाब देना अनिवार्य है। Product names English में रखें, बाकी सब हिंदी में। ENGLISH में जवाब देना मना है।'
+      : ''
 
     // Current user message with full catalog attached
     const currentMessage = {
       role: 'user',
-      content: `Customer: "${truncatedMessage}"\n\n${catalog}`
+      content: `Customer: "${truncatedMessage}"\n\n${catalog}${langInstruction}`
     }
 
     const stream = await openai.chat.completions.create({
@@ -246,6 +278,7 @@ export async function POST(req: NextRequest) {
             type:          'products',
             primary:       primaryProducts,
             complementary: complementaryProducts,
+            lang:          detectedLang,
           })
           controller.enqueue(encoder.encode(`\nm:${meta}`))
 
