@@ -184,7 +184,22 @@ export async function POST(req: NextRequest) {
     const products         = await getCachedProducts()
     const catalog          = formatCatalog(products)
     const cleanedHistory   = cleanHistory(messages)
-    const detectedLang     = detectLanguage(truncatedMessage)
+
+    // Language detection with conversation memory:
+    // If current message is ambiguous but recent messages were Hindi, stay Hindi
+    let detectedLang       = detectLanguage(truncatedMessage)
+    if (detectedLang === 'ENGLISH' && messages.length > 0) {
+      // Check last 4 user messages for Hindi signals
+      const recentUserMsgs = messages
+        .filter(m => m.role === 'user')
+        .slice(-4)
+      const recentHindi = recentUserMsgs.some(m => detectLanguage(m.content) === 'HINDI')
+      // Short follow-ups in an Hindi conversation should stay Hindi
+      // (e.g. "liquid form me", "ok", "aur koi", "injection wala")
+      if (recentHindi && truncatedMessage.split(/\s+/).length <= 8) {
+        detectedLang = 'HINDI'
+      }
+    }
 
     // Language instruction placed AFTER catalog — last thing GPT reads before generating
     const langInstruction = detectedLang === 'HINDI'
