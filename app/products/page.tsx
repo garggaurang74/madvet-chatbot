@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   description: 'Complete range of Madvet veterinary products — antibiotics, supplements, dewormers and more.',
 }
 
-// 1 hour — product catalogues don't change by the minute.
-// Trigger on-demand from your save-product API: revalidatePath('/products')
-export const revalidate = 3600
+// Always fetch fresh from Supabase — admin image updates must reflect immediately.
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 const CAT_NORMALIZE: Record<string, string> = {
   'Anti-inflammatory':                               'Anti-inflammatory / Analgesic',

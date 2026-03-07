@@ -43,7 +43,11 @@ const nextConfig = {
       source: '/fonts/(.*)', 
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] 
     },
-    // Product detail pages — never cache, so admin image updates show immediately
+    // Products listing + detail pages — never cache, so admin image updates show immediately
+    {
+      source: '/products',
+      headers: [{ key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' }]
+    },
     {
       source: '/products/:id',
       headers: [{ key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' }]

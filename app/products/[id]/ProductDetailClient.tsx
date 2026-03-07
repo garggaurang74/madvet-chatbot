@@ -751,8 +751,18 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
       const origSrcs = imgEls.map(i => i.src)
       await Promise.all(imgEls.map(async img => {
         try {
-          const url = img.src.startsWith('http') ? img.src.split('?')[0] : window.location.origin + img.getAttribute('src')
-          const b64 = await fetch(url).then(r => r.blob()).then(blob => new Promise<string>(r => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(blob) }))
+          let fetchUrl: string
+          const src = img.src
+          // For Supabase storage images — route through our proxy to avoid browser CORS
+          const supabaseMatch = src.match(/supabase\.co\/storage\/v1\/object\/public\/(.+?)(?:\?|$)/)
+          if (supabaseMatch) {
+            fetchUrl = `/api/images/proxy?path=${encodeURIComponent(supabaseMatch[1])}`
+          } else if (src.startsWith('http')) {
+            fetchUrl = src.split('?')[0]
+          } else {
+            fetchUrl = window.location.origin + img.getAttribute('src')
+          }
+          const b64 = await fetch(fetchUrl).then(r => r.blob()).then(blob => new Promise<string>(r => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(blob) }))
           // Swap src AND wait for browser to finish loading the new base64 src
           await new Promise<void>(resolve => {
             img.onload = () => resolve()
