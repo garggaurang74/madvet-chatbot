@@ -437,7 +437,7 @@ function ShareCardDigest({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof g
       <div style={{ padding: '16px 20px 0', background: '#fff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#c8220a', fontFamily: "'Noto Sans Devanagari',sans-serif", lineHeight: 1.3, marginBottom: 6 }}>{p.indication || 'असरदार और तुरंत राहत'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#c8220a', fontFamily: "'Noto Sans Devanagari',sans-serif", lineHeight: 1.3, marginBottom: 6 }}>{(p.indication || 'असरदार और तुरंत राहत').split(/[,،]/)[0].trim()}</div>
             <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 12 ? 36 : p.name.length > 8 ? 46 : 56, color: c.primary, textShadow: `3px 3px 0 ${c.dark}55, 5px 5px 0 rgba(0,0,0,0.08)`, letterSpacing: 2, lineHeight: 1 }}>{p.name}</div>
             <div style={{ display: 'inline-block', marginTop: 6, background: c.pale, border: `1.5px solid ${c.primary}40`, borderRadius: 4, padding: '3px 10px' }}>
               <span style={{ fontSize: 11, color: c.primary, fontWeight: 700, letterSpacing: 2 }}>{p.formulation?.toUpperCase()}</span>
@@ -515,7 +515,7 @@ function ShareCardHerbal({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof g
         </div>
         <div style={{ marginTop: 10, background: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', border: '1px solid rgba(255,255,255,0.25)', display: 'inline-flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 16, lineHeight: 1 }}>🌱</span>
-          <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, color: '#FFE000', fontWeight: 700 }}>{hi[0] || p.indication}</span>
+          <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, color: '#FFE000', fontWeight: 700 }}>{hi[0] || (p.indication || '').split(/[,،]/)[0].trim()}</span>
         </div>
       </div>
       <div style={{ padding: '14px 18px 8px' }}>
@@ -572,7 +572,7 @@ function ShareCardShield({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof g
               <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 14 ? 34 : p.name.length > 10 ? 44 : 54, color: '#fff', letterSpacing: 2, lineHeight: 1, textShadow: '0 3px 20px rgba(0,0,0,0.4)' }}>{p.name}</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', marginTop: 6, letterSpacing: 0.5 }}>{p.salt}</div>
               <div style={{ marginTop: 10, background: '#FFE000', borderRadius: 5, padding: '5px 14px', display: 'inline-block' }}>
-                <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.darkest }}>{hi[0] || p.indication}</span>
+                <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.darkest }}>{hi[0] || (p.indication || '').split(/[,،]/)[0].trim()}</span>
               </div>
             </div>
             <ShareImgBox url={p.image_url} w={108} h={108} c={c} emoji={p.formulation === 'Spray' ? '🫧' : '🧼'} />
@@ -740,13 +740,23 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
     try {
       const { toPng } = await import('html-to-image')
 
-      // html-to-image uses SVG foreignObject — handles CSS filters, transforms, fonts natively.
-      // Capture the full-size card div directly from the live DOM.
       const el = cardRef.current
-
-      // Temporarily remove scale transform so output is full 480px
       const prev = el.style.transform
       el.style.transform = 'none'
+
+      // Pre-fetch all images as base64 so html-to-image can embed them in the SVG.
+      // Relative paths (/madvet-icon.png) and cross-origin Supabase URLs both fail
+      // inside SVG foreignObject without this step.
+      const imgEls = Array.from(el.querySelectorAll<HTMLImageElement>('img'))
+      const origSrcs = imgEls.map(i => i.src)
+      await Promise.all(imgEls.map(async img => {
+        try {
+          const url = img.src.startsWith('http') ? img.src.split('?')[0] : window.location.origin + img.getAttribute('src')
+          const b64 = await fetch(url).then(r => r.blob()).then(blob => new Promise<string>(r => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(blob) }))
+          img.src = b64
+          img.style.filter = img.alt === 'Madvet' ? 'brightness(0) invert(1)' : img.style.filter
+        } catch {}
+      }))
 
       const dataUrl = await toPng(el, {
         width: 480,
@@ -755,6 +765,8 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
         style: { transform: 'none' },
       })
 
+      // Restore original srcs
+      imgEls.forEach((img, i) => { img.src = origSrcs[i] })
       el.style.transform = prev
 
       const blob = await (await fetch(dataUrl)).blob()
