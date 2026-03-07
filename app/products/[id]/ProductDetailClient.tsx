@@ -340,7 +340,7 @@ function ShareAllProductsTag({ c }: { c: ReturnType<typeof getShareColors> }) {
   )
 }
 
-function ShareFooter({ c }: { c: ReturnType<typeof getShareColors> }) {
+function ShareFooter({ c, logoOrigSrc }: { c: ReturnType<typeof getShareColors>; logoOrigSrc?: string }) {
   return (
     <div style={{ position: 'relative', overflow: 'hidden' }}>
       <div style={{ height: 4, background: `linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest})` }} />
@@ -351,7 +351,7 @@ function ShareFooter({ c }: { c: ReturnType<typeof getShareColors> }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* Real logo icon in white bg box, exactly like physical flyers */}
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/madvet-icon.png" alt="Madvet" style={{ height: 44, width: 44, objectFit: 'contain' }} />
+              <img src={logoOrigSrc || '/madvet-icon.png'} alt="Madvet" style={{ height: 44, width: 44, objectFit: 'contain' }} />
             </div>
             <div>
               <div style={{ fontFamily: "'Oswald','Arial Black',sans-serif", fontSize: 28, fontWeight: 900, color: '#1a2f8a', letterSpacing: 3, lineHeight: 1 }}>MADVET</div>
@@ -385,7 +385,7 @@ function ArrowSlab({ text, enText, c, big = true }: { text: string; enText: stri
 }
 
 // ── 5 share card templates ───────────────────────────────────────────────────
-function ShareCardVitality({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
+function ShareCardVitality({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -423,12 +423,12 @@ function ShareCardVitality({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof
         </div>
       </div>
       <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} />
+      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
     </div>
   )
 }
 
-function ShareCardDigest({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
+function ShareCardDigest({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -483,12 +483,12 @@ function ShareCardDigest({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof g
       </div>
       <div style={{ height: 5, background: `linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest}60)`, marginBottom: 6 }} />
       <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} />
+      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
     </div>
   )
 }
 
-function ShareCardHerbal({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
+function ShareCardHerbal({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -545,12 +545,12 @@ function ShareCardHerbal({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof g
         </div>
       </div>
       <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} />
+      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
     </div>
   )
 }
 
-function ShareCardShield({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
+function ShareCardShield({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -598,12 +598,12 @@ function ShareCardShield({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof g
         <ShareSpecies sp={p.species} c={c} />
       </div>
       <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} />
+      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
     </div>
   )
 }
 
-function ShareCardClinical({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string }) {
+function ShareCardClinical({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
   const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
   const _enRaw = splitBenefits(p.benefits)
   const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
@@ -657,7 +657,7 @@ function ShareCardClinical({ p, c, logoSrc }: { p: Product; c: ReturnType<typeof
         <ShareSpecies sp={p.species} c={c} />
       </div>
       <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} />
+      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
     </div>
   )
 }
@@ -681,11 +681,77 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [errMsg, setErrMsg] = useState('')
   const [previewW, setPreviewW] = useState(0)
+  const [logoB64, setLogoB64] = useState<string | null>(null)
+  const [logoOrigB64, setLogoOrigB64] = useState<string | null>(null)
+  const [productImgB64, setProductImgB64] = useState<string | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)  // ref to the full-size card for capture
   const tmpl     = getTemplate(product.category)
   const c        = getShareColors(product.id, product.category)
   const CardComp = SHARE_CARD_TEMPLATES[tmpl]
+
+  // Pre-load logo + product image as base64 on mount
+  // This ensures html-to-image can embed them (no CORS, no CSS filter issues)
+  useEffect(() => {
+    const toB64 = (url: string): Promise<string | null> => {
+      // Route Supabase images through proxy to avoid CORS
+      const supaMatch = url.match(/supabase\.co\/storage\/v1\/object\/public\/(.+?)(?:\?|$)/)
+      const fetchUrl = supaMatch
+        ? `/api/images/proxy?path=${encodeURIComponent(supaMatch[1])}`
+        : url.startsWith('http') ? url : window.location.origin + url
+      return fetch(fetchUrl)
+        .then(r => r.blob())
+        .then(blob => new Promise<string>((res) => {
+          const fr = new FileReader()
+          fr.onload = () => res(fr.result as string)
+          fr.onerror = () => res('')
+          fr.readAsDataURL(blob)
+        }))
+        .catch(() => null)
+    }
+
+    // Logo — we need a WHITE version for dark headers.
+    // Instead of relying on CSS filter (which html-to-image can't render),
+    // we draw it to a canvas and invert it.
+    const loadLogo = async () => {
+      try {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.src = window.location.origin + '/madvet-icon.png'
+        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej })
+        // Save original (for yellow footer)
+        const canvasOrig = document.createElement('canvas')
+        canvasOrig.width = img.naturalWidth
+        canvasOrig.height = img.naturalHeight
+        const ctxOrig = canvasOrig.getContext('2d')!
+        ctxOrig.drawImage(img, 0, 0)
+        setLogoOrigB64(canvasOrig.toDataURL('image/png'))
+        // Invert to white (for dark header backgrounds)
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')!
+        ctx.filter = 'brightness(0) invert(1)'
+        ctx.drawImage(img, 0, 0)
+        setLogoB64(canvas.toDataURL('image/png'))
+      } catch {
+        // Fallback: just use the raw base64 (dark logo, better than nothing)
+        const b64 = await toB64('/madvet-icon.png')
+        if (b64) { setLogoB64(b64); setLogoOrigB64(b64) }
+      }
+    }
+
+    // Product image
+    const loadProductImg = async () => {
+      if (product.image_url) {
+        const b64 = await toB64(product.image_url)
+        if (b64) setProductImgB64(b64)
+      }
+    }
+
+    loadLogo()
+    loadProductImg()
+  }, [product.image_url])
 
   useEffect(() => {
     const measure = () => {
@@ -819,7 +885,7 @@ function ShareCardModal({ product, onClose }: { product: Product; onClose: () =>
             style={{ width: '100%', height: scale > 0 ? Math.round(700 * scale) : 340, position: 'relative', overflow: 'hidden', borderRadius: 8, background: '#0a0d14' }}
           >
             <div ref={cardRef} style={{ position: 'absolute', top: 0, left: 0, width: 480, transformOrigin: 'top left', transform: scale > 0 ? `scale(${scale})` : 'none', pointerEvents: 'none' }}>
-              <CardComp p={product} c={c} />
+              <CardComp p={productImgB64 ? { ...product, image_url: productImgB64 } : product} c={c} logoSrc={logoB64 || undefined} logoOrigSrc={logoOrigB64 || undefined} />
             </div>
           </div>
 
