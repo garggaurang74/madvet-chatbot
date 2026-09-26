@@ -19,6 +19,7 @@ const CAT_NORMALIZE: Record<string, string> = {
   'Dermatological / Topical':                        'Dermatological',
   'Probiotic / Immunomodulator / Vitamin Supplement':'Probiotic',
   'Antidiarrheal / Gastrointestinal':                'Antidiarrheal',
+  'Vitamin Supplement / Galactogogue':               'Vitamin Supplement',
 }
 
 function normalizeCategory(c: string): string {
@@ -112,8 +113,50 @@ export async function fetchDownloads(): Promise<Map<string, number>> {
   return sizes
 }
 
+// ?download= makes Supabase send Content-Disposition, so phones save the file instead of playing it
 export function downloadUrl(youtubeId: string, name: string): string {
-  const file = `${name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-MADVET.mp4`
-  // ?download= makes Supabase send Content-Disposition, so phones save the file instead of playing it
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${DOWNLOAD_BUCKET}/${youtubeId}.mp4?download=${encodeURIComponent(file)}`
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${DOWNLOAD_BUCKET}/${youtubeId}.mp4?download=${encodeURIComponent(fileName(name))}`
+}
+
+// The factory's films, published by `factory/small_films.mjs --site` (video
+// repo) as film-downloads/films/<slug>.mp4 + <slug>.jpg + manifest.json.
+// `ids` are the products_enriched ids the film belongs to; a film with ids
+// but none still on the site is hidden, so deleting a product retires it.
+export interface SiteFilm {
+  slug:      string
+  name:      string
+  nameHi:    string
+  ids:       number[]
+  category:  string
+  youtubeId: string
+  vertical:  boolean
+  bytes:     number
+}
+
+export async function fetchFilms(): Promise<SiteFilm[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) return []
+  try {
+    const res = await fetch(`${url}/storage/v1/object/public/${DOWNLOAD_BUCKET}/films/manifest.json`,
+      { next: { revalidate: 60 } })
+    if (!res.ok) return []
+    const m = await res.json()
+    return Array.isArray(m?.films) ? m.films : []
+  } catch {
+    return []
+  }
+}
+
+function fileName(name: string): string {
+  return `${name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-MADVET.mp4`
+}
+
+export function filmFiles(f: SiteFilm) {
+  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${DOWNLOAD_BUCKET}/films/${f.slug}`
+  return {
+    mp4:        `${base}.mp4`,
+    poster:     `${base}.jpg`,
+    download:   `${base}.mp4?download=${encodeURIComponent(fileName(f.name))}`,
+    downloadMB: Math.max(1, Math.round(f.bytes / 1e6)),
+  }
 }

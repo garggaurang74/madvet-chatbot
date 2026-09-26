@@ -973,7 +973,18 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export default function ProductDetailClient({ product }: { product: Product }) {
+// The factory's film for this product: our MP4 until it is on YouTube.
+export interface ProductFilm {
+  key:        string
+  youtubeId:  string
+  vertical:   boolean
+  mp4:        string
+  poster:     string
+  download:   string
+  downloadMB: number
+}
+
+export default function ProductDetailClient({ product, film }: { product: Product; film?: ProductFilm | null }) {
   const [lang, setLang] = useState<Lang>('en')
   const [showShare, setShowShare] = useState(false)
 
@@ -1100,22 +1111,33 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             </div>
           )}
           {(() => {
-            if (!product.video_url) return null
-            const match = product.video_url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
-            const videoId = match?.[1]
-            if (!videoId) return null
+            // The factory's film first; otherwise the link set by hand in /admin.
+            const linkedId = product.video_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1] || ''
+            const ytId     = film ? film.youtubeId : linkedId
+            if (!film && !ytId) return null
+            const tall = film ? film.vertical : false
+            const btn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }
             return (
-              <div style={{ width: '100%', maxWidth: 480, marginBottom: 20 }}>
-                <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(200,169,110,0.25)', background: '#000' }}>
-                  <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />
+              <div style={{ width: '100%', maxWidth: tall ? 300 : 480, marginBottom: 20 }}>
+                <div style={{ position: 'relative', paddingBottom: tall ? '177.78%' : '56.25%', height: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(200,169,110,0.25)', background: '#000' }}>
+                  {ytId
+                    ? <iframe src={`https://www.youtube.com/embed/${ytId}?rel=0&playsinline=1`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />
+                    : <video src={film!.mp4} poster={film!.poster} controls playsInline preload="none" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: '#000' }} />}
                 </div>
-                <div style={{ marginTop: 8, display: 'flex', gap: 10 }}>
-                  <a href={product.video_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, background: '#ff0000', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
-                    ▶ {t.watchYT}
-                  </a>
-                  <a href={whatsappShareUrl(product.name, videoId, product.id)} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, background: '#25a244', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a href={whatsappShareUrl({ name: product.name, youtubeId: ytId, filmKey: film?.key, productId: product.id })} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: '#25a244' }}>
                     {lang === 'hi' ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}
                   </a>
+                  {film && (
+                    <a href={film.download} download style={{ ...btn, background: 'rgba(245,240,232,0.92)', color: '#1a3a2a' }}>
+                      ⬇ {lang === 'hi' ? 'डाउनलोड करें' : 'Download'} · {film.downloadMB} MB
+                    </a>
+                  )}
+                  {ytId && (
+                    <a href={`https://youtu.be/${ytId}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: '#d4302b' }}>
+                      ▶ {t.watchYT}
+                    </a>
+                  )}
                 </div>
               </div>
             )

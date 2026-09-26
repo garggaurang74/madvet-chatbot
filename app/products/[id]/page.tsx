@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import type { Product } from '../types'
-import ProductDetailClient from './ProductDetailClient'
+import ProductDetailClient, { type ProductFilm } from './ProductDetailClient'
+import { fetchFilms, filmFiles } from '@/lib/catalog'
 
 export const dynamic = 'force-dynamic'    // SSR on every request — no page cache
 export const fetchCache = 'force-no-store' // bypass Next.js fetch cache
@@ -102,7 +103,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // a stale cached HTML page unless these headers are present.
   const headersList = await headers()
   const { id } = await params
-  const product = await fetchProduct(Number(id))
+  const [product, films] = await Promise.all([fetchProduct(Number(id)), fetchFilms()])
   if (!product) notFound()
-  return <ProductDetailClient product={product} />
+
+  // The factory's film for this product, if there is one
+  const f = films.find(x => x.ids.includes(product.id))
+  const film: ProductFilm | null = f ? { key: f.youtubeId || f.slug, youtubeId: f.youtubeId, vertical: f.vertical, ...filmFiles(f) } : null
+  return <ProductDetailClient product={product} film={film} />
 }

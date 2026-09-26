@@ -6,8 +6,11 @@ import { whatsappShareUrl } from '@/lib/share'
 import { CAT_ORDER, HI_CATS, getColor, Pill, LangToggle, type Lang } from '../products/ProductsClient'
 
 export interface VideoItem {
-  productId:  number
-  youtubeId:  string
+  key:        string   // youtubeId, or the film's slug while it is not on YouTube
+  productId:  number   // 0 for a film with no product (the protocols)
+  youtubeId:  string   // '' until the film is on YouTube
+  src:        string   // our own MP4, played until there is a youtubeId
+  poster:     string
   name:       string
   category:   string
   species:    string
@@ -17,6 +20,11 @@ export interface VideoItem {
   title:      string
   download:   string   // small MP4 for WhatsApp; '' when none is uploaded
   downloadMB: number
+}
+
+// Categories that exist only on films, not in the products table
+const HI_EXTRA: Record<string, string> = {
+  'Treatment Protocol': 'इलाज का पूरा तरीका',
 }
 
 const HI_SP: Record<string, string> = {
@@ -41,7 +49,14 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
   const [open, setOpen]           = useState<VideoItem | null>(null)
 
   const hi = lang === 'hi'
-  const catLabel = (c: string) => hi ? (HI_CATS[c] || c) : c.replace(' / Analgesic', '').replace(' / Antiparasitic', '')
+  const catLabel = (c: string) => hi ? (HI_CATS[c] || HI_EXTRA[c] || c) : c.replace(' / Analgesic', '').replace(' / Antiparasitic', '')
+
+  // A shared link (?film=<key>) opens straight into the player.
+  useEffect(() => {
+    const key = new URLSearchParams(window.location.search).get('film')
+    const hit = key && videos.find(v => v.key === key)
+    if (hit) setOpen(hit)
+  }, [videos])
 
   const cats = useMemo(() => {
     const used = [...new Set(videos.map(v => v.category))].filter(Boolean)
@@ -62,7 +77,8 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
     return cats.map(cat => ({ cat, items: shown.filter(v => v.category === cat) })).filter(g => g.items.length)
   }, [videos, cats, searchText, activeCat])
 
-  const featured = videos.slice(0, 3)
+  // The fan is built for tall cards; the factory's films are Shorts.
+  const featured = [...videos.filter(v => v.vertical), ...videos.filter(v => !v.vertical)].slice(0, 3)
   const subscribe = `${channelUrl}?sub_confirmation=1`
 
   return (
@@ -108,7 +124,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
             {featured.length > 0 && (
               <div className="vp-fan" aria-hidden={false}>
                 {featured.map((v, i) => (
-                  <button key={v.youtubeId} className={`vp-fan-card f${i} ${v.vertical ? 'tall' : 'wide'}`} onClick={() => setOpen(v)} aria-label={`${hi ? 'चलाएँ' : 'Play'}: ${v.name}`}>
+                  <button key={v.key} className={`vp-fan-card f${i} ${v.vertical ? 'tall' : 'wide'}`} onClick={() => setOpen(v)} aria-label={`${hi ? 'चलाएँ' : 'Play'}: ${v.name}`}>
                     <Thumb v={v} />
                     <span className="vp-fan-name">{v.name}</span>
                     <PlayDot />
@@ -155,7 +171,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
               {[true, false].map(tall => items.some(v => v.vertical === tall) && (
                 <div key={String(tall)} className={`vp-grid${tall ? '' : ' wide'}`}>
                   {items.filter(v => v.vertical === tall).map(v =>
-                    <Card key={v.youtubeId} v={v} hi={hi} catLabel={catLabel} onPlay={() => setOpen(v)} />)}
+                    <Card key={v.key} v={v} hi={hi} catLabel={catLabel} onPlay={() => setOpen(v)} />)}
                 </div>
               ))}
             </section>
@@ -205,7 +221,7 @@ function Card({ v, hi, catLabel, onPlay }: { v: VideoItem; hi: boolean; catLabel
 
 function ShareWA({ v, hi }: { v: VideoItem; hi: boolean }) {
   return (
-    <a className="vp-wa" href={whatsappShareUrl(v.name, v.youtubeId, v.productId)} target="_blank" rel="noopener"
+    <a className="vp-wa" href={whatsappShareUrl({ name: v.name, youtubeId: v.youtubeId, filmKey: v.key, productId: v.productId })} target="_blank" rel="noopener"
       aria-label={`${hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}: ${v.name}`} title={hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}>
       <WaIcon />
     </a>
@@ -229,6 +245,9 @@ function WaIcon({ size = 20 }: { size?: number }) {
 }
 
 function Thumb({ v }: { v: VideoItem }) {
+  if (v.poster && !v.youtubeId) {
+    return <span className="vp-thumb tall"><img className="fg" src={v.poster} alt="" loading="lazy" /></span>
+  }
   return (
     <span className={`vp-thumb ${v.vertical ? 'tall' : 'wide'}`}>
       {!v.vertical && <img className="bg" src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`} alt="" loading="lazy" />}
@@ -252,7 +271,7 @@ function Player({ v, hi, catLabel, channelUrl, onClose }: {
     return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = prev }
   }, [esc])
 
-  const share = whatsappShareUrl(v.name, v.youtubeId, v.productId)
+  const share = whatsappShareUrl({ name: v.name, youtubeId: v.youtubeId, filmKey: v.key, productId: v.productId })
   const indication = v.indication.split(/[,;]/).map(s => s.trim()).filter(Boolean).slice(0, 6)
 
   return (
@@ -260,8 +279,9 @@ function Player({ v, hi, catLabel, channelUrl, onClose }: {
       <button className="vp-x" onClick={onClose} aria-label={hi ? 'बंद करें' : 'Close'}>×</button>
       <div className={`vp-modal-in ${v.vertical ? 'tall' : 'wide'}`} onClick={e => e.stopPropagation()}>
         <div className="vp-frame">
-          <iframe src={`https://www.youtube.com/embed/${v.youtubeId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
+          {v.youtubeId ? <iframe src={`https://www.youtube.com/embed/${v.youtubeId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
             title={v.name} allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+            : <video src={v.src} poster={v.poster} controls autoPlay playsInline preload="metadata" />}
         </div>
         <aside className="vp-info">
           <div className="vp-info-top">
@@ -279,7 +299,7 @@ function Player({ v, hi, catLabel, channelUrl, onClose }: {
             </>
           )}
           <div className="vp-actions">
-            <Link className="vp-btn gold" href={`/products/${v.productId}`}>{hi ? 'प्रोडक्ट की पूरी जानकारी' : 'Full product details'} →</Link>
+            {v.productId > 0 && <Link className="vp-btn gold" href={`/products/${v.productId}`}>{hi ? 'प्रोडक्ट की पूरी जानकारी' : 'Full product details'} →</Link>}
             {v.download && (
               <a className="vp-btn dl" href={v.download} download>
                 <DlIcon size={17} />&nbsp;{hi ? 'डाउनलोड करें' : 'Download'}{v.downloadMB ? ` · ${v.downloadMB} MB` : ''}
@@ -414,6 +434,7 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }  /* hidden would make bo
 .vp-modal-in.wide { flex-direction:column; width:min(960px, 100%); }
 .vp-modal-in.wide .vp-frame { width:100%; aspect-ratio:16/9; }
 .vp-frame { position:relative; background:#000; flex:none; }
+.vp-frame video { position:absolute; inset:0; width:100%; height:100%; background:#000; object-fit:contain; }
 .vp-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
 .vp-info { width:340px; padding:28px 26px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
 .vp-modal-in.wide .vp-info { width:auto; padding:22px 26px 24px; }
