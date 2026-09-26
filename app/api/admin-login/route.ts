@@ -9,15 +9,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { password } = await req.json().catch(() => ({ password: '' }))
-  if (!process.env.ADMIN_PASSWORD) {
-    return Response.json({ error: 'ADMIN_PASSWORD is not set on the server.' }, { status: 500 })
-  }
-  if (typeof password !== 'string' || !checkPassword(password)) {
+  if (typeof password !== 'string' || !(await checkPassword(password))) {
     // A small delay makes guessing the password slow.
     await new Promise(r => setTimeout(r, 800))
     return Response.json({ admin: false }, { status: 401 })
   }
-  const { value, maxAge } = newSessionCookie()
+  const session = newSessionCookie()
+  if (!session) {
+    return Response.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set on the server.' }, { status: 500 })
+  }
+  const { value, maxAge } = session
   const res = Response.json({ admin: true })
   res.headers.append('Set-Cookie',
     `${ADMIN_COOKIE}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`)

@@ -1,41 +1,69 @@
-import { createHmac, timingSafeEqual } from 'crypto'
+import { createHmac, scryptSync, timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import type { NextRequest } from 'next/server'
 
-// Server-only. The admin password lives in ADMIN_PASSWORD (no NEXT_PUBLIC_
-// prefix, so it never reaches the browser). A successful login sets an
-// httpOnly cookie holding "<expiry>.<hmac>", keyed on the password itself, so
-// changing ADMIN_PASSWORD in Vercel logs every session out.
+// Server-only. The admin password is checked here and never reaches the
+// browser. It is stored as a salted scrypt hash in admin.json inside the
+// PRIVATE `admin-config` storage bucket, readable only with the service-role
+// key, so changing it needs no Vercel setting. ADMIN_PASSWORD in the
+// environment, when set, overrides it (local development).
+//
+// A successful login sets an httpOnly cookie "<expiry>.<hmac>" signed with a
+// key derived from SUPABASE_SERVICE_ROLE_KEY.
 
 export const ADMIN_COOKIE = 'madvet_admin'
+export const ADMIN_CONFIG_BUCKET = 'admin-config'
 const MAX_AGE_S = 24 * 60 * 60
 
-function sign(expiry: string, password: string): string {
-  return createHmac('sha256', password).update(`madvet-admin:${expiry}`).digest('hex')
+function sessionKey(): string | null {
+  const k = process.env.SUPABASE_SERVICE_ROLE_KEY
+  return k ? createHmac('sha256', k).update('madvet-admin-session').digest('hex') : null
 }
 
-function safeEqual(a: string, b: string): boolean {
+function sign(expiry: string, key: string): string {
+  return createHmac('sha256', key).update(`madvet-admin:${expiry}`).digest('hex')
+}
+
+function safeEqual(a: string | Buffer, b: string | Buffer): boolean {
   const x = Buffer.from(a), y = Buffer.from(b)
   return x.length === y.length && timingSafeEqual(x, y)
 }
 
-export function checkPassword(given: string): boolean {
-  const password = process.env.ADMIN_PASSWORD
-  return Boolean(password) && safeEqual(given, password!)
+export function hashPassword(password: string, salt: string): string {
+  return scryptSync(password, salt, 32).toString('hex')
 }
 
-export function newSessionCookie(): { value: string; maxAge: number } {
+export async function checkPassword(given: string): Promise<boolean> {
+  if (!given) return false
+  const envPassword = process.env.ADMIN_PASSWORD
+  if (envPassword) return safeEqual(given, envPassword)
+
+  const supabase = getAdminSupabase()
+  if (!supabase) return false
+  const { data, error } = await supabase.storage.from(ADMIN_CONFIG_BUCKET).download('admin.json')
+  if (error || !data) return false
+  try {
+    const { salt, hash } = JSON.parse(await data.text())
+    return Boolean(salt && hash) && safeEqual(hashPassword(given, salt), hash)
+  } catch {
+    return false
+  }
+}
+
+export function newSessionCookie(): { value: string; maxAge: number } | null {
+  const key = sessionKey()
+  if (!key) return null
   const expiry = String(Date.now() + MAX_AGE_S * 1000)
-  return { value: `${expiry}.${sign(expiry, process.env.ADMIN_PASSWORD!)}`, maxAge: MAX_AGE_S }
+  return { value: `${expiry}.${sign(expiry, key)}`, maxAge: MAX_AGE_S }
 }
 
 export function isAdmin(req: NextRequest): boolean {
-  const password = process.env.ADMIN_PASSWORD
-  const cookie   = req.cookies.get(ADMIN_COOKIE)?.value
-  if (!password || !cookie) return false
+  const key    = sessionKey()
+  const cookie = req.cookies.get(ADMIN_COOKIE)?.value
+  if (!key || !cookie) return false
   const [expiry, mac] = cookie.split('.')
   if (!expiry || !mac || Number(expiry) < Date.now()) return false
-  return safeEqual(mac, sign(expiry, password))
+  return safeEqual(mac, sign(expiry, key))
 }
 
 export function unauthorized() {
