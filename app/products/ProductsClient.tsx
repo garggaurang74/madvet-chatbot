@@ -24,9 +24,9 @@ const CAT_COLORS: Record<string, string> = {
   'Dermatological':                  '#fb7185',
   'Udder Care':                      '#2dd4bf',
 }
-const getColor = (cat: string) => CAT_COLORS[cat] || '#94a3b8'
+export const getColor = (cat: string) => CAT_COLORS[cat] || '#94a3b8'
 
-const CAT_ORDER = [
+export const CAT_ORDER = [
   'Antibiotic', 'Anti-inflammatory / Analgesic', 'Vitamin Supplement',
   'Anthelmintic / Antiparasitic', 'Ectoparasiticide', 'Reproductive Hormone',
   'Probiotic', 'Antidiarrheal', 'Antihistamine', 'Dermatological', 'Udder Care',
@@ -41,7 +41,7 @@ const SP_ORDER = ['Cattle', 'Buffalo', 'Sheep', 'Goat', 'Dog', 'Cat', 'Poultry',
 
 // ── HINDI TRANSLATIONS ───────────────────────────────────────────────────────
 
-const HI_CATS: Record<string, string> = {
+export const HI_CATS: Record<string, string> = {
   'Antibiotic':                    'एंटीबायोटिक (संक्रमण)',
   'Anti-inflammatory / Analgesic': 'दर्द व बुखार की दवा',
   'Vitamin Supplement':            'विटामिन / पोषण',
@@ -74,7 +74,7 @@ const HI_FORM: Record<string, string> = {
   'Other':         'अन्य',
 }
 
-type Lang = 'en' | 'hi'
+export type Lang = 'en' | 'hi'
 
 // ── SEARCH SCORING ────────────────────────────────────────────────────────────
 
@@ -364,7 +364,7 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
 
 // ── PILL BUTTON ───────────────────────────────────────────────────────────────
 
-function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+export function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{
       padding: '6px 14px', borderRadius: 20,
@@ -379,7 +379,7 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
 
 // ── LANGUAGE TOGGLE ───────────────────────────────────────────────────────────
 
-function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+export function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center',
@@ -526,6 +526,10 @@ export default function ProductsClient({ products }: { products: Product[] }) {
               padding: '6px 14px', borderRadius: 6, color: 'var(--gold-light)',
               background: 'rgba(200,169,110,0.1)', fontSize: 13, fontWeight: 500,
             }}>{lang === 'hi' ? 'उत्पाद' : 'Products'}</span>
+            <Link href="/videos" className="nav-link-item" style={{
+              padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)',
+              fontSize: 13, fontWeight: 500, textDecoration: 'none',
+            }}>{lang === 'hi' ? 'वीडियो' : 'Videos'}</Link>
             <Link href="/madvet-training.html" className="training-btn" style={{
               marginLeft: 12, padding: '7px 16px', background: 'var(--gold)',
               color: 'var(--forest)', borderRadius: 6, fontFamily: "'DM Sans', sans-serif",
