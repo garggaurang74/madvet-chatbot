@@ -1,6 +1,5 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { generateAdminToken, isAdminAuthenticated, setStoredAdminToken } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -145,30 +144,19 @@ async function processImageForStudio(dataUrl: string): Promise<string> {
 }
 
 
-async function uploadToStorage(base64: string, mime: string, name: string): Promise<string | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return null
-  try {
-    const sb   = createClient(url, key)
-    const ext  = mime.includes('png') ? 'png' : 'jpg'
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
-    const file = `${slug}.${ext}`
-    const bytes = atob(base64); const arr = new Uint8Array(bytes.length)
-    for (let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i)
-    const { error } = await sb.storage.from('product-images').upload(file, new Blob([arr],{type:mime}), {contentType:mime, upsert:true})
-    if (error) {
-      console.error('[Storage] upload error:', error.message, error)
-      throw new Error(`Storage: ${error.message}`)
-    }
-    const publicUrl = sb.storage.from('product-images').getPublicUrl(file).data?.publicUrl
-    // Append a timestamp so browsers don't serve a stale cached version after an image update
-    return publicUrl ? `${publicUrl}?t=${Date.now()}` : null
-  } catch(e) { console.error('[Storage]',e); throw e }
+async function uploadToStorage(base64: string, mime: string, name: string, productId?: number): Promise<string | null> {
+  const res  = await fetch('/api/update-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64, mime, name, product_id: productId }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || data.error) throw new Error(data.error || `Upload failed (${res.status})`)
+  return data.image_url ?? null
 }
 
 // ── Password Gate ─────────────────────────────────────────────────────────────
-function PasswordGate({ onUnlock }: { onUnlock: (p:string) => boolean }) {
+function PasswordGate({ onUnlock }: { onUnlock: (p:string) => Promise<boolean> }) {
   const [pw, setPw] = useState(''); const [err, setErr] = useState(false)
   return (
     <div className="min-h-screen bg-[#212121] text-white flex items-center justify-center p-4">
@@ -178,7 +166,7 @@ function PasswordGate({ onUnlock }: { onUnlock: (p:string) => boolean }) {
           <h1 className="text-2xl font-bold mb-1">Madvet Admin</h1>
           <p className="text-white/50 text-sm">Product Management</p>
         </div>
-        <form onSubmit={e=>{e.preventDefault(); if(!onUnlock(pw)) setErr(true)}} className="space-y-4">
+        <form onSubmit={async e=>{e.preventDefault(); if(!(await onUnlock(pw))) setErr(true)}} className="space-y-4">
           <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr(false)}} placeholder="Password" autoFocus
             className={`w-full px-4 py-3 bg-[#1f1f1f] border rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-green-500 ${err?'border-red-500':'border-white/20'}`} />
           {err && <p className="text-red-400 text-sm text-center">Galat password!</p>}
@@ -426,7 +414,7 @@ function AddProductMode({ onHome }: { onHome: () => void }) {
       }
       const res  = await fetch('/api/save-product', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, image_url: imageUrl })
       })
       const data = await res.json()
@@ -629,21 +617,9 @@ function AddImageMode({ onHome }: { onHome: () => void }) {
     setImgStage('saving')
     try {
       const b64Enh   = enhanced.split(',')[1]
-      const imageUrl = await uploadToStorage(b64Enh, 'image/jpeg', selected.product_name)
-      if (!imageUrl) throw new Error('Upload returned null — check Supabase storage bucket policy')
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      if (!url || !key) throw new Error('Supabase not configured')
-      const { error: dbErr } = await createClient(url, key)
-        .from('products_enriched').update({image_url: imageUrl}).eq('id', selected.id)
-      if (dbErr) throw new Error(dbErr.message)
-
-      // Bust the Next.js page cache — pass product_id so the specific detail page is also cleared
-      await fetch('/api/revalidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '' },
-        body: JSON.stringify({ product_id: selected.id }),
-      })
+      // Uploads, points the product at the new image and clears its cached pages
+      const imageUrl = await uploadToStorage(b64Enh, 'image/jpeg', selected.product_name, selected.id)
+      if (!imageUrl) throw new Error('Upload returned no URL')
 
       setImgStage('done')
     } catch(e) { setError(String(e)); setImgStage('error') }
@@ -804,7 +780,7 @@ function AddVideoMode({ onHome }: { onHome: () => void }) {
     try {
       const res = await fetch('/api/update-video', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_id: selected.id, video_url: videoUrl || null })
       })
       const data = await res.json()
@@ -945,13 +921,18 @@ export default function AdminPage() {
   const [unlocked, setUnlocked] = useState(false)
   const [mode, setMode]         = useState<AdminMode>('home')
 
-  useEffect(() => { if (isAdminAuthenticated()) setUnlocked(true) }, [])
+  useEffect(() => {
+    fetch('/api/admin-login').then(r => r.json()).then(d => { if (d.admin) setUnlocked(true) }).catch(() => {})
+  }, [])
 
   if (!unlocked) {
     return (
-      <PasswordGate onUnlock={(pw) => {
-        const ok = pw === (process.env.ADMIN_PASSWORD || 'madvetkaboss')
-        if (ok) { setStoredAdminToken(generateAdminToken()); setUnlocked(true) }
+      <PasswordGate onUnlock={async (pw) => {
+        const res = await fetch('/api/admin-login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }),
+        })
+        const ok = res.ok
+        if (ok) setUnlocked(true)
         return ok
       }} />
     )

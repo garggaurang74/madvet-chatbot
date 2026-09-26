@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getSupabaseClient } from '@/lib/supabase'
+import { getAdminSupabase, isAdmin, unauthorized } from '@/lib/adminSession'
 import { invalidateProductCache } from '@/lib/productCache'
 import { embedAndStoreProduct } from '@/lib/semanticSearch'
 import OpenAI from 'openai'
@@ -69,18 +69,13 @@ Respond ONLY with valid JSON, no explanation:
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader     = req.headers.get('x-admin-secret')
-    const expectedSecret = process.env.ADMIN_SECRET
-
-    if (expectedSecret && authHeader !== expectedSecret) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!isAdmin(req)) return unauthorized()
 
     const product  = await req.json()
-    const supabase = getSupabaseClient()
+    const supabase = getAdminSupabase()
 
     if (!supabase) {
-      return Response.json({ error: 'Supabase not configured' }, { status: 500 })
+      return Response.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set on the server.' }, { status: 500 })
     }
 
     const ALLOWED_FIELDS = [

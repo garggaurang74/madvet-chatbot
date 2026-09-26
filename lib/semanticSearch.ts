@@ -5,6 +5,7 @@
 
 import OpenAI from 'openai'
 import { getSupabaseClient } from './supabase'
+import { getAdminSupabase } from './adminSession'
 import type { MadvetProduct } from './supabase'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -98,7 +99,7 @@ export async function embedAndStoreProduct(
   productId: number,
   product:   MadvetProduct
 ): Promise<boolean> {
-  const supabase = getSupabaseClient()
+  const supabase = getAdminSupabase()
   if (!supabase) return false
 
   const text = buildProductEmbedText(product)

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { getSupabaseClient } from '@/lib/supabase'
+import { getAdminSupabase, isAdmin, unauthorized } from '@/lib/adminSession'
 
 // Extract YouTube video ID from any YT URL format
 function extractYouTubeId(url: string): string | null {
@@ -12,12 +12,7 @@ function extractYouTubeId(url: string): string | null {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader     = req.headers.get('x-admin-secret')
-    const expectedSecret = process.env.ADMIN_SECRET
-
-    if (expectedSecret && authHeader !== expectedSecret) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!isAdmin(req)) return unauthorized()
 
     const { product_id, video_url } = await req.json()
 
@@ -30,9 +25,9 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Invalid YouTube URL. Paste a youtube.com or youtu.be link.' }, { status: 400 })
     }
 
-    const supabase = getSupabaseClient()
+    const supabase = getAdminSupabase()
     if (!supabase) {
-      return Response.json({ error: 'Supabase not configured' }, { status: 500 })
+      return Response.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set on the server.' }, { status: 500 })
     }
 
     const { error } = await supabase

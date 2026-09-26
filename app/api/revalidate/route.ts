@@ -1,14 +1,10 @@
 import { NextRequest } from 'next/server'
 import { revalidatePath } from 'next/cache'
+import { isAdmin, unauthorized } from '@/lib/adminSession'
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader     = req.headers.get('x-admin-secret')
-    const expectedSecret = process.env.ADMIN_SECRET
-
-    if (expectedSecret && authHeader !== expectedSecret) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!isAdmin(req)) return unauthorized()
 
     const body = await req.json().catch(() => ({}))
     const productId = body?.product_id

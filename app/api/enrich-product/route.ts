@@ -1,9 +1,11 @@
 import OpenAI from 'openai'
 import { NextRequest } from 'next/server'
+import { isAdmin, unauthorized } from '@/lib/adminSession'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 export async function POST(req: NextRequest) {
+  if (!isAdmin(req)) return unauthorized()
   try {
     const { product_name, salt_ingredient } = await req.json()
     if (!product_name) return Response.json({ error: 'product_name required' }, { status: 400 })
