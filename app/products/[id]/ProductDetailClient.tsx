@@ -1,5 +1,6 @@
 'use client'
 
+import { whatsappShareUrl } from '@/lib/share'
 import Link from 'next/link'
 import React, { useState, useRef, useEffect } from 'react'
 import type { Product } from '../types'
@@ -1111,6 +1112,9 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 <div style={{ marginTop: 8, display: 'flex', gap: 10 }}>
                   <a href={product.video_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, background: '#ff0000', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
                     ▶ {t.watchYT}
+                  </a>
+                  <a href={whatsappShareUrl(product.name, videoId, product.id)} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, background: '#25a244', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+                    {lang === 'hi' ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}
                   </a>
                 </div>
               </div>

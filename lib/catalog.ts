@@ -91,3 +91,29 @@ export function youtubeId(url: string): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
   return m?.[1] ?? null
 }
+
+// Small MP4s for download live in the public `film-downloads` bucket, named
+// <youtubeId>.mp4. Listing needs the service key; any failure (bucket not
+// created yet, key missing) just means no download buttons.
+export const DOWNLOAD_BUCKET = 'film-downloads'
+
+export async function fetchDownloads(): Promise<Map<string, number>> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const sizes = new Map<string, number>()
+  if (!url || !key) return sizes
+  const { data, error } = await createClient(url, key, { auth: { persistSession: false } })
+    .storage.from(DOWNLOAD_BUCKET).list('', { limit: 1000 })
+  if (error || !data) return sizes
+  for (const f of data) {
+    const m = f.name.match(/^([A-Za-z0-9_-]{11})\.mp4$/)
+    if (m) sizes.set(m[1], Number(f.metadata?.size) || 0)
+  }
+  return sizes
+}
+
+export function downloadUrl(youtubeId: string, name: string): string {
+  const file = `${name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-MADVET.mp4`
+  // ?download= makes Supabase send Content-Disposition, so phones save the file instead of playing it
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${DOWNLOAD_BUCKET}/${youtubeId}.mp4?download=${encodeURIComponent(file)}`
+}

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { whatsappShareUrl } from '@/lib/share'
 import { CAT_ORDER, HI_CATS, getColor, Pill, LangToggle, type Lang } from '../products/ProductsClient'
 
 export interface VideoItem {
@@ -11,148 +12,470 @@ export interface VideoItem {
   category:   string
   species:    string
   indication: string
+  image:      string
+  vertical:   boolean
+  title:      string
+  download:   string   // small MP4 for WhatsApp; '' when none is uploaded
+  downloadMB: number
+}
+
+const HI_SP: Record<string, string> = {
+  Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी',
+  Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा',
+}
+
+// A landscape film's hqdefault is letterboxed; maxres is clean but not every
+// upload has one, so fall back to the (small, clean) mqdefault.
+function thumb(v: VideoItem) {
+  return `https://i.ytimg.com/vi/${v.youtubeId}/${v.vertical ? 'hqdefault' : 'maxresdefault'}.jpg`
+}
+function onThumbError(e: React.SyntheticEvent<HTMLImageElement>) {
+  const img = e.currentTarget
+  if (!img.src.includes('mqdefault')) img.src = img.src.replace(/[a-z]+default\.jpg$/, 'mqdefault.jpg')
 }
 
 export default function VideosClient({ videos, channelUrl }: { videos: VideoItem[]; channelUrl: string }) {
   const [lang, setLang]           = useState<Lang>('hi')
   const [searchText, setSearch]   = useState('')
   const [activeCat, setActiveCat] = useState('all')
-  const [playing, setPlaying]     = useState<string | null>(null)
+  const [open, setOpen]           = useState<VideoItem | null>(null)
+
+  const hi = lang === 'hi'
+  const catLabel = (c: string) => hi ? (HI_CATS[c] || c) : c.replace(' / Analgesic', '').replace(' / Antiparasitic', '')
 
   const cats = useMemo(() => {
     const used = [...new Set(videos.map(v => v.category))].filter(Boolean)
     return [...CAT_ORDER.filter(c => used.includes(c)), ...used.filter(c => !CAT_ORDER.includes(c))]
   }, [videos])
 
+  // One section per category once the range is big enough to fill them;
+  // until then nine one-card sections read as empty, so show one grid.
   const grouped = useMemo(() => {
     const q = searchText.toLowerCase().trim()
     const shown = videos.filter(v =>
       (activeCat === 'all' || v.category === activeCat) &&
-      (!q || `${v.name} ${v.indication} ${v.species} ${v.category}`.toLowerCase().includes(q)))
-    return cats
-      .map(cat => ({ cat, items: shown.filter(v => v.category === cat) }))
-      .filter(g => g.items.length)
+      (!q || `${v.name} ${v.title} ${v.indication} ${v.species} ${v.category}`.toLowerCase().includes(q)))
+    const order = (v: VideoItem) => cats.indexOf(v.category)
+    if (shown.length < 12 || activeCat !== 'all') {
+      return shown.length ? [{ cat: '', items: [...shown].sort((a, b) => order(a) - order(b)) }] : []
+    }
+    return cats.map(cat => ({ cat, items: shown.filter(v => v.category === cat) })).filter(g => g.items.length)
   }, [videos, cats, searchText, activeCat])
 
-  const hi = lang === 'hi'
-  const catLabel = (c: string) => hi ? (HI_CATS[c] || c) : c
+  const featured = videos.slice(0, 3)
+  const subscribe = `${channelUrl}?sub_confirmation=1`
 
   return (
     <>
-      <style>{`
-        *, *::before, *::after { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; overflow-x: hidden; }
-        :root { --forest: #1a3a2a; --forest-mid: #264d39; --cream: #f5f0e8; --cream-dark: #ede6d6; --gold: #c8a96e; --gold-light: #e8d5a8; }
-        .videos-page { font-family: 'DM Sans', 'Noto Sans Devanagari', sans-serif; background: var(--cream); min-height: 100vh; color: #1c2b22; }
-        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-        .video-card { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; }
-        .video-frame { position: relative; aspect-ratio: 9 / 16; background: #0f2318; }
-        .video-frame img, .video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-        .video-frame img { object-fit: cover; }
-        .play-btn { position: absolute; inset: 0; border: 0; background: linear-gradient(to top, rgba(15,35,24,0.55), transparent 45%); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .play-btn span { width: 62px; height: 62px; border-radius: 50%; background: rgba(200,169,110,0.95); display: flex; align-items: center; justify-content: center; }
-        .filter-scroll { display: flex; gap: 8px; flex-wrap: wrap; }
-        @media (max-width: 640px) {
-          .top-nav { padding: 0 14px !important; }
-          .header-inner, .controls-inner, .main-content { padding-left: 16px !important; padding-right: 16px !important; }
-          .video-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-          .filter-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-          .nav-link-item { padding: 4px 8px !important; font-size: 12px !important; }
-        }
-      `}</style>
+      <style>{CSS}</style>
+      <div className="vp">
 
-      <div className="videos-page">
-        <nav className="top-nav" style={{ background: '#0f2318', padding: '0 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, borderBottom: '1px solid rgba(200,169,110,0.15)' }}>
-          <Link href="/" style={{ fontFamily: "'DM Serif Display', serif", color: 'var(--cream)', fontSize: 18, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/madvet-icon.png" alt="Madvet" style={{ height: 32, width: 32, borderRadius: 6, objectFit: 'cover' }} /> Madvet
+        <nav className="vp-nav">
+          <Link href="/" className="vp-brand">
+            <img src="/madvet-icon.png" alt="" /> Madvet
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Link href="/products" className="nav-link-item" style={{ padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}>{hi ? 'उत्पाद' : 'Products'}</Link>
-            <span className="nav-link-item" style={{ padding: '6px 14px', borderRadius: 6, color: 'var(--gold-light)', background: 'rgba(200,169,110,0.1)', fontSize: 13, fontWeight: 500 }}>{hi ? 'वीडियो' : 'Videos'}</span>
+          <div className="vp-navlinks">
+            <Link href="/products">{hi ? 'उत्पाद' : 'Products'}</Link>
+            <span className="on">{hi ? 'वीडियो' : 'Videos'}</span>
           </div>
         </nav>
 
-        <header style={{ background: 'var(--forest)' }}>
-          <div className="header-inner" style={{ maxWidth: 1400, margin: '0 auto', padding: '48px 48px 40px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 14 }}>Madvet Animal Healthcare</div>
-              <h1 style={{ fontFamily: "'DM Serif Display', 'Noto Sans Devanagari', serif", fontSize: 'clamp(34px, 5vw, 60px)', lineHeight: 1.1, color: 'var(--cream)', margin: 0 }}>
-                {hi ? 'उत्पाद ' : 'Product '}<em style={{ color: 'var(--gold-light)' }}>{hi ? 'वीडियो' : 'Videos'}</em>
+        {/* ── HERO ── */}
+        <header className="vp-hero">
+          <div className="vp-hero-in">
+            <div className="vp-hero-copy">
+              <div className="vp-eyebrow"><span />Madvet Animal Healthcare</div>
+              <h1>
+                {hi ? <>हर दवा,<br /><em>एक छोटी फ़िल्म</em></> : <>Every product,<br /><em>one short film</em></>}
               </h1>
-              <p style={{ marginTop: 14, fontSize: 15, color: 'rgba(245,240,232,0.6)', maxWidth: 460, lineHeight: 1.7 }}>
-                {hi ? 'हर दवा का छोटा वीडियो — किस बीमारी में, कैसे काम करती है, और कैसे देनी है।'
-                    : 'A short Hindi film on each product — what it treats, how it works and how to give it.'}
+              <p>
+                {hi ? 'किस बीमारी में काम आती है, शरीर में कैसे काम करती है, और कितनी देनी है — हिंदी में, कुछ ही मिनटों में।'
+                    : 'What it treats, how it works in the animal and how much to give — in Hindi, in a few minutes.'}
               </p>
+              <div className="vp-stats">
+                <div><b>{videos.length}</b><span lang={hi ? 'hi' : 'en'}>{hi ? 'फ़िल्में' : 'Films'}</span></div>
+                <div><b>{cats.length}</b><span lang={hi ? 'hi' : 'en'}>{hi ? 'श्रेणियाँ' : 'Categories'}</span></div>
+              </div>
+              <div className="vp-cta">
+                <a className="vp-sub" href={subscribe} target="_blank" rel="noopener">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>
+                  {hi ? 'सब्सक्राइब करें' : 'Subscribe'}
+                </a>
+                <a className="vp-ghost" href="#films">{hi ? 'सभी फ़िल्में देखें' : 'Browse all films'} ↓</a>
+              </div>
             </div>
-            {channelUrl && (
-              <a href={`${channelUrl}?sub_confirmation=1`} target="_blank" rel="noopener" style={{ padding: '11px 20px', background: '#c4302b', color: '#fff', borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
-                ▶ {hi ? 'YouTube पर सब्सक्राइब करें' : 'Subscribe on YouTube'}
-              </a>
+
+            {featured.length > 0 && (
+              <div className="vp-fan" aria-hidden={false}>
+                {featured.map((v, i) => (
+                  <button key={v.youtubeId} className={`vp-fan-card f${i} ${v.vertical ? 'tall' : 'wide'}`} onClick={() => setOpen(v)} aria-label={`${hi ? 'चलाएँ' : 'Play'}: ${v.name}`}>
+                    <Thumb v={v} />
+                    <span className="vp-fan-name">{v.name}</span>
+                    <PlayDot />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </header>
 
-        <div style={{ background: 'var(--forest-mid)', position: 'sticky', top: 0, zIndex: 100 }}>
-          <div className="controls-inner" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 48px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        {/* ── CONTROLS ── */}
+        <div className="vp-bar">
+          <div className="vp-bar-in">
             <LangToggle lang={lang} setLang={setLang} />
-            <input type="text" value={searchText} onChange={e => setSearch(e.target.value)} autoComplete="off"
-              placeholder={hi ? 'दवा या बीमारी खोजें…' : 'Search a product or disease…'}
-              style={{ flex: 1, minWidth: 200, padding: '10px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(200,169,110,0.25)', borderRadius: 8, color: 'var(--cream)', fontSize: 14, outline: 'none' }} />
-            <div className="filter-scroll">
+            <label className="vp-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+              <input type="text" value={searchText} onChange={e => setSearch(e.target.value)} autoComplete="off"
+                placeholder={hi ? 'दवा या बीमारी खोजें — जैसे थनैला, कीड़े, बुखार…' : 'Search a product or disease — mastitis, worms, fever…'} />
+            </label>
+            <div className="vp-pills">
               <Pill label={hi ? 'सब' : 'All'} active={activeCat === 'all'} onClick={() => setActiveCat('all')} />
               {cats.map(c => <Pill key={c} label={catLabel(c)} active={activeCat === c} onClick={() => setActiveCat(c)} />)}
             </div>
           </div>
         </div>
 
-        <main className="main-content" style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 48px 72px' }}>
+        {/* ── FILMS ── */}
+        <main id="films" className="vp-main">
           {grouped.length === 0 && (
-            <p style={{ textAlign: 'center', color: '#6b7a70', padding: 48 }}>
-              {videos.length === 0 ? (hi ? 'वीडियो जल्द आ रहे हैं।' : 'Videos are coming soon.') : (hi ? 'कोई वीडियो नहीं मिला।' : 'No video matches that search.')}
-            </p>
+            <div className="vp-empty">
+              {videos.length === 0 ? (hi ? 'फ़िल्में जल्द आ रही हैं।' : 'Films are coming soon.') : (hi ? 'इस खोज से कोई फ़िल्म नहीं मिली।' : 'No film matches that search.')}
+            </div>
           )}
           {grouped.map(({ cat, items }) => (
-            <section key={cat} style={{ marginBottom: 44 }}>
-              <h2 style={{ fontFamily: "'DM Serif Display', 'Noto Sans Devanagari', serif", fontSize: 26, margin: '0 0 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: getColor(cat) }} />
+            <section key={cat || 'all'} className="vp-sec">
+              {cat && <h2>
+                <span className="vp-dot" style={{ background: getColor(cat) }} />
                 {catLabel(cat)}
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#8a968e', fontWeight: 500 }}>{items.length}</span>
-              </h2>
-              <div className="video-grid">
-                {items.map(v => (
-                  <article key={v.youtubeId} className="video-card">
-                    <div className="video-frame">
-                      {playing === v.youtubeId ? (
-                        <iframe src={`https://www.youtube.com/embed/${v.youtubeId}?autoplay=1&rel=0&playsinline=1`}
-                          title={v.name} allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
-                      ) : (
-                        <>
-                          <img src={`https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`} alt={v.name} loading="lazy" />
-                          <button className="play-btn" aria-label={`${hi ? 'चलाएँ' : 'Play'}: ${v.name}`} onClick={() => setPlaying(v.youtubeId)}>
-                            <span><svg width="22" height="22" viewBox="0 0 24 24" fill="#1a3a2a"><path d="M8 5v14l11-7z" /></svg></span>
-                          </button>
-                        </>
-                      )}
-                    </div>
-                    <div style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>{v.name}</div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
-                        <Link href={`/products/${v.productId}`} style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', textDecoration: 'none', padding: '6px 10px', border: '1px solid var(--cream-dark)', borderRadius: 6 }}>
-                          {hi ? 'उत्पाद देखें' : 'Product'} →
-                        </Link>
-                        <a href={`https://wa.me/?text=${encodeURIComponent(`${v.name} — MADVET\nhttps://youtu.be/${v.youtubeId}`)}`} target="_blank" rel="noopener"
-                          style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: '#25a244', textDecoration: 'none', padding: '6px 10px', borderRadius: 6 }}>
-                          WhatsApp
-                        </a>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                <small>{hi ? cat.replace(' / Analgesic', '').replace(' / Antiparasitic', '') : HI_CATS[cat] || ''}</small>
+                <i>{items.length}</i>
+              </h2>}
+              {/* Shorts and landscape films in their own grids: mixed, the wide
+                  cards strand an empty column beside them. */}
+              {[true, false].map(tall => items.some(v => v.vertical === tall) && (
+                <div key={String(tall)} className={`vp-grid${tall ? '' : ' wide'}`}>
+                  {items.filter(v => v.vertical === tall).map(v =>
+                    <Card key={v.youtubeId} v={v} hi={hi} catLabel={catLabel} onPlay={() => setOpen(v)} />)}
+                </div>
+              ))}
             </section>
           ))}
         </main>
+
+        {/* ── SUBSCRIBE BAND ── */}
+        <section className="vp-band">
+          <div>
+            <h3>{hi ? 'नई फ़िल्में लगातार आ रही हैं' : 'New films are on the way'}</h3>
+            <p>{hi ? 'डॉक्टर, रिटेलर और स्टॉकिस्ट के लिए — हर Madvet प्रोडक्ट की पूरी जानकारी, सबसे पहले।' : 'For vets, retailers and stockists — every Madvet product explained, first.'}</p>
+          </div>
+          <a className="vp-sub" href={subscribe} target="_blank" rel="noopener">{hi ? 'YouTube पर सब्सक्राइब करें' : 'Subscribe on YouTube'}</a>
+        </section>
+
+        {open && <Player v={open} hi={hi} catLabel={catLabel} channelUrl={subscribe} onClose={() => setOpen(null)} />}
       </div>
     </>
   )
 }
+
+function Card({ v, hi, catLabel, onPlay }: { v: VideoItem; hi: boolean; catLabel: (c: string) => string; onPlay: () => void }) {
+  const species = v.species.split(/[,/]/).map(x => x.trim()).filter(Boolean).slice(0, 3).map(x => hi ? (HI_SP[x] || x) : x)
+  return (
+    <div className={`vp-card ${v.vertical ? 'tall' : 'wide'}`}>
+      <button className="vp-card-hit" onClick={onPlay} aria-label={`${hi ? 'चलाएँ' : 'Play'}: ${v.name}`}>
+        <Thumb v={v} />
+        {v.category && <span className="vp-chip" style={{ background: getColor(v.category) }}>{catLabel(v.category)}</span>}
+        <PlayDot />
+        <span className="vp-card-txt">
+          <b>{v.name}</b>
+          {species.length > 0 && <em>{species.join(' · ')}</em>}
+        </span>
+      </button>
+      <div className="vp-card-acts">
+        <ShareWA v={v} hi={hi} />
+        {v.download && (
+          <a className="vp-dl" href={v.download} download aria-label={`${hi ? 'डाउनलोड करें' : 'Download'}: ${v.name}`}
+            title={`${hi ? 'डाउनलोड करें' : 'Download'}${v.downloadMB ? ` · ${v.downloadMB} MB` : ''}`}>
+            <DlIcon />
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ShareWA({ v, hi }: { v: VideoItem; hi: boolean }) {
+  return (
+    <a className="vp-wa" href={whatsappShareUrl(v.name, v.youtubeId, v.productId)} target="_blank" rel="noopener"
+      aria-label={`${hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}: ${v.name}`} title={hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}>
+      <WaIcon />
+    </a>
+  )
+}
+
+function DlIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+    </svg>
+  )
+}
+
+function WaIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 21.8c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4A9.8 9.8 0 0 1 12 2.2a9.8 9.8 0 0 1 0 19.6zM12 .2a11.8 11.8 0 0 0-10.2 17.7L.1 24l6.3-1.6A11.8 11.8 0 1 0 12 .2z"/>
+    </svg>
+  )
+}
+
+function Thumb({ v }: { v: VideoItem }) {
+  return (
+    <span className={`vp-thumb ${v.vertical ? 'tall' : 'wide'}`}>
+      {!v.vertical && <img className="bg" src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`} alt="" loading="lazy" />}
+      <img className="fg" src={thumb(v)} alt="" loading="lazy" onError={onThumbError} />
+    </span>
+  )
+}
+
+function PlayDot() {
+  return <span className="vp-play"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg></span>
+}
+
+function Player({ v, hi, catLabel, channelUrl, onClose }: {
+  v: VideoItem; hi: boolean; catLabel: (c: string) => string; channelUrl: string; onClose: () => void
+}) {
+  const esc = useCallback((e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }, [onClose])
+  useEffect(() => {
+    document.addEventListener('keydown', esc)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = prev }
+  }, [esc])
+
+  const share = whatsappShareUrl(v.name, v.youtubeId, v.productId)
+  const indication = v.indication.split(/[,;]/).map(s => s.trim()).filter(Boolean).slice(0, 6)
+
+  return (
+    <div className="vp-modal" role="dialog" aria-modal="true" aria-label={v.name} onClick={onClose}>
+      <button className="vp-x" onClick={onClose} aria-label={hi ? 'बंद करें' : 'Close'}>×</button>
+      <div className={`vp-modal-in ${v.vertical ? 'tall' : 'wide'}`} onClick={e => e.stopPropagation()}>
+        <div className="vp-frame">
+          <iframe src={`https://www.youtube.com/embed/${v.youtubeId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
+            title={v.name} allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+        </div>
+        <aside className="vp-info">
+          <div className="vp-info-top">
+            {v.image && <img src={v.image} alt="" />}
+            <div>
+              <span className="vp-cat" lang={hi ? 'hi' : 'en'} style={{ color: getColor(v.category) }}>{catLabel(v.category)}</span>
+              <h3>{v.name}</h3>
+            </div>
+          </div>
+          {v.title && v.title.toLowerCase() !== v.name.toLowerCase() && <p className="vp-yt">{v.title}</p>}
+          {indication.length > 0 && (
+            <>
+              <div className="vp-lbl" lang={hi ? 'hi' : 'en'}>{hi ? 'किसमें काम आती है' : 'Used for'}</div>
+              <div className="vp-tags">{indication.map(t => <span key={t}>{t}</span>)}</div>
+            </>
+          )}
+          <div className="vp-actions">
+            <Link className="vp-btn gold" href={`/products/${v.productId}`}>{hi ? 'प्रोडक्ट की पूरी जानकारी' : 'Full product details'} →</Link>
+            {v.download && (
+              <a className="vp-btn dl" href={v.download} download>
+                <DlIcon size={17} />&nbsp;{hi ? 'डाउनलोड करें' : 'Download'}{v.downloadMB ? ` · ${v.downloadMB} MB` : ''}
+              </a>
+            )}
+            <a className="vp-btn wa" href={share} target="_blank" rel="noopener"><WaIcon size={17} />&nbsp;{hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}</a>
+            <a className="vp-btn yt" href={channelUrl} target="_blank" rel="noopener">{hi ? 'सब्सक्राइब करें' : 'Subscribe'}</a>
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+const CSS = `
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; overflow-x: clip; }  /* hidden would make body a scroll box and unstick the bar */
+:root { --forest:#1a3a2a; --forest-mid:#264d39; --night:#0f2318; --cream:#f5f0e8; --cream-dark:#ede6d6; --gold:#c8a96e; --gold-light:#e8d5a8; --ink:#1c2b22; }
+.vp { font-family:'DM Sans','Noto Sans Devanagari',sans-serif; background:var(--cream); color:var(--ink); min-height:100vh; }
+.vp button { font:inherit; }
+
+.vp-nav { background:var(--night); height:56px; padding:0 48px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(200,169,110,.15); }
+.vp-brand { display:flex; align-items:center; gap:10px; color:var(--cream); text-decoration:none; font-family:'DM Serif Display',serif; font-size:19px; }
+.vp-brand img { width:32px; height:32px; border-radius:7px; object-fit:cover; }
+.vp-navlinks { display:flex; gap:4px; }
+.vp-navlinks a, .vp-navlinks span { padding:7px 14px; border-radius:7px; font-size:13px; font-weight:500; color:rgba(245,240,232,.6); text-decoration:none; }
+.vp-navlinks a:hover { color:var(--cream); }
+.vp-navlinks .on { color:var(--gold-light); background:rgba(200,169,110,.12); }
+
+.vp-hero { position:relative; overflow:hidden; background:var(--forest); }
+.vp-hero::before { content:''; position:absolute; inset:0; background:
+  radial-gradient(ellipse 60% 70% at 78% 45%, rgba(200,169,110,.20), transparent 70%),
+  radial-gradient(ellipse 45% 80% at 5% 10%, rgba(61,122,87,.45), transparent 60%); }
+.vp-hero::after { content:''; position:absolute; left:0; right:0; bottom:0; height:1px; background:linear-gradient(90deg,transparent,rgba(200,169,110,.5),transparent); }
+.vp-hero-in { position:relative; max-width:1320px; margin:0 auto; padding:72px 48px 80px; display:grid; grid-template-columns:1.1fr 1fr; gap:48px; align-items:center; }
+.vp-eyebrow { display:flex; align-items:center; gap:12px; font-size:11px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--gold); margin-bottom:22px; }
+.vp-eyebrow span { width:30px; height:1px; background:var(--gold); }
+.vp-hero h1 { margin:0; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:clamp(40px,5.4vw,72px); line-height:1.08; letter-spacing:-.5px; color:var(--cream); }
+.vp-hero h1 em { color:var(--gold-light); }
+.vp-hero p { margin:22px 0 0; max-width:480px; font-size:16px; line-height:1.75; color:rgba(245,240,232,.66); }
+.vp-stats { display:flex; gap:40px; margin-top:34px; }
+.vp-stats b { display:block; font-family:'DM Serif Display',serif; font-weight:400; font-size:42px; line-height:1; color:var(--gold-light); }
+.vp-stats span { display:block; margin-top:6px; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:rgba(245,240,232,.5); }
+.vp-stats span:lang(hi), .vp-lbl:lang(hi), .vp-cat:lang(hi) { letter-spacing:0; font-size:13px; }
+.vp-cta { display:flex; flex-wrap:wrap; gap:12px; margin-top:34px; }
+.vp-sub { display:inline-flex; align-items:center; gap:9px; padding:13px 22px; border-radius:10px; background:#d4302b; color:#fff; font-weight:700; font-size:14px; text-decoration:none; box-shadow:0 8px 24px rgba(212,48,43,.3); transition:transform .18s, box-shadow .18s; }
+.vp-sub:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(212,48,43,.4); }
+.vp-ghost { display:inline-flex; align-items:center; padding:13px 20px; border-radius:10px; border:1px solid rgba(200,169,110,.4); color:var(--gold-light); font-weight:600; font-size:14px; text-decoration:none; transition:background .18s; }
+.vp-ghost:hover { background:rgba(200,169,110,.1); }
+
+.vp-fan { position:relative; height:440px; }
+.vp-fan-card { position:absolute; top:50%; left:50%; width:218px; aspect-ratio:9/16; padding:0; border:0; border-radius:20px; overflow:hidden; cursor:pointer; background:var(--night);
+  box-shadow:0 30px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(232,213,168,.18); transition:transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s; }
+.vp-fan-card.f0 { transform:translate(-50%,-50%); z-index:3; }
+.vp-fan-card.f1 { transform:translate(-118%,-46%) rotate(-8deg) scale(.88); z-index:2; filter:brightness(.8); }
+.vp-fan-card.f2 { transform:translate(18%,-46%) rotate(8deg) scale(.88); z-index:1; filter:brightness(.8); }
+.vp-fan-card.wide { width:360px; aspect-ratio:16/10; }
+.vp-fan-card.wide .fg { object-fit:cover; }
+.vp-fan-card.wide.f1 { transform:translate(-92%,-22%) rotate(-6deg) scale(.82); }
+.vp-fan-card.wide.f2 { transform:translate(-8%,-78%) rotate(5deg) scale(.82); }
+.vp-fan-card.wide.f1:hover { transform:translate(-92%,-26%) rotate(-4deg) scale(.86); }
+.vp-fan-card.wide.f2:hover { transform:translate(-8%,-82%) rotate(3deg) scale(.86); }
+.vp-fan-card:hover { z-index:4; filter:none; box-shadow:0 36px 70px rgba(0,0,0,.55), 0 0 0 2px var(--gold); }
+.vp-fan-card.f0:hover { transform:translate(-50%,-52%) scale(1.03); }
+.vp-fan-card.f1:hover { transform:translate(-118%,-50%) rotate(-6deg) scale(.92); }
+.vp-fan-card.f2:hover { transform:translate(18%,-50%) rotate(6deg) scale(.92); }
+.vp-fan-name { position:absolute; left:0; right:0; bottom:0; padding:44px 16px 16px; text-align:left; color:#fff; font-weight:700; font-size:15px; background:linear-gradient(to top, rgba(10,24,16,.92), transparent); }
+
+.vp-thumb { position:absolute; inset:0; display:block; overflow:hidden; background:var(--night); }
+.vp-thumb img { position:absolute; inset:0; width:100%; height:100%; transition:transform .5s cubic-bezier(.2,.8,.2,1); }
+.vp-thumb.tall .fg { object-fit:cover; transform:scale(1.02); }
+.vp-thumb.wide .bg { object-fit:cover; filter:blur(18px) brightness(.55) saturate(1.2); transform:scale(1.3); }
+.vp-thumb.wide .fg { object-fit:contain; }
+
+.vp-play { position:absolute; top:50%; left:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  color:var(--forest); background:rgba(232,213,168,.92); box-shadow:0 8px 24px rgba(0,0,0,.35); backdrop-filter:blur(4px); transition:transform .25s, background .25s; }
+.vp-play svg { margin-left:3px; }
+
+.vp-bar { position:sticky; top:0; z-index:50; background:rgba(38,77,57,.94); backdrop-filter:blur(10px); border-bottom:1px solid rgba(200,169,110,.2); box-shadow:0 4px 24px rgba(0,0,0,.12); }
+.vp-bar-in { max-width:1320px; margin:0 auto; padding:14px 48px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.vp-search { position:relative; flex:1; min-width:240px; color:var(--gold); }
+.vp-search svg { position:absolute; left:14px; top:50%; transform:translateY(-50%); opacity:.75; }
+.vp-search input { width:100%; padding:11px 16px 11px 42px; border-radius:9px; border:1px solid rgba(200,169,110,.28); background:rgba(255,255,255,.08); color:var(--cream); font:inherit; font-size:14px; outline:none; transition:border-color .2s, background .2s; }
+.vp-search input::placeholder { color:rgba(245,240,232,.45); }
+.vp-search input:focus { border-color:var(--gold); background:rgba(255,255,255,.12); }
+.vp-pills { display:flex; gap:8px; flex-wrap:wrap; }
+
+.vp-main { max-width:1320px; margin:0 auto; padding:48px 48px 24px; }
+.vp-sec { margin-bottom:56px; }
+.vp-sec h2 { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin:0 0 22px; padding-bottom:14px; border-bottom:1px solid rgba(28,43,34,.1);
+  font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:30px; line-height:1.2; }
+.vp-dot { width:11px; height:11px; border-radius:3px; align-self:center; }
+.vp-sec h2 small { font-family:'DM Sans','Noto Sans Devanagari',sans-serif; font-size:14px; color:#7d8a82; }
+.vp-sec h2 i { margin-left:auto; font-style:normal; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:700; color:var(--forest); background:var(--cream-dark); padding:4px 10px; border-radius:20px; }
+
+.vp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:22px; }
+.vp-card-hit { position:absolute; inset:0; width:100%; height:100%; padding:0; border:0; margin:0; cursor:pointer; text-align:left; background:none; color:inherit; }
+.vp-card-hit:focus-visible { outline:3px solid var(--gold); outline-offset:-3px; border-radius:inherit; }
+.vp-card-acts { position:absolute; top:10px; right:10px; z-index:2; display:flex; flex-direction:column; gap:8px; }
+.vp-dl { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(245,240,232,.94); color:var(--forest);
+  box-shadow:0 4px 14px rgba(0,0,0,.3); transition:transform .18s; }
+.vp-dl:hover, .vp-dl:focus-visible { transform:scale(1.1); outline:none; }
+.vp-btn.dl { background:var(--cream-dark); color:var(--forest); border:1px solid rgba(26,58,42,.15); }
+.vp-wa { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:#25d366; color:#fff; box-shadow:0 4px 14px rgba(0,0,0,.3); transition:transform .18s, box-shadow .18s; }
+.vp-wa:hover, .vp-wa:focus-visible { transform:scale(1.1); box-shadow:0 6px 20px rgba(37,211,102,.5); outline:none; }
+.vp-card { position:relative; aspect-ratio:9/16; border-radius:18px; overflow:hidden; background:var(--night);
+  box-shadow:0 2px 6px rgba(15,35,24,.08), 0 12px 28px rgba(15,35,24,.1); transition:transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s; }
+.vp-grid.wide { grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); }
+.vp-grid + .vp-grid { margin-top:22px; }
+.vp-card.wide { aspect-ratio:16/10; }
+.vp-card.wide .vp-thumb.wide .fg { object-fit:cover; }
+.vp-card::after { content:''; position:absolute; inset:0; border-radius:18px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); pointer-events:none; }
+.vp-card:hover, .vp-card:focus-within { transform:translateY(-6px); box-shadow:0 4px 10px rgba(15,35,24,.1), 0 24px 48px rgba(15,35,24,.22); outline:none; }
+.vp-card:hover .fg, .vp-fan-card:hover .fg { transform:scale(1.06); }
+.vp-card:hover .vp-play { transform:scale(1.12); background:var(--gold-light); }
+.vp-chip { position:absolute; top:12px; left:12px; max-width:calc(100% - 72px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:4px 9px; border-radius:6px; color:#fff; font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+.vp-card-txt { position:absolute; left:0; right:0; bottom:0; padding:56px 16px 16px; background:linear-gradient(to top, rgba(10,24,16,.95) 10%, rgba(10,24,16,.6) 55%, transparent); color:#fff; }
+.vp-card-txt b { display:block; font-size:16px; font-weight:700; line-height:1.3; }
+.vp-card-txt em { display:block; margin-top:5px; font-style:normal; font-size:12px; color:var(--gold-light); opacity:.9; }
+
+.vp-empty { text-align:center; padding:80px 20px; color:#7d8a82; font-size:16px; }
+
+.vp-band { max-width:1224px; margin:8px auto 72px; padding:36px 44px; border-radius:22px; display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;
+  background:radial-gradient(ellipse 70% 120% at 100% 0%, rgba(200,169,110,.22), transparent 60%), var(--forest); color:var(--cream); box-shadow:0 20px 50px rgba(15,35,24,.25); }
+.vp-band h3 { margin:0; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:30px; }
+.vp-band p { margin:8px 0 0; color:rgba(245,240,232,.65); max-width:560px; line-height:1.6; }
+
+.vp-modal { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,18,12,.82); backdrop-filter:blur(8px); animation:vpFade .2s ease; }
+.vp-modal-in { position:relative; display:flex; background:var(--cream); border-radius:22px; overflow:hidden; box-shadow:0 40px 100px rgba(0,0,0,.5); animation:vpRise .3s cubic-bezier(.2,.8,.2,1); max-height:calc(100vh - 48px); }
+.vp-modal-in.tall .vp-frame { height:min(82vh, 760px); aspect-ratio:9/16; }
+.vp-modal-in.wide { flex-direction:column; width:min(960px, 100%); }
+.vp-modal-in.wide .vp-frame { width:100%; aspect-ratio:16/9; }
+.vp-frame { position:relative; background:#000; flex:none; }
+.vp-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+.vp-info { width:340px; padding:28px 26px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
+.vp-modal-in.wide .vp-info { width:auto; padding:22px 26px 24px; }
+.vp-info-top { display:flex; gap:14px; align-items:center; }
+.vp-info-top img { width:64px; height:64px; object-fit:contain; background:#fff; border-radius:12px; padding:6px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+.vp-cat { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; }
+.vp-info h3 { margin:4px 0 0; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:26px; line-height:1.15; }
+.vp-yt { margin:0; color:#5e6b63; font-size:14px; line-height:1.5; }
+.vp-lbl { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#8a968e; }
+.vp-tags { display:flex; flex-wrap:wrap; gap:6px; }
+.vp-tags span { padding:5px 10px; border-radius:20px; background:var(--cream-dark); font-size:12.5px; }
+.vp-actions { display:flex; flex-direction:column; gap:9px; margin-top:auto; padding-top:8px; }
+.vp-modal-in.wide .vp-actions { flex-direction:row; flex-wrap:wrap; }
+.vp-btn { display:flex; align-items:center; justify-content:center; padding:12px 16px; border-radius:10px; font-weight:700; font-size:14px; text-decoration:none; transition:filter .15s, transform .15s; }
+.vp-btn:hover { filter:brightness(1.08); transform:translateY(-1px); }
+.vp-btn.gold { background:var(--forest); color:var(--gold-light); }
+.vp-btn.wa { background:#25a244; color:#fff; }
+.vp-btn.yt { background:#d4302b; color:#fff; }
+.vp-x { position:fixed; top:18px; right:18px; z-index:201; width:44px; height:44px; border:1px solid rgba(232,213,168,.35); border-radius:50%; background:rgba(15,35,24,.8); color:#fff; font-size:24px; line-height:1; cursor:pointer; }
+.vp-x:hover { background:var(--forest); }
+@keyframes vpFade { from { opacity:0 } }
+@keyframes vpRise { from { opacity:0; transform:translateY(24px) scale(.98) } }
+
+@media (max-width: 960px) {
+  .vp-hero-in { grid-template-columns:1fr; padding:48px 24px 56px; gap:24px; }
+  .vp-fan { height:360px; }
+  .vp-fan-card { width:180px; }
+  .vp-fan-card.wide { width:300px; }
+  .vp-modal-in.tall { flex-direction:column; width:min(420px,100%); }
+  .vp-modal-in.tall .vp-frame { height:auto; width:100%; max-height:62vh; }
+  .vp-info { width:auto !important; }
+}
+@media (max-width: 640px) {
+  .vp-nav { padding:0 16px; }
+  .vp-hero-in { padding:36px 16px 44px; }
+  .vp-hero p { font-size:15px; }
+  .vp-stats b { font-size:34px; }
+  .vp-fan { height:300px; }
+  .vp-fan-card { width:150px; border-radius:16px; }
+  .vp-fan-card.wide { width:240px; }
+  .vp-grid.wide { grid-template-columns:1fr; }
+  .vp-fan-name { font-size:13px; padding:32px 12px 12px; }
+  .vp-bar-in { padding:10px 16px; gap:8px; }
+  .vp-search { min-width:0; flex:1 1 100%; order:2; }
+  .vp-pills { order:3; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; width:100%; }
+  .vp-pills::-webkit-scrollbar { display:none; }
+  .vp-main { padding:28px 16px 8px; }
+  .vp-sec { margin-bottom:40px; }
+  .vp-sec h2 { font-size:23px; }
+  .vp-grid { grid-template-columns:1fr 1fr; gap:12px; }
+  .vp-card, .vp-card::after { border-radius:14px; }
+  .vp-card-txt { padding:40px 12px 12px; }
+  .vp-card-txt b { font-size:14px; }
+  .vp-card-acts { top:8px; right:8px; gap:6px; }
+  .vp-wa, .vp-dl { width:36px; height:36px; }
+  .vp-play { width:46px; height:46px; margin:-23px 0 0 -23px; }
+  .vp-band { margin:0 16px 48px; padding:28px 22px; }
+  .vp-band h3 { font-size:24px; }
+  .vp-modal { padding:0; align-items:flex-end; }
+  .vp-modal-in { border-radius:22px 22px 0 0; width:100% !important; max-height:calc(100vh - 76px); overflow-y:auto; }
+  .vp-x { top:16px; right:16px; }
+  .vp-modal-in.wide .vp-actions { flex-direction:column; }
+}
+@media (prefers-reduced-motion: reduce) { .vp * { transition:none !important; animation:none !important; } }
+`
