@@ -1,6 +1,7 @@
 'use client'
 
-import { whatsappShareUrl } from '@/lib/share'
+import { shareCaption, whatsappShareUrl } from '@/lib/share'
+import ShareVideo from '@/components/ShareVideo'
 import Link from 'next/link'
 import React, { useState, useRef, useEffect } from 'react'
 import type { Product } from '../types'
@@ -1125,9 +1126,14 @@ export default function ProductDetailClient({ product, film }: { product: Produc
                     : <video src={film!.mp4} poster={film!.poster} controls playsInline preload="none" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: '#000' }} />}
                 </div>
                 <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <a href={whatsappShareUrl({ name: product.name, youtubeId: ytId, filmKey: film?.key, productId: product.id })} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: '#25a244' }}>
-                    {lang === 'hi' ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}
-                  </a>
+                  <ShareVideo name={product.name} src={film?.mp4}
+                    text={shareCaption({ name: product.name, productId: product.id, youtubeId: ytId })}
+                    waUrl={whatsappShareUrl({ name: product.name, youtubeId: ytId, filmKey: film?.key, productId: product.id })}
+                    style={{ ...btn, background: '#25a244' }}
+                    loadingLabel={lang === 'hi' ? 'वीडियो तैयार हो रहा है…' : 'Preparing video…'}
+                    readyLabel={lang === 'hi' ? 'भेजने के लिए फिर दबाएँ' : 'Tap again to send'}>
+                    {lang === 'hi' ? 'WhatsApp पर वीडियो भेजें' : 'Send video on WhatsApp'}
+                  </ShareVideo>
                   {film && (
                     <a href={film.download} download style={{ ...btn, background: 'rgba(245,240,232,0.92)', color: '#1a3a2a' }}>
                       ⬇ {lang === 'hi' ? 'डाउनलोड करें' : 'Download'} · {film.downloadMB} MB

@@ -43,23 +43,27 @@ export default async function VideosPage() {
     videos.push({
       key: f.youtubeId || f.slug, productId: p?.id ?? 0, youtubeId: f.youtubeId, src: files.mp4, poster: files.poster,
       name: f.name, category: f.category || p?.category || '', species: p?.species ?? '', indication: p?.indication ?? '',
+      salt: p?.salt ?? '', aliases: p?.aliases ?? '',
       image: p?.image_url ?? '', vertical: f.vertical, title: f.nameHi,
       download: files.download, downloadMB: files.downloadMB,
     })
   }
 
-  // 2. Older films linked by hand in /admin (video_url). Pack sizes sharing one
-  // film (Butacin 30ml and 100ml) show once, naming both sizes.
+  // 2. Older films linked by hand in /admin (video_url), for products the
+  // factory has not filmed yet — a product with a new film shows only that one.
+  // Pack sizes sharing one film (Butacin 30ml and 100ml) show once.
+  const filmed = new Set(films.flatMap(f => f.ids))
   const byYt = new Map<string, VideoItem>()
   for (const p of products) {
     const id = p.video_url ? youtubeId(p.video_url) : null
-    if (!id || filmYt.has(id)) continue
+    if (!id || filmYt.has(id) || filmed.has(p.id)) continue
     const seen = byYt.get(id)
     if (seen) { seen.name += ` / ${p.name}`; continue }
     const size = downloads.get(id)
     byYt.set(id, {
       key: id, productId: p.id, youtubeId: id, src: '', poster: '',
       name: p.name, category: p.category, species: p.species, indication: p.indication, image: p.image_url,
+      salt: p.salt, aliases: p.aliases,
       vertical: false, title: '',
       download: size !== undefined ? downloadUrl(id, p.name) : '',
       downloadMB: size ? Math.max(1, Math.round(size / 1e6)) : 0,

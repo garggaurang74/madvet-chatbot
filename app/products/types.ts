@@ -14,4 +14,5 @@ export interface Product {
   aliases: string
   image_url: string
   video_url: string
+  film_key?: string   // the factory film for this product: opens /videos?film=<key>
 }

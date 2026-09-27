@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import type { Product } from './types'
+import FolderButtons from '@/components/FolderButtons'
 
 // ── PAGINATION ────────────────────────────────────────────────────────────────
 // Rendering 500 cards at once freezes the browser. We render PAGE_SIZE at a time
@@ -274,10 +275,10 @@ function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             {/* Video link */}
-            {p.video_url && (
+            {(p.film_key || p.video_url) && (
               <a
-                href={p.video_url}
-                target="_blank"
+                href={p.film_key ? `/videos?film=${encodeURIComponent(p.film_key)}` : p.video_url}
+                target={p.film_key ? undefined : '_blank'}
                 rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
                 style={{
@@ -485,6 +486,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
         }
         @media (max-width: 640px) {
           .top-nav { padding: 0 14px !important; height: 48px !important; }
+          .top-nav > a:first-child { font-size: 0 !important; gap: 0 !important; }
           .header-inner { padding: 16px 14px 14px !important; }
           .header-subtitle { display: none; }
           .header-stats { gap: 16px !important; }
@@ -573,6 +575,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
                   : 'Complete range of Madvet veterinary medicines — antibiotics, supplements, dewormers and more.'
                 }
               </p>
+              <div style={{ marginTop: 20 }}><FolderButtons hi={lang === 'hi'} /></div>
             </div>
             <div className="header-stats" style={{ display: 'flex', gap: 40, flexShrink: 0 }}>
               <div style={{ textAlign: 'right' }}>

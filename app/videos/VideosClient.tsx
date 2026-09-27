@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { whatsappShareUrl } from '@/lib/share'
+import { shareCaption, whatsappShareUrl } from '@/lib/share'
+import ShareVideo from '@/components/ShareVideo'
+import FolderButtons from '@/components/FolderButtons'
 import { CAT_ORDER, HI_CATS, getColor, Pill, LangToggle, type Lang } from '../products/ProductsClient'
 
 export interface VideoItem {
@@ -15,11 +17,42 @@ export interface VideoItem {
   category:   string
   species:    string
   indication: string
+  salt:       string   // composition, so a search for a molecule finds the film
+  aliases:    string
   image:      string
   vertical:   boolean
   title:      string
   download:   string   // small MP4 for WhatsApp; '' when none is uploaded
   downloadMB: number
+}
+
+// Every word typed must appear somewhere: name (English or Hindi), composition,
+// other names, disease, animal or category. Punctuation and spaces are ignored,
+// so "vh5" finds V.H-5 and "3d sera" finds 3D-SERA.
+const squash = (s: string) => s.toLowerCase().replace(/[.\-_/\s'’]+/g, '')
+function matches(v: VideoItem, q: string): boolean {
+  const words = q.toLowerCase().trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return true
+  const sp = v.species.split(/[,/]/).map(s => HI_SP[s.trim()] || '').join(' ')
+  const hay = [v.name, v.title, v.salt, v.aliases, v.indication, v.species, sp, v.category,
+    HI_CATS[v.category] || '', HI_EXTRA[v.category] || ''].join(' ').toLowerCase()
+  const flat = squash(hay)
+  return words.every(w => hay.includes(w) || flat.includes(squash(w)) || (HI_TERMS[w] || []).some(t => hay.includes(t)))
+}
+
+// The product data names diseases in English and Hinglish, so a Hindi word is
+// looked up as its English terms too ("थनैला" finds mastitis).
+const HI_TERMS: Record<string, string[]> = {
+  'थनैला': ['mastitis'], 'थन': ['udder', 'mastitis', 'teat'], 'कीड़े': ['worm', 'anthelmintic', 'deworm', 'keede'], 'कीड़ा': ['worm', 'anthelmintic', 'deworm'],
+  'कृमि': ['worm', 'anthelmintic'], 'बुखार': ['fever', 'antipyretic', 'bukhar'], 'ज्वर': ['fever'], 'दस्त': ['diarrh', 'dast', 'scour'],
+  'चिचड़ी': ['tick', 'ectopar'], 'किलनी': ['tick'], 'जूँ': ['lice', 'louse'], 'दूध': ['milk', 'lactation', 'galactog', 'doodh'],
+  'खुजली': ['itch', 'mange', 'khujli', 'dermat'], 'दर्द': ['pain', 'analges', 'dard'], 'सूजन': ['swelling', 'inflamm'],
+  'घाव': ['wound', 'maggot'], 'कीड़े पड़ना': ['maggot'], 'बच्चेदानी': ['uter', 'prolapse', 'metritis'], 'जेर': ['placenta', 'retained'],
+  'निमोनिया': ['pneumonia'], 'खांसी': ['cough', 'respirat'], 'लीवर': ['liver', 'hepat'], 'कमजोरी': ['weak', 'kamzori', 'debility', 'tonic'],
+  'भूख': ['appetite', 'anorexia'], 'अफारा': ['bloat', 'tympan'], 'गैस': ['bloat', 'gas'], 'हीट': ['heat', 'estrus', 'oestrus', 'anestrus'],
+  'गर्मी': ['heat', 'estrus', 'anestrus'], 'एलर्जी': ['allerg'], 'संक्रमण': ['infection', 'antibiotic'], 'कैल्शियम': ['calcium'],
+  'फ्लूक': ['fluke'], 'त्वचा': ['skin', 'dermat'], 'खुर': ['foot', 'hoof'], 'विटामिन': ['vitamin'], 'बछड़ा': ['calf'],
+  'कुत्ता': ['dog'], 'बिल्ली': ['cat'], 'गाय': ['cattle', 'cow'], 'भैंस': ['buffalo'], 'बकरी': ['goat'], 'भेड़': ['sheep'], 'घोड़ा': ['horse'], 'मुर्गी': ['poultry'],
 }
 
 // Categories that exist only on films, not in the products table
@@ -43,7 +76,7 @@ function onThumbError(e: React.SyntheticEvent<HTMLImageElement>) {
 }
 
 export default function VideosClient({ videos, channelUrl }: { videos: VideoItem[]; channelUrl: string }) {
-  const [lang, setLang]           = useState<Lang>('hi')
+  const [lang, setLang]           = useState<Lang>('en')
   const [searchText, setSearch]   = useState('')
   const [activeCat, setActiveCat] = useState('all')
   const [open, setOpen]           = useState<VideoItem | null>(null)
@@ -66,10 +99,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
   // One section per category once the range is big enough to fill them;
   // until then nine one-card sections read as empty, so show one grid.
   const grouped = useMemo(() => {
-    const q = searchText.toLowerCase().trim()
-    const shown = videos.filter(v =>
-      (activeCat === 'all' || v.category === activeCat) &&
-      (!q || `${v.name} ${v.title} ${v.indication} ${v.species} ${v.category}`.toLowerCase().includes(q)))
+    const shown = videos.filter(v => (activeCat === 'all' || v.category === activeCat) && matches(v, searchText))
     const order = (v: VideoItem) => cats.indexOf(v.category)
     if (shown.length < 12 || activeCat !== 'all') {
       return shown.length ? [{ cat: '', items: [...shown].sort((a, b) => order(a) - order(b)) }] : []
@@ -119,6 +149,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
                 </a>
                 <a className="vp-ghost" href="#films">{hi ? 'सभी फ़िल्में देखें' : 'Browse all films'} ↓</a>
               </div>
+              <div style={{ marginTop: 14 }}><FolderButtons hi={hi} /></div>
             </div>
 
             {featured.length > 0 && (
@@ -219,13 +250,26 @@ function Card({ v, hi, catLabel, onPlay }: { v: VideoItem; hi: boolean; catLabel
   )
 }
 
+function shareProps(v: VideoItem) {
+  return {
+    name: v.name, src: v.src,
+    text: shareCaption({ name: v.name, productId: v.productId, youtubeId: v.youtubeId }),
+    waUrl: whatsappShareUrl({ name: v.name, youtubeId: v.youtubeId, filmKey: v.key, productId: v.productId }),
+  }
+}
+
 function ShareWA({ v, hi }: { v: VideoItem; hi: boolean }) {
   return (
-    <a className="vp-wa" href={whatsappShareUrl({ name: v.name, youtubeId: v.youtubeId, filmKey: v.key, productId: v.productId })} target="_blank" rel="noopener"
-      aria-label={`${hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}: ${v.name}`} title={hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}>
-      <WaIcon />
-    </a>
+    <span title={hi ? 'WhatsApp पर वीडियो भेजें' : 'Send the video on WhatsApp'} aria-label={`${hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}: ${v.name}`}>
+      <ShareVideo {...shareProps(v)} className="vp-wa" loadingLabel={<span className="vp-spin" />} readyLabel={<SendIcon />}>
+        <WaIcon />
+      </ShareVideo>
+    </span>
   )
+}
+
+function SendIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 20.5 21 12 3 3.5v6.9l12 1.6-12 1.6z" /></svg>
 }
 
 function DlIcon({ size = 18 }: { size?: number }) {
@@ -271,7 +315,6 @@ function Player({ v, hi, catLabel, channelUrl, onClose }: {
     return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = prev }
   }, [esc])
 
-  const share = whatsappShareUrl({ name: v.name, youtubeId: v.youtubeId, filmKey: v.key, productId: v.productId })
   const indication = v.indication.split(/[,;]/).map(s => s.trim()).filter(Boolean).slice(0, 6)
 
   return (
@@ -305,7 +348,11 @@ function Player({ v, hi, catLabel, channelUrl, onClose }: {
                 <DlIcon size={17} />&nbsp;{hi ? 'डाउनलोड करें' : 'Download'}{v.downloadMB ? ` · ${v.downloadMB} MB` : ''}
               </a>
             )}
-            <a className="vp-btn wa" href={share} target="_blank" rel="noopener"><WaIcon size={17} />&nbsp;{hi ? 'WhatsApp पर भेजें' : 'Share on WhatsApp'}</a>
+            <ShareVideo {...shareProps(v)} className="vp-btn wa"
+              loadingLabel={<>{hi ? 'वीडियो तैयार हो रहा है…' : 'Preparing video…'}</>}
+              readyLabel={<><SendIcon />&nbsp;{hi ? 'भेजने के लिए फिर दबाएँ' : 'Tap again to send'}</>}>
+              <WaIcon size={17} />&nbsp;{hi ? 'WhatsApp पर वीडियो भेजें' : 'Send video on WhatsApp'}
+            </ShareVideo>
             <a className="vp-btn yt" href={channelUrl} target="_blank" rel="noopener">{hi ? 'सब्सक्राइब करें' : 'Subscribe'}</a>
           </div>
         </aside>
@@ -405,6 +452,8 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }  /* hidden would make bo
 .vp-btn.dl { background:var(--cream-dark); color:var(--forest); border:1px solid rgba(26,58,42,.15); }
 .vp-wa { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   background:#25d366; color:#fff; box-shadow:0 4px 14px rgba(0,0,0,.3); transition:transform .18s, box-shadow .18s; }
+.vp-spin { width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:vpSpin .8s linear infinite; }
+@keyframes vpSpin { to { transform:rotate(360deg) } }
 .vp-wa:hover, .vp-wa:focus-visible { transform:scale(1.1); box-shadow:0 6px 20px rgba(37,211,102,.5); outline:none; }
 .vp-card { position:relative; aspect-ratio:9/16; border-radius:18px; overflow:hidden; background:var(--night);
   box-shadow:0 2px 6px rgba(15,35,24,.08), 0 12px 28px rgba(15,35,24,.1); transition:transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s; }

@@ -9,7 +9,7 @@ type ProductData = {
   indication: string; aliases: string; dosage: string
   usp_benefits: string; image_url: string; formulation: string
 }
-type AdminMode  = 'home' | 'add' | 'image' | 'video'
+type AdminMode  = 'home' | 'add' | 'image' | 'video' | 'remove'
 type AddStage   = 'step1' | 'enriching' | 'review' | 'saving' | 'done' | 'error'
 type ImageStage = 'select' | 'upload' | 'preview' | 'saving' | 'done' | 'error'
 
@@ -914,6 +914,89 @@ function AddVideoMode({ onHome }: { onHome: () => void }) {
   )
 }
 
+
+// ── REMOVE A DISCONTINUED PRODUCT ────────────────────────────────────────────
+// The server keeps a backup of every removed row, so this screen can undo.
+function RemoveProductMode() {
+  const [all, setAll]         = useState<{id:number;product_name:string;packaging:string}[]>([])
+  const [removed, setRemoved] = useState<{id:number;name:string;removed:string}[]>([])
+  const [search, setSearch]   = useState('')
+  const [confirm, setConfirm] = useState<{id:number;product_name:string}|null>(null)
+  const [busy, setBusy]       = useState(false)
+  const [msg, setMsg]         = useState('')
+
+  const load = () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (url && key) createClient(url, key).from('products_enriched').select('id,product_name,packaging')
+      .order('product_name',{ascending:true}).limit(500).then(({data}) => setAll((data||[]) as any))
+    fetch('/api/delete-product').then(r=>r.json()).then(d=>setRemoved(d.removed||[])).catch(()=>{})
+  }
+  useEffect(load, [])
+
+  const act = async (method: 'POST'|'PUT', id: number) => {
+    setBusy(true); setMsg('')
+    try {
+      const res  = await fetch('/api/delete-product', { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify({ product_id: id }) })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || `Error ${res.status}`)
+      setMsg(method === 'POST' ? `✅ "${data.name}" hata diya — website se turant hat gaya.` : `✅ "${data.name}" wapas aa gaya.`)
+      setConfirm(null); load()
+    } catch (e) { setMsg(`❌ ${String(e).replace('Error: ','')}`) }
+    setBusy(false)
+  }
+
+  const q = search.toLowerCase().replace(/[.\-\s]/g,'')
+  const filtered = all.filter(p => (p.product_name||'').toLowerCase().replace(/[.\-\s]/g,'').includes(q))
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold mb-1">Discontinued Product Hatao</h2>
+        <p className="text-white/40 text-sm">Product, uska page aur uski video — sab website se hat jayenge. Backup rakha jata hai.</p>
+      </div>
+      {msg && <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-sm">{msg}</div>}
+
+      {confirm ? (
+        <div className="p-5 rounded-2xl bg-red-900/20 border border-red-600/40 space-y-4">
+          <p className="font-semibold">"{confirm.product_name}" hatana hai?</p>
+          <p className="text-sm text-white/60">Products page, product page aur videos page se hat jayega. Galti ho to neeche "Wapas lao" se wapas aa jayega.</p>
+          <div className="flex gap-3">
+            <button disabled={busy} onClick={()=>act('POST', confirm.id)} className="flex-1 py-3 rounded-lg bg-red-600 hover:bg-red-500 font-semibold disabled:opacity-50">{busy ? 'Hata rahe hain…' : 'Haan, hatao'}</button>
+            <button disabled={busy} onClick={()=>setConfirm(null)} className="flex-1 py-3 rounded-lg bg-white/10 hover:bg-white/15">Nahi</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Product naam type karein..."
+            className="w-full bg-[#2f2f2f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-red-500" />
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+            {filtered.map(p => (
+              <button key={p.id} onClick={()=>setConfirm(p)}
+                className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-red-600/60 text-left">
+                <span><span className="font-medium">{p.product_name}</span> <span className="text-xs text-white/40">{p.packaging}</span></span>
+                <span className="text-xs text-red-400">Hatao</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {removed.length > 0 && (
+        <div className="pt-4 border-t border-white/10 space-y-2">
+          <p className="text-sm font-semibold text-white/70">Hataye gaye products</p>
+          {removed.map(r => (
+            <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-sm">{r.name} <span className="text-xs text-white/30">{new Date(r.removed).toLocaleDateString('en-IN')}</span></span>
+              <button disabled={busy} onClick={()=>act('PUT', r.id)} className="text-xs px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-50">Wapas lao</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -952,7 +1035,7 @@ export default function AdminPage() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         {mode === 'home' && (
           <div className="space-y-4">
-            <div className="mb-8"><h2 className="text-xl font-semibold mb-1">Kya karna hai?</h2><p className="text-white/40 text-sm">Do options available hain</p></div>
+            <div className="mb-8"><h2 className="text-xl font-semibold mb-1">Kya karna hai?</h2><p className="text-white/40 text-sm">Neeche se chuniye</p></div>
 
             <button onClick={()=>setMode('add')}
               className="w-full p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-green-600 hover:bg-green-900/20 transition-colors text-left group">
@@ -986,12 +1069,24 @@ export default function AdminPage() {
                 </div>
               </div>
             </button>
+
+            <button onClick={()=>setMode('remove')}
+              className="w-full p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-red-600 hover:bg-red-900/20 transition-colors text-left group">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-red-600/20 border border-red-600/30 flex items-center justify-center text-2xl flex-shrink-0 group-hover:bg-red-600/30 transition-colors">🗑️</div>
+                <div>
+                  <p className="font-semibold text-base mb-1">Discontinued Product Hatao</p>
+                  <p className="text-sm text-white/50">Product dhoondo · hatao · products aur videos page se turant hat jayega · galti ho to wapas la sakte ho</p>
+                </div>
+              </div>
+            </button>
           </div>
         )}
 
         {mode === 'add'   && <AddProductMode onHome={()=>setMode('home')} />}
         {mode === 'image' && <AddImageMode   onHome={()=>setMode('home')} />}
         {mode === 'video' && <AddVideoMode   onHome={()=>setMode('home')} />}
+        {mode === 'remove' && <RemoveProductMode />}
       </div>
     </div>
   )
