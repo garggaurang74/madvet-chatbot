@@ -60,6 +60,20 @@ export default function FolderViewer({ pages }: { pages: ViewerPage[] }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [i, go])
 
+  // A phone turned sideways shows the page alone, edge to edge (the CSS under
+  // "landscape phone"). There the first tap asks for real fullscreen, which
+  // hides the browser bar on Android; iPhone Safari has no page fullscreen, so
+  // it keeps the bar and the tap zooms as usual.
+  const onSheetTap = useCallback(() => {
+    const land = window.matchMedia(LANDSCAPE_PHONE).matches
+    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
+    if (land && !document.fullscreenElement && !zoom && el.requestFullscreen) {
+      el.requestFullscreen().catch(() => setZoom(true))
+      return
+    }
+    setZoom(z => !z)
+  }, [zoom])
+
   const sections = useMemo(() => pages.filter(p => p.kind === 'section'), [pages])
   const results = useMemo(() => {
     const q = squash(query)
@@ -114,12 +128,13 @@ export default function FolderViewer({ pages }: { pages: ViewerPage[] }) {
             if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(i + (dx < 0 ? 1 : -1))
           }}>
           <button className="fv-arrow prev" onClick={() => go(i - 1)} disabled={i === 0} aria-label="Previous page">‹</button>
-          <div className={`fv-sheet ${zoom ? 'zoom' : ''}`} onClick={() => setZoom(z => !z)} title={zoom ? 'Tap to fit' : 'Tap to zoom'}>
+          <div className={`fv-sheet ${zoom ? 'zoom' : ''}`} onClick={onSheetTap} title={zoom ? 'Tap to fit' : 'Tap to zoom'}>
             {!loaded[cur.p] && <div className="fv-spin" />}
             <img key={cur.p} src={IMG(cur.p)} alt={`Page ${cur.p}: ${cur.title}`}
               onLoad={() => setLoaded(l => ({ ...l, [cur.p]: true }))} draggable={false} />
           </div>
           <button className="fv-arrow next" onClick={() => go(i + 1)} disabled={i === n - 1} aria-label="Next page">›</button>
+          <span className="fv-land-count">{cur.p} / {n}</span>
         </main>
 
         <div className="fv-bar">
@@ -144,6 +159,8 @@ export default function FolderViewer({ pages }: { pages: ViewerPage[] }) {
     </>
   )
 }
+
+const LANDSCAPE_PHONE = '(orientation: landscape) and (max-height: 540px)'
 
 const CSS = `
 *, *::before, *::after { box-sizing: border-box; }
@@ -224,6 +241,17 @@ html, body { margin: 0; padding: 0; overflow-x: clip; background: #0c1d14; }
   .fv-strip { padding: 6px 14px 14px; }
   .fv-strip button { width: 84px; }
   .fv-btn { padding: 8px 12px; font-size: 12.5px; }
+}
+/* landscape phone: the page alone, filling the screen */
+.fv-land-count { display: none; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .sn, .sf, .fv-head, .fv-sections, .fv-bar, .fv-strip { display: none !important; }
+  .fv { min-height: 100dvh; background: #000; }
+  .fv-stage { position: fixed; inset: 0; z-index: 50; padding: 0; gap: 0; background: #000; }
+  .fv-sheet { width: min(100vw, calc(100dvh * 1.414)); height: auto; max-height: 100dvh; border-radius: 0; box-shadow: none; }
+  .fv-arrow { position: absolute; top: 50%; z-index: 5; width: 40px; height: 40px; margin-top: -20px; font-size: 24px; background: rgba(0,0,0,.45); border-color: rgba(232,213,168,.35); }
+  .fv-arrow.prev { left: 6px; } .fv-arrow.next { right: 6px; }
+  .fv-land-count { display: block; position: absolute; right: 10px; bottom: 8px; z-index: 6; padding: 3px 9px; border-radius: 10px; background: rgba(0,0,0,.55); color: #e8d5a8; font-size: 12px; font-weight: 700; pointer-events: none; }
 }
 @media (prefers-reduced-motion: reduce) { .fv * { animation: none !important; transition: none !important; } }
 `
