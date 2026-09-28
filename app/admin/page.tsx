@@ -198,7 +198,7 @@ function DoneScreen({ name, imageUrl, onAddMore, label }: { name:string; imageUr
       <p className="text-white/40 text-sm mb-8">{name}</p>
       <div className="flex gap-3 w-full">
         <button onClick={onAddMore} className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-semibold transition-colors">+ Aur Karo</button>
-        <a href="/" className="flex-1 py-3 rounded-xl border border-white/20 hover:bg-white/5 text-sm font-medium text-center transition-colors">Chat pe Jao</a>
+        <a href="/ask" className="flex-1 py-3 rounded-xl border border-white/20 hover:bg-white/5 text-sm font-medium text-center transition-colors">Chat pe Jao</a>
       </div>
     </div>
   )
@@ -1028,7 +1028,7 @@ export default function AdminPage() {
         <div><h1 className="font-semibold">Madvet Admin</h1><p className="text-xs text-white/40">Product Management</p></div>
         {mode !== 'home'
           ? <button onClick={()=>setMode('home')} className="ml-auto text-xs text-white/40 hover:text-white transition-colors">← Home</button>
-          : <a href="/" className="ml-auto text-xs text-white/40 hover:text-white transition-colors">← Chat</a>
+          : <a href="/ask" className="ml-auto text-xs text-white/40 hover:text-white transition-colors">← Chat</a>
         }
       </div>
 

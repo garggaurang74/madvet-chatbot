@@ -2,18 +2,21 @@
 
 import Link from 'next/link'
 
-// The one menu every public page shares. Each page used to draw its own, and
-// they had drifted: /products had no Folder, /videos no Assistant, the product
-// page no Videos. On a phone the links scroll sideways rather than wrap.
+// The one menu every public page shares — madvet.in is one site, so the
+// company pages (Home, About, Contact) and the catalogue pages (Products,
+// Videos, Folder, Schemes, Ask AI) sit in the same bar. On a phone the links
+// scroll sideways rather than wrap.
 
-export type NavKey = 'assistant' | 'products' | 'videos' | 'folder' | 'schemes'
+export type NavKey = 'home' | 'about' | 'assistant' | 'products' | 'videos' | 'folder' | 'schemes' | 'contact' | 'careers'
 
 const LINKS: { key: NavKey; href: string; en: string; hi: string }[] = [
   { key: 'products',  href: '/products', en: 'Products', hi: 'उत्पाद' },
   { key: 'videos',    href: '/videos',   en: 'Videos',   hi: 'वीडियो' },
   { key: 'folder',    href: '/folder',   en: 'Folder',   hi: 'फ़ोल्डर' },
   { key: 'schemes',   href: '/schemes',  en: 'Schemes',  hi: 'स्कीम' },
-  { key: 'assistant', href: '/',         en: 'Ask AI',   hi: 'AI से पूछें' },
+  { key: 'assistant', href: '/ask',      en: 'Ask AI',   hi: 'AI से पूछें' },
+  { key: 'about',     href: '/about',    en: 'About',    hi: 'हमारे बारे में' },
+  { key: 'contact',   href: '/contact',  en: 'Contact',  hi: 'संपर्क' },
 ]
 
 export default function SiteNav({ active, hi = false }: { active: NavKey; hi?: boolean }) {
@@ -21,7 +24,7 @@ export default function SiteNav({ active, hi = false }: { active: NavKey; hi?: b
     <>
       <style>{CSS}</style>
       <nav className="sn">
-        <Link href="/products" className="sn-brand" aria-label="Madvet home">
+        <Link href="/" className="sn-brand" aria-label="Madvet Animal Healthcare — home">
           <img src="/madvet-icon.png" alt="" /> <span>Madvet</span>
         </Link>
         <div className="sn-links">
@@ -42,7 +45,7 @@ const CSS = `
 .sn-brand img { width: 32px; height: 32px; border-radius: 7px; object-fit: cover; }
 .sn-links { display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .sn-links::-webkit-scrollbar { display: none; }
-.sn-links a, .sn-links span { flex: none; padding: 7px 13px; border-radius: 7px; font-size: 13px; font-weight: 500; color: rgba(245,240,232,.62); text-decoration: none; white-space: nowrap; transition: color .15s, background .15s; }
+.sn-links a, .sn-links span { flex: none; padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; color: rgba(245,240,232,.62); text-decoration: none; white-space: nowrap; transition: color .15s, background .15s; }
 .sn-links a:hover { color: #f5f0e8; background: rgba(255,255,255,.05); }
 .sn-links .on { color: #e8d5a8; background: rgba(200,169,110,.14); }
 .sn-links .sn-train { margin-left: 8px; background: #c8a96e; color: #1a3a2a; font-weight: 700; }

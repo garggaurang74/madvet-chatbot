@@ -53,6 +53,17 @@ const nextConfig = {
       headers: [{ key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' }]
     },
   ],
+  // The old WordPress madvet.in (2020) pages, so links already out there land
+  // on their replacements once madvet.in points here.
+  redirects: async () => [
+    { source: '/home',         destination: '/',        permanent: true },
+    { source: '/who-we-are',   destination: '/about',   permanent: true },
+    { source: '/our-team',     destination: '/about',   permanent: true },
+    { source: '/career',       destination: '/careers', permanent: true },
+    { source: '/contact-us',   destination: '/contact', permanent: true },
+    { source: '/wp-admin/:p*', destination: '/',        permanent: false },
+    { source: '/wp-content/:p*', destination: '/',      permanent: false },
+  ],
 }
 
 module.exports = nextConfig

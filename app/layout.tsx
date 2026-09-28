@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'Madvet Animal Healthcare',
-  description: 'AI-powered veterinary product assistant',
+  metadataBase: new URL('https://madvet.in'),
+  title: 'Madvet Animal Healthcare — veterinary medicines, Ghaziabad',
+  description: 'Madvet Animal Healthcare, Ghaziabad: veterinary injections, boluses, feed supplements and pet care for veterinarians, retailers and stockists across India.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -25,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Preload critical fonts */}
         <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&display=swap" as="style" />
       </head>
-      <body>{children}</body>
+      <body>{children}<SiteFooter /></body>
     </html>
   )
 }

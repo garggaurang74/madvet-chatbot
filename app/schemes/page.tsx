@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
 import { fetchFilms, fetchProducts } from '@/lib/catalog'
-import { fetchSchemes } from '@/lib/schemes'
+import { fetchSchemes, matchScheme } from '@/lib/schemes'
 import SchemesClient, { type SchemeGroup } from './SchemesClient'
 
 export const metadata: Metadata = {
@@ -11,29 +11,15 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-// Spellings in the sheet that match no product name as typed
-const ALIAS: Record<string, string> = { gumblote: 'gumbloat', alboi: 'albol' }
 
 export default async function SchemesPage() {
   const [{ month, schemes }, products, films] = await Promise.all([fetchSchemes(), fetchProducts(), fetchFilms()])
   const filmOf = new Map<number, string>()
   for (const f of films) for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
 
-  // A sheet line names a product loosely ("BUTACIN 100 ML", "LEVO FORCE BOLUS");
-  // take the product sharing the longest start with it, and only if that
-  // start is long enough to be a name rather than a coincidence.
-  const match = (item: string) => {
-    let key = squash(item)
-    for (const [a, b] of Object.entries(ALIAS)) if (key.startsWith(a)) key = b + key.slice(a.length)
-    let best = null as null | (typeof products)[number], bestLen = 0
-    for (const p of products) {
-      const n = squash(p.name)
-      let k = 0
-      while (k < n.length && k < key.length && n[k] === key[k]) k++
-      if (k > bestLen) { best = p; bestLen = k }
-    }
-    return best && bestLen >= Math.min(6, key.length) ? best : null
-  }
+  // How a sheet line finds its product lives in lib/schemes.ts (matchScheme),
+  // shared with /schemes/check, where the office can see every line's match.
+  const match = (item: string) => matchScheme(item, products).product
 
   const groups = new Map<string, SchemeGroup>()
   for (const s of schemes) {

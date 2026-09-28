@@ -3,7 +3,8 @@
 // on the site, which opens straight into the player. The product page rides
 // along either way. (madvet.in/products/<id> would land on the product LIST:
 // WordPress 301s it to /products/ before the forward, so link here directly.)
-export const SITE = 'https://ai.madvet.in'
+// madvet.in once CANONICAL_HOST is live (set NEXT_PUBLIC_SITE_URL with it); old ai.madvet.in links redirect.
+export const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://ai.madvet.in'
 
 export function whatsappShareUrl(film: { name: string; youtubeId?: string; filmKey?: string; productId?: number }): string {
   const watch = film.youtubeId
