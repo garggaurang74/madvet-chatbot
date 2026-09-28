@@ -8,7 +8,7 @@ export const COMPANY = {
   since:    2010,
   phone:    '+91 84003 47331',
   phoneRaw: '918400347331',
-  email:    'gaurang@madvet.in',
+  email:    'support@madvet.in',
   petBrand: 'Careegy',
   leaders: [
     { name: 'Manish Agarwal', role: 'Managing Director' },

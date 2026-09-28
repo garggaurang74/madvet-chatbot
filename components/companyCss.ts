@@ -25,6 +25,7 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }
 .cp-btn.line { border-color:rgba(245,240,232,.3); color:var(--cream); }
 .cp-btn.line:hover { border-color:var(--gold-light); color:var(--gold-light); }
 .cp-btn.dark { background:var(--forest); color:var(--cream); }
+.cp-btn.wa { background:#25a244; color:#fff; }
 
 .cp-photo { position:relative; border-radius:18px; overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.55); border:1px solid rgba(200,169,110,.25); }
 .cp-photo img { display:block; width:100%; height:100%; object-fit:cover; }
