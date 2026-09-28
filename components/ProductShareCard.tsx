@@ -181,7 +181,7 @@ function FooterStrip({ c }) {
         </div>
         <div style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 6, padding: "4px 12px", textAlign: "center" }}>
           <div style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 1 }}>AI ASSISTANT</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "'Oswald',sans-serif", letterSpacing: 0.5 }}>ai.madvet.in</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "'Oswald',sans-serif", letterSpacing: 0.5 }}>www.madvet.in</div>
         </div>
       </div>
       {/* Yellow footer */}

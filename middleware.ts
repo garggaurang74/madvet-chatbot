@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// madvet.in and ai.madvet.in are ONE site. Until madvet.in's DNS points here,
-// ai.madvet.in keeps opening the chat at its root, as it always has. Once
-// CANONICAL_HOST is set on Vercel (e.g. "madvet.in"), every request on any
-// other host is sent to the same path there — ai.madvet.in/products/12 →
-// madvet.in/products/12 — so old links, WhatsApp shares and QR codes keep
-// working and there is only one address.
+// madvet.in and ai.madvet.in are ONE site, at www.madvet.in (28 Sep 2026: DNS
+// moved to Vercel; Vercel itself sends madvet.in → www.madvet.in). Every
+// request on any other host goes to the same path there —
+// ai.madvet.in/products/12 → www.madvet.in/products/12 — so old links,
+// WhatsApp shares, YouTube descriptions and QR codes keep working and there is
+// one address. CANONICAL_HOST on Vercel overrides it; set it to "off" to stop
+// redirecting (ai.madvet.in/ then opens the chat again).
 export function middleware(req: NextRequest) {
   const host = (req.headers.get('host') || '').toLowerCase().split(':')[0]
-  const canonical = (process.env.CANONICAL_HOST || '').toLowerCase()
+  const env = (process.env.CANONICAL_HOST || 'www.madvet.in').toLowerCase()
+  const canonical = env === 'off' ? '' : env
   const { pathname, search } = req.nextUrl
 
   if (canonical && host !== canonical && !host.endsWith('.vercel.app') && host !== 'localhost') {

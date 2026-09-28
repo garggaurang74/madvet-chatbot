@@ -30,6 +30,8 @@ export interface ChatKnowledge {
   schemesText: string        // this month's schemes (changes when the office edits the sheet)
   filmOf: Map<number, SiteFilm>
   pageOf: Map<number, number>
+  schemeOf: Map<number, string[]>   // product id → its lines on this month's sheet
+  month: string
 }
 
 let memo: { at: number; value: ChatKnowledge } | null = null
@@ -82,15 +84,18 @@ export async function getChatKnowledge(): Promise<ChatKnowledge> {
   ].join('\n')
 
   const forMatch = products.map(x => ({ id: x.id!, name: x.product_name || '', packaging: x.packaging }))
+  const schemeOf = new Map<number, string[]>()
   const schemeLines = schemes.map(s => {
     const p = matchScheme(s.item, forMatch).product
-    return `- Buy ${s.qty} ${s.item}${p ? ` (#${p.id})` : ''} → free ${s.free}`
+    const line = `Buy ${s.qty} ${s.item} → free ${s.free}`
+    if (p) schemeOf.set(p.id, [...(schemeOf.get(p.id) || []), line])
+    return `- ${line}${p ? ` (#${p.id})` : ''}`
   })
   const schemesText = schemes.length
     ? `## Trade schemes — ${month || 'this month'} (from the office sheet, for retailers/stockists; final terms are confirmed by the Madvet representative; full list at ${SITE}/schemes)\n${schemeLines.join('\n')}`
     : `## Trade schemes\nNo schemes are listed right now.`
 
-  const value = { products, knowledge, schemesText, filmOf, pageOf }
+  const value = { products, knowledge, schemesText, filmOf, pageOf, schemeOf, month: month || 'this month' }
   memo = { at: Date.now(), value }
   return value
 }
@@ -162,6 +167,10 @@ export function productDetails(k: ChatKnowledge, list: MadvetProduct[]): string 
       `Page: ${SITE}/products/${p.id}`,
       f && `Film: ${SITE}/videos?film=${encodeURIComponent(f.youtubeId || f.slug)}`,
       pg && `Folder page: ${SITE}/folder?p=${pg}`,
+      // A small model misses one line in a 60-line scheme list, so each
+      // product carries its own lines here — including "none", which is also
+      // an answer.
+      `Trade schemes this ${k.month}: ${(k.schemeOf.get(p.id!) || []).join(' | ') || 'none listed for this product'}`,
     ].filter(Boolean).join('\n')
   }).join('\n\n')
 }
