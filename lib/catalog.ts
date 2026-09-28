@@ -160,3 +160,32 @@ export function filmFiles(f: SiteFilm) {
     downloadMB: Math.max(1, Math.round(f.bytes / 1e6)),
   }
 }
+
+// The product folder as web pages, published by the video repo's
+// `factory/small_films.mjs --folder-web`: folder/pages/NN.webp (1600 px),
+// folder/thumbs/NN.webp and folder/manifest.json. `ids` on a product page
+// are the products_enriched ids it covers.
+export interface FolderPage {
+  p:        number
+  kind:     'cover' | 'section' | 'product' | 'back'
+  title:    string
+  section?: string
+  ids?:     number[]
+}
+
+export async function fetchFolder(): Promise<FolderPage[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) return []
+  try {
+    const res = await fetch(`${url}/storage/v1/object/public/${DOWNLOAD_BUCKET}/folder/manifest.json`, { next: { revalidate: 300 } })
+    if (!res.ok) return []
+    const m = await res.json()
+    return Array.isArray(m?.pages) ? m.pages : []
+  } catch {
+    return []
+  }
+}
+
+export function folderImage(p: number, size: 'pages' | 'thumbs' = 'pages'): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${DOWNLOAD_BUCKET}/folder/${size}/${String(p).padStart(2, '0')}.webp`
+}

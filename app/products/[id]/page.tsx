@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import type { Product } from '../types'
 import ProductDetailClient, { type ProductFilm } from './ProductDetailClient'
-import { fetchFilms, filmFiles } from '@/lib/catalog'
+import { fetchFilms, fetchFolder, filmFiles } from '@/lib/catalog'
 
 export const dynamic = 'force-dynamic'    // SSR on every request — no page cache
 export const fetchCache = 'force-no-store' // bypass Next.js fetch cache
@@ -103,11 +103,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // a stale cached HTML page unless these headers are present.
   const headersList = await headers()
   const { id } = await params
-  const [product, films] = await Promise.all([fetchProduct(Number(id)), fetchFilms()])
+  const [product, films, folder] = await Promise.all([fetchProduct(Number(id)), fetchFilms(), fetchFolder()])
   if (!product) notFound()
 
   // The factory's film for this product, if there is one
   const f = films.find(x => x.ids.includes(product.id))
   const film: ProductFilm | null = f ? { key: f.youtubeId || f.slug, youtubeId: f.youtubeId, vertical: f.vertical, ...filmFiles(f) } : null
-  return <ProductDetailClient product={product} film={film} />
+  const folderPage = folder.find(pg => pg.ids?.includes(product.id))?.p ?? 0
+  return <ProductDetailClient product={product} film={film} folderPage={folderPage} />
 }

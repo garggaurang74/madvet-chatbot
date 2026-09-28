@@ -2,6 +2,7 @@
 
 import { shareCaption, whatsappShareUrl } from '@/lib/share'
 import ShareVideo from '@/components/ShareVideo'
+import SiteNav from '@/components/SiteNav'
 import Link from 'next/link'
 import React, { useState, useRef, useEffect } from 'react'
 import type { Product } from '../types'
@@ -985,7 +986,7 @@ export interface ProductFilm {
   downloadMB: number
 }
 
-export default function ProductDetailClient({ product, film }: { product: Product; film?: ProductFilm | null }) {
+export default function ProductDetailClient({ product, film, folderPage = 0 }: { product: Product; film?: ProductFilm | null; folderPage?: number }) {
   const [lang, setLang] = useState<Lang>('en')
   const [showShare, setShowShare] = useState(false)
 
@@ -1047,17 +1048,7 @@ export default function ProductDetailClient({ product, film }: { product: Produc
       `}</style>
 
       {/* NAV */}
-      <nav style={{ background: '#0f2318', padding: '0 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, borderBottom: '1px solid rgba(200,169,110,0.15)' }} className="top-nav">
-        <Link href="/" style={{ fontFamily: "'DM Serif Display', serif", color: 'var(--cream)', fontSize: 18, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/madvet-icon.png" alt="Madvet" style={{ height: 32, width: 32, borderRadius: 6, objectFit: 'cover', marginRight: 2 }} /> Madvet
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <LangToggle lang={lang} setLang={setLang} />
-          <Link href="/products" style={{ padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}>
-            ← {t.allProducts}
-          </Link>
-        </div>
-      </nav>
+      <SiteNav active="products" hi={lang === 'hi'} />
 
       {/* HERO */}
       <header style={{ background: 'var(--forest)', position: 'relative', overflow: 'hidden' }}>
@@ -1148,6 +1139,11 @@ export default function ProductDetailClient({ product, film }: { product: Produc
               </div>
             )
           })()}
+          {folderPage > 0 && (
+            <Link href={`/folder?p=${folderPage}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(200,169,110,0.35)', color: 'var(--gold-light)', textDecoration: 'none', fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+              📖 {lang === 'hi' ? 'प्रोडक्ट फ़ोल्डर में देखें' : 'See in product folder'} · {lang === 'hi' ? 'पेज' : 'page'} {folderPage}
+            </Link>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
             <span className="chip" style={{ background: 'rgba(200,169,110,0.12)', color: 'var(--gold-light)', border: '1px solid rgba(200,169,110,0.2)', fontSize: 12 }}>{product.packaging}</span>
             <span className="chip" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(245,240,232,0.55)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 12 }}>{displayForm}</span>

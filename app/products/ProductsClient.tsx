@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import type { Product } from './types'
 import FolderButtons from '@/components/FolderButtons'
+import SiteNav from '@/components/SiteNav'
 
 // ── PAGINATION ────────────────────────────────────────────────────────────────
 // Rendering 500 cards at once freezes the browser. We render PAGE_SIZE at a time
@@ -508,37 +509,7 @@ export default function ProductsClient({ products }: { products: Product[] }) {
       <div className="products-page">
 
         {/* ── TOP NAV ── */}
-        <nav className="top-nav" style={{
-          background: '#0f2318', padding: '0 48px', display: 'flex',
-          alignItems: 'center', justifyContent: 'space-between',
-          height: 52, borderBottom: '1px solid rgba(200,169,110,0.15)',
-        }}>
-          <Link href="/" style={{
-            fontFamily: "'DM Serif Display', serif", color: 'var(--cream)',
-            fontSize: 18, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <img src="/madvet-icon.png" alt="Madvet" style={{height:32,width:32,borderRadius:6,objectFit:"cover",marginRight:2}} /> Madvet
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Link href="/" className="nav-link-item" style={{
-              padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)',
-              fontSize: 13, fontWeight: 500, textDecoration: 'none',
-            }}>{lang === 'hi' ? 'सहायक' : 'Assistant'}</Link>
-            <span className="nav-link-item" style={{
-              padding: '6px 14px', borderRadius: 6, color: 'var(--gold-light)',
-              background: 'rgba(200,169,110,0.1)', fontSize: 13, fontWeight: 500,
-            }}>{lang === 'hi' ? 'उत्पाद' : 'Products'}</span>
-            <Link href="/videos" className="nav-link-item" style={{
-              padding: '6px 14px', borderRadius: 6, color: 'rgba(245,240,232,0.55)',
-              fontSize: 13, fontWeight: 500, textDecoration: 'none',
-            }}>{lang === 'hi' ? 'वीडियो' : 'Videos'}</Link>
-            <Link href="/madvet-training.html" className="training-btn" style={{
-              marginLeft: 12, padding: '7px 16px', background: 'var(--gold)',
-              color: 'var(--forest)', borderRadius: 6, fontFamily: "'DM Sans', sans-serif",
-              fontSize: 13, fontWeight: 700, textDecoration: 'none',
-            }}>🎓 {lang === 'hi' ? 'ट्रेनिंग' : 'Training'}</Link>
-          </div>
-        </nav>
+        <SiteNav active="products" hi={lang === 'hi'} />
 
         {/* ── HEADER ── */}
         <header style={{ background: 'var(--forest)', padding: 0, position: 'relative', overflow: 'hidden' }}>

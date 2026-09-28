@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { shareCaption, whatsappShareUrl } from '@/lib/share'
 import ShareVideo from '@/components/ShareVideo'
 import FolderButtons from '@/components/FolderButtons'
+import SiteNav from '@/components/SiteNav'
 import { CAT_ORDER, HI_CATS, getColor, Pill, LangToggle, type Lang } from '../products/ProductsClient'
 
 export interface VideoItem {
@@ -116,15 +117,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
       <style>{CSS}</style>
       <div className="vp">
 
-        <nav className="vp-nav">
-          <Link href="/" className="vp-brand">
-            <img src="/madvet-icon.png" alt="" /> Madvet
-          </Link>
-          <div className="vp-navlinks">
-            <Link href="/products">{hi ? 'उत्पाद' : 'Products'}</Link>
-            <span className="on">{hi ? 'वीडियो' : 'Videos'}</span>
-          </div>
-        </nav>
+        <SiteNav active="videos" hi={hi} />
 
         {/* ── HERO ── */}
         <header className="vp-hero">
