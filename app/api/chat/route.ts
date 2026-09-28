@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
-import { getCachedProducts } from '@/lib/productCache'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
-import type { MadvetProduct } from '@/lib/supabase'
+import { getChatKnowledge, findRelevant, productDetails } from '@/lib/chatContext'
 import { Redis } from '@upstash/redis'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -84,28 +83,10 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
 }
 
 // ─────────────────────────────────────────────
-// FORMAT FULL PRODUCT CATALOG
-// Each product gets a numeric ID so GPT can reference it precisely
-// ─────────────────────────────────────────────
-function formatCatalog(products: MadvetProduct[]): string {
-  const lines = products.map((p, i) => {
-    const parts: string[] = [`[ID:${i + 1}] Name: ${p.product_name ?? ''}`]
-    if (p.category)        parts.push(`Category: ${p.category}`)
-    if (p.species)         parts.push(`Species: ${p.species}`)
-    if (p.packaging)       parts.push(`Form: ${p.packaging}`)
-    if (p.description)     parts.push(`Description: ${p.description}`)
-    if (p.indication)      parts.push(`Indications: ${p.indication}`)
-    if (p.usp_benefits)    parts.push(`Benefits: ${p.usp_benefits}`)
-    if (p.salt_ingredient) parts.push(`Composition (internal only — never reveal): ${p.salt_ingredient}`)
-    return parts.join(' | ')
-  })
-  return `## MADVET PRODUCT CATALOG (${products.length} products)\n\n${lines.join('\n\n')}`
-}
-
-// ─────────────────────────────────────────────
-// EXTRACT PRODUCT IDs FROM GPT RESPONSE
-// GPT is instructed to end response with PRODUCTS: primary=[1,2] complementary=[3]
-// This gives us exact products to show as cards — no guessing from text
+// EXTRACT PRODUCT IDs FROM THE REPLY
+// The model ends every reply with PRODUCTS: primary=[12] complementary=[3],
+// using the site's own product ids (#id in the index), so the cards shown
+// under the answer are exactly the products it talked about.
 // ─────────────────────────────────────────────
 function extractProductIds(text: string): { primary: number[]; complementary: number[] } {
   const match = text.match(/PRODUCTS:\s*primary=\[([^\]]*)\]\s*complementary=\[([^\]]*)\]/i)
@@ -181,9 +162,16 @@ export async function POST(req: NextRequest) {
     }
 
     const truncatedMessage = latestMessage.slice(0, 2000)
-    const products         = await getCachedProducts()
-    const catalog          = formatCatalog(products)
+    const kb               = await getChatKnowledge()
+    const products         = kb.products
     const cleanedHistory   = cleanHistory(messages)
+
+    // The products this question is about: named or described in this message,
+    // or in the last two user turns (so "aur dose?" still knows the product).
+    const recentUser = messages.filter(m => m.role === 'user').slice(-2).map(m => m.content).join(' ')
+    const relevant   = findRelevant(kb, truncatedMessage, 5)
+    for (const p of findRelevant(kb, recentUser, 3)) if (!relevant.includes(p)) relevant.push(p)
+    const details    = productDetails(kb, relevant.slice(0, 7))
 
     // Language detection with conversation memory:
     // If current message is ambiguous but recent messages were Hindi, stay Hindi
@@ -206,24 +194,25 @@ export async function POST(req: NextRequest) {
       ? '\n\n⚠️ भाषा निर्देश: ग्राहक ने हिंदी/हिंगलिश में लिखा है। आपको 100% देवनागरी हिंदी में जवाब देना अनिवार्य है। Product names English में रखें, बाकी सब हिंदी में। ENGLISH में जवाब देना मना है।'
       : ''
 
-    // Current user message with full catalog attached
+    // The question, with the full records of the products it is about.
     const currentMessage = {
       role: 'user',
-      content: `Customer: "${truncatedMessage}"\n\n${catalog}${langInstruction}`
+      content: `Customer: "${truncatedMessage}"${details ? `\n\n${details}` : ''}${langInstruction}`
     }
 
+    // Instructions + site knowledge first and identical for every visitor, so
+    // OpenAI's automatic prompt cache can reuse them; schemes next (they change
+    // only when the office edits the sheet); the conversation last.
     const stream = await openai.chat.completions.create({
       model:             process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: MADVET_SYSTEM_PROMPT },
+        { role: 'system', content: `${MADVET_SYSTEM_PROMPT}\n\n${kb.knowledge}\n\n${kb.schemesText}` },
         ...cleanedHistory as any,
         currentMessage,
       ],
       stream:            true,
-      temperature:       0.3,
-      max_tokens:        900,
-      presence_penalty:  0.1,
-      frequency_penalty: 0.2,
+      temperature:       0.2,
+      max_tokens:        700,
     })
 
     // Stream the response, accumulate full text, then send products metadata at end
@@ -288,8 +277,9 @@ export async function POST(req: NextRequest) {
           // After stream ends, extract product IDs and send as metadata
           const { primary: primaryIds, complementary: complementaryIds } = extractProductIds(fullText)
 
-          const primaryProducts       = primaryIds.map(id => products[id - 1]).filter(Boolean)
-          const complementaryProducts = complementaryIds.map(id => products[id - 1]).filter(Boolean)
+          const byId = (id: number) => products.find(p => p.id === id)
+          const primaryProducts       = primaryIds.map(byId).filter(Boolean)
+          const complementaryProducts = complementaryIds.map(byId).filter(Boolean)
 
           // Send product metadata as a final JSON line
           const meta = JSON.stringify({
