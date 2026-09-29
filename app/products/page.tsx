@@ -3,6 +3,8 @@ import { Suspense } from 'react'
 import ProductsClient from './ProductsClient'
 import type { Product } from './types'
 import { fetchFilms, fetchProducts } from '@/lib/catalog'
+import { fetchPackIds } from '@/lib/packs'
+import { schemeMap } from '@/lib/productData'
 
 export type { Product }
 
@@ -19,11 +21,12 @@ export const fetchCache = 'force-no-store'
 // Wrapping it in Suspense means Next.js streams the outer shell (nav, header)
 // to the browser immediately, and slots in the product grid once ready.
 async function ProductsFetcher() {
-  const [products, films] = await Promise.all([fetchProducts(), fetchFilms()])
+  const [products, films, packs] = await Promise.all([fetchProducts(), fetchFilms(), fetchPackIds()])
+  const schemes = Object.fromEntries(await schemeMap(products))
   // Each product with a factory film gets a Video button that opens it
   const filmOf = new Map<number, string>()
   for (const f of films) for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
-  return <ProductsClient products={products.map(p => filmOf.has(p.id) ? { ...p, film_key: filmOf.get(p.id) } : p)} />
+  return <ProductsClient products={products.map(p => filmOf.has(p.id) ? { ...p, film_key: filmOf.get(p.id) } : p)} packIds={[...packs]} schemes={schemes} />
 }
 
 function ProductsSkeleton() {

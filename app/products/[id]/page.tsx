@@ -3,8 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import type { Product } from '../types'
-import ProductDetailClient, { type ProductFilm } from './ProductDetailClient'
-import { fetchFilms, fetchFolder, filmFiles } from '@/lib/catalog'
+import ProductDetailClient, { type ProductFilm, type RelatedProduct } from './ProductDetailClient'
+import { fetchFilms, fetchFolder, filmFiles, fetchProducts } from '@/lib/catalog'
+import { fetchPackIds, packUrl } from '@/lib/packs'
+import { schemeMap } from '@/lib/productData'
+import { purposeLine } from '@/lib/productCopy'
 
 export const dynamic = 'force-dynamic'    // SSR on every request — no page cache
 export const fetchCache = 'force-no-store' // bypass Next.js fetch cache
@@ -91,9 +94,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const product = await fetchProduct(Number(id))
   if (!product) return { title: 'Product Not Found | Madvet' }
+  const description = purposeLine(product, 200) || `${product.name} — ${product.category}`
   return {
     title: `${product.name} | Madvet Animal Healthcare`,
-    description: product.description || `${product.name} — ${product.category} for ${product.species}`,
+    description,
+    openGraph: { title: `${product.name} — Madvet Animal Healthcare`, description, type: 'website' },
+    twitter: { card: 'summary_large_image', title: product.name, description },
   }
 }
 
@@ -103,12 +109,18 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // a stale cached HTML page unless these headers are present.
   const headersList = await headers()
   const { id } = await params
-  const [product, films, folder] = await Promise.all([fetchProduct(Number(id)), fetchFilms(), fetchFolder()])
+  const [product, films, folder, packs, all] = await Promise.all([fetchProduct(Number(id)), fetchFilms(), fetchFolder(), fetchPackIds(), fetchProducts()])
   if (!product) notFound()
+  const scheme = (await schemeMap(all)).get(product.id) || ''
+  const img = (x: { id: number; image_url: string }) => packs.has(x.id) ? packUrl(x.id) : x.image_url
+  const related: RelatedProduct[] = all
+    .filter(x => x.category === product.category && x.id !== product.id)
+    .slice(0, 8)
+    .map(x => ({ id: x.id, name: x.name, category: x.category, packaging: x.packaging, formulation: x.formulation, img: img(x), cut: packs.has(x.id) }))
 
   // The factory's film for this product, if there is one
   const f = films.find(x => x.ids.includes(product.id))
   const film: ProductFilm | null = f ? { key: f.youtubeId || f.slug, youtubeId: f.youtubeId, vertical: f.vertical, ...filmFiles(f) } : null
   const folderPage = folder.find(pg => pg.ids?.includes(product.id))?.p ?? 0
-  return <ProductDetailClient product={product} film={film} folderPage={folderPage} />
+  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} related={related} />
 }

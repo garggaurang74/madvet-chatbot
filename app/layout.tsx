@@ -3,7 +3,7 @@ import './globals.css'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://madvet.in'),
+  metadataBase: new URL('https://www.madvet.in'),
   title: 'Madvet Animal Healthcare — veterinary medicines, Ghaziabad',
   description: 'Madvet Animal Healthcare, Ghaziabad: veterinary injections, boluses, feed supplements and pet care for veterinarians, retailers and stockists across India.',
 }

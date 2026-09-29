@@ -1,981 +1,22 @@
 'use client'
 
-import { shareCaption, whatsappShareUrl } from '@/lib/share'
-import ShareVideo from '@/components/ShareVideo'
-import SiteNav from '@/components/SiteNav'
+// One product (29 Sep 2026 redesign). This is the page a vet or retailer
+// lands on from a shared link, so it answers, in order: what is it and what
+// does it treat (first screen), can I trust it (composition, species, the
+// film), and how do I get it (order on WhatsApp, this month's scheme). Every
+// piece of text comes from lib/productCopy so it matches the list, the card
+// and the share message.
+import { useState } from 'react'
 import Link from 'next/link'
-import React, { useState, useRef, useEffect } from 'react'
 import type { Product } from '../types'
+import SiteNav from '@/components/SiteNav'
+import ShareVideo from '@/components/ShareVideo'
+import { COMPANY } from '@/lib/company'
+import { SITE } from '@/lib/share'
+import { cleanIndications, compList, hindiIndications, packLabel, speciesList, SP_ICON, purposeLine } from '@/lib/productCopy'
+import { productShareText, productWaUrl, productCardUrl } from '@/lib/productShare'
+import { getColor, HI_CATS } from '../ProductsClient'
 
-type Lang = 'en' | 'hi'
-
-const HI_SP: Record<string, string> = {
-  Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी',
-  Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा',
-}
-
-const HI_CATS: Record<string, string> = {
-  'Antibiotic':                    'एंटीबायोटिक',
-  'Anti-inflammatory / Analgesic': 'दर्द व बुखार की दवा',
-  'Vitamin Supplement':            'विटामिन / पोषण',
-  'Anthelmintic / Antiparasitic':  'पेट के कीड़े की दवा',
-  'Ectoparasiticide':              'टिक / जूँ की दवा',
-  'Reproductive Hormone':          'प्रजनन हार्मोन',
-  'Probiotic':                     'पेट के अच्छे बैक्टीरिया',
-  'Antidiarrheal':                 'दस्त की दवा',
-  'Antihistamine':                 'एलर्जी की दवा',
-  'Dermatological':                'त्वचा / चमड़ी की दवा',
-  'Udder Care':                    'थन की देखभाल',
-}
-
-const HI_FORM: Record<string, string> = {
-  'Bolus':         'बोलस (गोली)',
-  'Injection':     'इंजेक्शन',
-  'Liquid':        'तरल (लिक्विड)',
-  'Tablet':        'टैबलेट',
-  'Powder':        'पाउडर',
-  'Spray':         'स्प्रे',
-  'Gel / Ointment':'जेल / मलहम',
-  'Soap':          'साबुन',
-  'Suspension':    'सस्पेंशन',
-  'Pour-On':       'पोर-ऑन',
-  'Other':         'अन्य',
-}
-
-const CAT_COLORS: Record<string, string> = {
-  'Antibiotic':                    '#3b82f6',
-  'Anti-inflammatory / Analgesic': '#f59e0b',
-  'Vitamin Supplement':            '#10b981',
-  'Anthelmintic / Antiparasitic':  '#8b5cf6',
-  'Ectoparasiticide':              '#ef4444',
-  'Reproductive Hormone':          '#f472b6',
-  'Probiotic':                     '#14b8a6',
-  'Antidiarrheal':                 '#84cc16',
-  'Antihistamine':                 '#a78bfa',
-  'Dermatological':                '#fb7185',
-  'Udder Care':                    '#2dd4bf',
-}
-const getColor = (cat: string) => CAT_COLORS[cat] || '#94a3b8'
-
-const SPECIES_EMOJI: Record<string, string> = {
-  Cattle: '🐄', Buffalo: '🐃', Sheep: '🐑', Goat: '🐐',
-  Dog: '🐕', Cat: '🐈', Poultry: '🐓', Horse: '🐴',
-}
-
-// ── Share card color + template logic (mirrors ShareCards-Premium) ──────────
-const CAT_PALETTES: Record<string, { h: number; s: number; l: number }> = {
-  'Vitamin Supplement':                { h: 22,  s: 85, l: 32 },
-  'Vitamin Supplement / Galactogogue': { h: 210, s: 80, l: 28 },
-  'Antibiotic':                        { h: 218, s: 72, l: 26 },
-  'Anti-inflammatory / Analgesic':     { h: 338, s: 78, l: 30 },
-  'Anthelmintic / Antiparasitic':      { h: 158, s: 70, l: 26 },
-  'Probiotic':                         { h: 128, s: 65, l: 28 },
-  'Dermatological':                    { h: 272, s: 60, l: 30 },
-  'Ectoparasiticide':                  { h: 42,  s: 80, l: 30 },
-  'Reproductive Hormone':              { h: 295, s: 58, l: 28 },
-  'Antihistamine':                     { h: 200, s: 68, l: 26 },
-  'Antidiarrheal':                     { h: 168, s: 65, l: 26 },
-  'Udder Care / Herbal Antimicrobial': { h: 88,  s: 62, l: 28 },
-  'Digestive / Antiflatulent':         { h: 33,  s: 78, l: 30 },
-}
-
-function getShareColors(id: number, category: string) {
-  const base = CAT_PALETTES[category] ?? { h: 220, s: 70, l: 28 }
-  const shift = ((id * 37 + 13) % 41) - 20
-  const h = (base.h + shift + 360) % 360
-  const { s, l } = base
-  return {
-    h, s, l,
-    primary:  `hsl(${h},${s}%,${l}%)`,
-    bright:   `hsl(${h},${s}%,${l + 14}%)`,
-    dark:     `hsl(${h},${s}%,${l - 10}%)`,
-    darkest:  `hsl(${h},${s}%,${l - 18}%)`,
-    pale:     `hsl(${h},${s - 20}%,95%)`,
-    mid:      `hsl(${h},${s}%,${l + 7}%)`,
-    glow:     `hsla(${h},${s}%,${l + 10}%,0.35)`,
-  }
-}
-
-function getTemplate(category: string) {
-  if (['Vitamin Supplement', 'Vitamin Supplement / Galactogogue'].includes(category)) return 'vitality'
-  if (['Probiotic', 'Digestive / Antiflatulent', 'Antidiarrheal'].includes(category)) return 'digest'
-  if (['Reproductive Hormone', 'Udder Care / Herbal Antimicrobial'].includes(category)) return 'herbal'
-  if (['Dermatological', 'Ectoparasiticide', 'Antihistamine'].includes(category)) return 'shield'
-  return 'clinical'
-}
-
-// ── Detect if a string contains Hindi/Devanagari characters
-const isHindi = (s: string) => /[\u0900-\u097F]/.test(s)
-
-// ── Font helper: pick correct font family based on content language
-function benefitFont(text: string): string {
-  return isHindi(text)
-    ? "'Noto Sans Devanagari',sans-serif"
-    : "'Barlow Condensed','Arial Narrow',sans-serif"
-}
-function benefitFontSize(text: string, base = 13): number {
-  return isHindi(text) ? base : base + 1.5
-}
-
-// usp_benefits_hi uses । (Hindi danda) as sentence terminator — must be in the split regex
-function splitBenefits(txt = '') {
-  return txt
-    .split(/[•\n,;|।]+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 6)
-    .slice(0, 8)
-}
-
-// Safe wrapper: if split gives < 2 items, fall back to English, then sentence-split
-function splitBenefitsSafe(hi = '', en = '') {
-  const primary = splitBenefits(hi)
-  if (primary.length >= 2) return primary
-  const fromEn = splitBenefits(en)
-  if (fromEn.length >= 2) return fromEn
-  const fromSent = hi.split(/[.।]+/).map(s => s.trim()).filter(s => s.length > 8)
-  return fromSent.length >= 2 ? fromSent.slice(0, 8) : (primary.length ? primary : fromEn)
-}
-
-// ── Hindi lookup for common indication terms → benefit phrases
-const HI_IND: Record<string, string> = {
-  'fever': 'बुखार में असरदार',
-  'pain': 'दर्द से जल्दी राहत',
-  'inflammation': 'सूजन कम करे',
-  'arthritis': 'गठिया में असरदार',
-  'infection': 'संक्रमण से लड़े',
-  'bacterial infections': 'बैक्टीरिया संक्रमण में कारगर',
-  'respiratory': 'श्वसन रोग में राहत',
-  'mastitis': 'थनिका (mastitis) में कारगर',
-  'lameness': 'लंगड़ेपन में राहत',
-  'colic': 'पेट दर्द (कोलिक) में असरदार',
-  'diarrhea': 'दस्त रोकने में कारगर',
-  'deworming': 'पेट के कीड़े खत्म करे',
-  'ticks': 'टिक्स और जूँ से बचाव',
-  'skin': 'त्वचा रोग में लाभकारी',
-  'udder': 'थन की सेहत सुधारे',
-  'milk': 'दूध उत्पादन बढ़ाए',
-  'reproductive': 'प्रजनन क्षमता सुधारे',
-  'heat': 'मद चक्र नियमित करे',
-  'liver': 'लिवर की देखभाल',
-  'calcium': 'कैल्शियम की कमी पूरी करे',
-  'vitamin': 'विटामिन की कमी दूर करे',
-  'bloat': 'गैस और अफारे से राहत',
-  'worm': 'कृमि (कीड़े) खत्म करे',
-  'mange': 'खुजली और स्कैबीज में कारगर',
-  'antibiotic': 'बैक्टीरिया संक्रमण में कारगर',
-}
-
-// ── Augment benefit list to minimum `minCount` using indication + description fields
-function augmentBenefits(
-  hiList: string[],
-  enList: string[],
-  indication = '',
-  description = '',
-  minCount = 4
-): { hi: string[]; en: string[] } {
-  if (hiList.length >= minCount) return { hi: hiList, en: enList }
-
-  const needed = minCount - hiList.length
-  const newHi: string[] = []
-  const newEn: string[] = []
-
-  // Try to extract from indication field
-  const indTerms = indication
-    .split(',')
-    .map(s => s.trim().toLowerCase())
-    .filter(s => s.length > 2 && !/[\u0900-\u097F]/.test(s)) // English only
-
-  for (const term of indTerms) {
-    if (newHi.length >= needed) break
-    // Skip if this term is already covered in existing benefits
-    const covered = [...hiList, ...newHi].some(b => b.toLowerCase().includes(term))
-      || [...enList, ...newEn].some(b => b.toLowerCase().includes(term))
-    if (covered) continue
-
-    // Look for a matching Hindi phrase
-    const hiPhrase = Object.entries(HI_IND).find(([k]) => term.includes(k))?.[1]
-    if (hiPhrase && !hiList.includes(hiPhrase)) {
-      newHi.push(hiPhrase)
-      // Create English version
-      const enPhrase = term.length < 3 ? `Treats ${term}` :
-        term.charAt(0).toUpperCase() + term.slice(1)
-      newEn.push(enPhrase)
-    }
-  }
-
-  // If still not enough, try splitting description into sentences
-  if (newHi.length < needed) {
-    const descSentences = description
-      .split(/\.\s+/)
-      .map(s => s.trim())
-      .filter(s => s.length > 20 && s.length < 120)
-      .filter(s => !s.toLowerCase().includes('for cattle') && !s.toLowerCase().includes('for use'))
-    for (const s of descSentences) {
-      if (newHi.length >= needed) break
-      const covered = [...hiList, ...enList, ...newEn].some(b => b.toLowerCase().includes(s.slice(0, 15).toLowerCase()))
-      if (!covered) {
-        newHi.push(s)
-        newEn.push(s)
-      }
-    }
-  }
-
-  return {
-    hi: [...hiList, ...newHi].slice(0, 5),
-    en: [...enList, ...newEn].slice(0, 5),
-  }
-}
-
-// ── Description / indication helpers ────────────────────────────────────────
-function getDescExcerpt(desc = '', maxLen = 145) {
-  if (!desc) return ''
-  const first = desc.split(/\.\s+/)[0]
-  const t = first.length <= maxLen ? first : first.slice(0, maxLen).replace(/\s\S+$/, '') + '…'
-  return t.endsWith('.') ? t : t + '.'
-}
-
-function getIndicationTags(indication = '') {
-  return indication
-    .split(/[,،]+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 2 && s.length < 28 && /^[a-zA-Z\s\/\-]+$/.test(s))
-    .slice(0, 4)
-}
-
-function ShareDescBar({ p, c }: { p: Product; c: ReturnType<typeof getShareColors> }) {
-  const desc = getDescExcerpt(p.description)
-  const tags = getIndicationTags(p.indication)
-  if (!desc && tags.length === 0) return null
-  return (
-    <div style={{ margin: '0', padding: '10px 18px 8px', background: c.pale, borderBottom: `1.5px solid ${c.primary}18` }}>
-      {desc && (
-        <p style={{ margin: '0 0 6px', fontSize: 10.5, color: '#2a2a2a', lineHeight: 1.5, fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, fontStyle: 'italic' }}>
-          {desc}
-        </p>
-      )}
-      {tags.length > 0 && (
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 8.5, color: c.primary, fontWeight: 800, letterSpacing: 1, fontFamily: "'Oswald',sans-serif" }}>TREATS:</span>
-          {tags.map((t, i) => (
-            <span key={i} style={{ fontSize: 9, color: c.dark, background: `${c.primary}14`, border: `1px solid ${c.primary}25`, borderRadius: 20, padding: '2px 8px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, letterSpacing: 0.3 }}>
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Shared share-card sub-components ────────────────────────────────────────
-/* ── Real logo using actual uploaded images ── */
-function ShareMadvetLogoLight({ size = 1, logoSrc }: { size?: number; logoSrc?: string }) {
-  const h = Math.round(52 * size)
-  // logoSrc is a pre-inverted base64 version passed during export so html2canvas can render it
-  const src = logoSrc || '/madvet-icon.png'
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: Math.round(8 * size), flexShrink: 0 }}>
-      <img src={src} alt="Madvet"
-        style={{ height: h, width: h, objectFit: 'contain', ...(logoSrc ? {} : { filter: 'brightness(0) invert(1)' }) }} />
-      <div>
-        <div style={{ fontFamily: "'Oswald','Arial Black',sans-serif", fontSize: Math.round(22 * size), fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>MADVET</div>
-        <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", fontSize: Math.round(9 * size), color: 'rgba(255,255,255,0.75)', letterSpacing: 1.5, marginTop: 1, fontWeight: 600 }}>ANIMAL HEALTH CARE</div>
-        <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", fontSize: Math.round(7.5 * size), color: 'rgba(255,255,255,0.5)', letterSpacing: 0.8, marginTop: 1 }}>AN I.S.O. 9001:2013 COMPANY</div>
-      </div>
-    </div>
-  )
-}
-
-function ShareImgBox({ url, w, h, c, emoji = '🧴', round = false }: { url: string; w: number; h: number; c: ReturnType<typeof getShareColors>; emoji?: string; round?: boolean }) {
-  const [err, setErr] = useState(false)
-  // Reset error when URL changes (e.g. from Supabase URL → base64 data URL)
-  useEffect(() => { setErr(false) }, [url])
-  const style: { width: number; height: number; flexShrink: number; overflow: string; borderRadius: number | string; background: string; border: string; display: string; alignItems: string; justifyContent: string; boxShadow: string } = {
-    width: w, height: h, flexShrink: 0, overflow: 'hidden',
-    borderRadius: 12,
-    background: `linear-gradient(145deg,${c.pale},white)`,
-    border: `2px solid ${c.primary}30`,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    boxShadow: `0 6px 24px ${c.glow}, 0 2px 8px rgba(0,0,0,0.12)`,
-  }
-  if (url && !err) return (
-    <div style={style}>
-      <img src={url} onError={() => setErr(true)}
-        style={{ width: '100%', height: '100%', objectFit: round ? 'cover' : 'contain' }} />
-    </div>
-  )
-  return (
-    <div style={style}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: w * 0.32 }}>{emoji}</div>
-        <div style={{ fontSize: 8, color: c.primary, opacity: 0.5, marginTop: 4, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5 }}>IMAGE COMING SOON</div>
-      </div>
-    </div>
-  )
-}
-
-function ShareSpecies({ sp = '', c }: { sp: string; c: ReturnType<typeof getShareColors> }) {
-  const arr = sp.split(/[,/]/).map(s => s.trim()).filter(Boolean).slice(0, 5)
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', overflow: 'hidden' }}>
-      {arr.map(s => (
-        <div key={s} style={{ background: `${c.primary}18`, border: `1.5px solid ${c.primary}55`, borderRadius: 4, padding: '3px 7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 9, fontWeight: 700, color: c.dark, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{s}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ShareAllProductsTag({ c }: { c: ReturnType<typeof getShareColors> }) {
-  return (
-    <div style={{ margin: '8px 0 0', background: `linear-gradient(90deg, ${c.darkest}, ${c.primary})`, padding: '9px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff', fontWeight: 700 }}>→</div>
-        <div>
-          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 2, textTransform: 'uppercase' }}>View all products · सभी उत्पाद</div>
-          <div style={{ fontSize: 14, color: '#fff', fontWeight: 700, fontFamily: "'Oswald',sans-serif", letterSpacing: 1, lineHeight: 1.2 }}>madvet.in/products</div>
-        </div>
-      </div>
-      <div style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 6, padding: '4px 12px', textAlign: 'center' }}>
-        <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 1 }}>AI ASSISTANT</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)', fontFamily: "'Oswald',sans-serif", letterSpacing: 0.5 }}>www.madvet.in</div>
-      </div>
-    </div>
-  )
-}
-
-function ShareFooter({ c, logoOrigSrc }: { c: ReturnType<typeof getShareColors>; logoOrigSrc?: string }) {
-  return (
-    <div style={{ position: 'relative', overflow: 'hidden' }}>
-      <div style={{ height: 4, background: `linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest})` }} />
-      <div style={{ background: 'linear-gradient(135deg, #FFE600 0%, #FFD000 50%, #FFE600 100%)', padding: '14px 20px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -30, right: -30, width: 130, height: 130, borderRadius: '50%', background: 'rgba(255,255,255,0.18)' }} />
-        <div style={{ position: 'absolute', bottom: -20, left: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.10)' }} />
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Real logo icon in white bg box, exactly like physical flyers */}
-            <div style={{ background: '#fff', borderRadius: 8, padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={logoOrigSrc || '/madvet-icon.png'} alt="Madvet" style={{ height: 44, width: 44, objectFit: 'contain' }} />
-            </div>
-            <div>
-              <div style={{ fontFamily: "'Oswald','Arial Black',sans-serif", fontSize: 28, fontWeight: 900, color: '#1a2f8a', letterSpacing: 3, lineHeight: 1 }}>MADVET</div>
-              <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", fontSize: 10, color: '#1a2f8a', letterSpacing: 1.5, marginTop: 1, fontWeight: 700 }}>ANIMAL HEALTH CARE</div>
-              <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", fontSize: 8, color: '#555', letterSpacing: 0.8, marginTop: 1 }}>Ghaziabad (U.P.)</div>
-            </div>
-          </div>
-          <div style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8.5, color: '#333', lineHeight: 1.75, letterSpacing: 0.3 }}>
-            <div style={{ fontWeight: 700, color: '#111' }}>AN I.S.O. 9001:2013 COMPANY</div>
-            <div>Email: madvet.animal@gmail.com</div>
-            <div>web: www.madvet.in | support@madvet.in</div>
-            <div style={{ fontWeight: 800, color: '#1a2f8a', fontSize: 10, marginTop: 1 }}>Toll Free No. 9935257750, 8400347331</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Arrow slab (vitality template) ──────────────────────────────────────────
-function ArrowSlab({ text, enText, c, big = true }: { text: string; enText: string; c: ReturnType<typeof getShareColors>; big?: boolean }) {
-  return (
-    <div style={{ position: 'relative', marginBottom: big ? 7 : 5, display: 'flex' }}>
-      <div style={{ flex: 1, background: big ? `linear-gradient(90deg,${c.darkest},${c.primary})` : `linear-gradient(90deg,${c.primary},${c.mid})`, borderRadius: '6px 0 0 6px', padding: big ? '9px 40px 9px 14px' : '6px 36px 6px 12px', boxShadow: big ? `2px 3px 14px ${c.glow}` : 'none' }}>
-        <div style={{ position: 'absolute', right: -15, top: 0, bottom: 0, width: 0, borderTop: `${big ? 22 : 17}px solid transparent`, borderBottom: `${big ? 22 : 17}px solid transparent`, borderLeft: `15px solid ${big ? c.primary : c.mid}` }} />
-        <div style={{ marginTop: -3, fontSize: benefitFontSize(text, big ? 12.5 : 11), fontFamily: benefitFont(text), color: '#fff', fontWeight: big ? 800 : 600, lineHeight: 1.3 }}>{text}</div>
-        {enText && <div style={{ margin: 0, paddingTop: 2, fontSize: 9, color: 'rgba(255,255,255,0.58)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 0.3 }}>{enText}</div>}
-      </div>
-    </div>
-  )
-}
-
-// ── 5 share card templates ───────────────────────────────────────────────────
-function ShareCardVitality({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
-  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
-  const _enRaw = splitBenefits(p.benefits)
-  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
-  const nameFontSize = p.name.length > 12 ? 44 : p.name.length > 9 ? 54 : 66
-  return (
-    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
-      <div style={{ position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg,${c.darkest} 0%,${c.primary} 55%,${c.bright} 100%)`, padding: '18px 20px 60px' }}>
-
-        <div style={{ position: 'absolute', right: -60, top: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <ShareMadvetLogoLight size={0.9} logoSrc={logoSrc} />
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 1 }}>{p.packaging}</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 }}>{p.formulation}</div>
-          </div>
-        </div>
-        <div style={{ marginTop: 10, position: 'relative' }}>
-          <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: nameFontSize, color: '#fff', letterSpacing: 3, lineHeight: 0.95, textShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>{p.name}</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 5, letterSpacing: 0.5 }}>{p.salt}</div>
-        </div>
-      </div>
-      <div style={{ position: 'relative', marginTop: -28, zIndex: 2 }}>
-        <div style={{ background: '#FFE000', margin: '0 24px', borderRadius: 6, padding: '7px 16px', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', display: 'inline-block' }}>
-          <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontWeight: 800, fontSize: 14, color: c.darkest }}>{hi[0] || p.name}</span>
-        </div>
-      </div>
-      <ShareDescBar p={p} c={c} />
-      <div style={{ display: 'flex', padding: '16px 16px 6px', gap: 14 }}>
-        <div style={{ flex: 1 }}>
-          {hi.slice(0, 7).map((b, i) => <ArrowSlab key={i} text={b} enText={en[i] || ''} c={c} big={i === 0 || i === 1 || i === 3 || i === 5} />)}
-        </div>
-        <div style={{ width: 118, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-          <ShareImgBox url={p.image_url} w={114} h={160} c={c} emoji={p.formulation === 'Bolus' ? '💊' : '🧴'} />
-          <ShareSpecies sp={p.species} c={c} />
-        </div>
-      </div>
-      <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
-    </div>
-  )
-}
-
-function ShareCardDigest({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
-  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
-  const _enRaw = splitBenefits(p.benefits)
-  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
-  return (
-    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
-      <div style={{ padding: '16px 20px 0', background: '#fff' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#c8220a', fontFamily: "'Noto Sans Devanagari',sans-serif", lineHeight: 1.3, marginBottom: 6 }}>{(p.indication || 'असरदार और तुरंत राहत').split(/[,،]/)[0].trim()}</div>
-            <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 12 ? 36 : p.name.length > 8 ? 46 : 56, color: c.primary, textShadow: `3px 3px 0 ${c.dark}55, 5px 5px 0 rgba(0,0,0,0.08)`, letterSpacing: 2, lineHeight: 1 }}>{p.name}</div>
-            <div style={{ display: 'inline-block', marginTop: 6, background: c.pale, border: `1.5px solid ${c.primary}40`, borderRadius: 4, padding: '3px 10px' }}>
-              <span style={{ fontSize: 11, color: c.primary, fontWeight: 700, letterSpacing: 2 }}>{p.formulation?.toUpperCase()}</span>
-            </div>
-            <div style={{ marginTop: 8, background: c.primary, borderRadius: 4, padding: '6px 14px', display: 'inline-block' }}>
-              <span style={{ fontSize: 13, color: '#fff', fontFamily: "'Noto Sans Devanagari',sans-serif", fontWeight: 700 }}>{hi[0] || 'तुरंत असर, लंबे समय तक फायदा'}</span>
-            </div>
-          </div>
-          <div style={{ flexShrink: 0, paddingTop: 4 }}>
-            <ShareImgBox url={p.image_url} w={120} h={120} c={c} emoji="💊" />
-          </div>
-        </div>
-      </div>
-      <div style={{ height: 3, background: `linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest}20)`, margin: '12px 0 0' }} />
-      <ShareDescBar p={p} c={c} />
-      <div style={{ padding: '12px 20px', display: 'flex', gap: 14 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <div style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रयोग एवं लक्षण :</div>
-            <div style={{ flex: 1, height: 1.5, background: `${c.primary}30` }} />
-          </div>
-          {hi.slice(0, 7).map((b, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8, padding: '6px 10px', borderRadius: 6, background: i % 2 === 0 ? c.pale : 'transparent', borderLeft: `3px solid ${i % 2 === 0 ? c.primary : c.bright}` }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: c.primary, flexShrink: 0, marginTop: 5 }} />
-              <div>
-                <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#1a1a1a', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</div>
-                {en[i] && <div style={{ paddingTop: 1, fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ width: 108, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', paddingTop: 4 }}>
-          <div style={{ background: `linear-gradient(160deg,${c.darkest},${c.primary})`, borderRadius: 10, padding: '14px 8px', textAlign: 'center', width: '100%', boxShadow: `0 4px 16px ${c.glow}` }}>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 1.5, marginBottom: 4 }}>{p.formulation?.toUpperCase()}</div>
-            <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.15, letterSpacing: 1 }}>{p.name}</div>
-            <div style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>{p.packaging}</div>
-          </div>
-          <div style={{ background: c.pale, borderRadius: 8, padding: '8px', textAlign: 'center', border: `1px solid ${c.primary}25`, width: '100%' }}>
-            <div style={{ fontSize: 8.5, color: c.primary, fontWeight: 700, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 1, marginBottom: 5 }}>SPECIES</div>
-            <ShareSpecies sp={p.species} c={c} />
-          </div>
-        </div>
-      </div>
-      <div style={{ height: 5, background: `linear-gradient(90deg,${c.darkest},${c.bright},${c.darkest}60)`, marginBottom: 6 }} />
-      <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
-    </div>
-  )
-}
-
-function ShareCardHerbal({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
-  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
-  const _enRaw = splitBenefits(p.benefits)
-  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
-  const c2 = `hsl(${(c.h + 40) % 360},75%,36%)`
-  return (
-    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.26)' }}>
-      <div style={{ background: `linear-gradient(160deg,${c.darkest} 0%,${c.primary} 60%,${c2} 100%)`, padding: '16px 20px 18px', position: 'relative', overflow: 'hidden' }}>
-
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <ShareMadvetLogoLight size={0.88} logoSrc={logoSrc} />
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', letterSpacing: 1, fontStyle: 'italic' }}>{p.category}</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>{p.packaging}</div>
-          </div>
-        </div>
-        <div style={{ marginTop: 10, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 14 ? 32 : p.name.length > 10 ? 42 : 50, lineHeight: 1, letterSpacing: 2, color: '#fff', textShadow: '0 3px 14px rgba(0,0,0,0.35)' }}>
-              {p.name.split(/[-\s]/).map((w, i) => <span key={i} style={{ color: i % 2 === 0 ? '#fff' : '#FFE000', marginRight: 4 }}>{w}{p.name.includes('-') && i < p.name.split(/[-\s]/).length - 1 ? '-' : ''}</span>)}
-            </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', marginTop: 5, letterSpacing: 0.5 }}>{p.salt?.split(',')[0]?.trim()}</div>
-          </div>
-          <ShareImgBox url={p.image_url} w={100} h={100} c={c} emoji="🌿" />
-        </div>
-        <div style={{ marginTop: 10, background: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', border: '1px solid rgba(255,255,255,0.25)', display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 16, lineHeight: 1 }}>🌱</span>
-          <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, color: '#FFE000', fontWeight: 700 }}>{hi[0] || (p.indication || '').split(/[,،]/)[0].trim()}</span>
-        </div>
-      </div>
-      <div style={{ padding: '14px 18px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div style={{ width: 4, height: 16, background: c.primary, borderRadius: 2 }} />
-          <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रमुख लाभ एवं उपयोग :</span>
-          <div style={{ flex: 1, height: 1, background: `${c.primary}20` }} />
-        </div>
-        <ShareDescBar p={p} c={c} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 8 }}>
-          {hi.slice(0, 6).map((b, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 10px', background: i < 2 ? c.pale : '#fafafa', borderRadius: 7, border: `1px solid ${i < 2 ? c.primary + '33' : '#eeeeee'}`, alignItems: 'flex-start' }}>
-              <span style={{ color: c.primary, fontSize: 15, fontWeight: 900, flexShrink: 0, lineHeight: 1.2, marginTop: 2 }}>►</span>
-              <div>
-                <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 11), fontFamily: benefitFont(b), color: '#222', lineHeight: 1.35, fontWeight: isHindi(b) ? 500 : 700 }}>{b}</div>
-                {en[i] && <div style={{ paddingTop: 1, fontSize: 8.5, color: '#999', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ padding: '0 18px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <ShareSpecies sp={p.species} c={c} />
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 9, color: '#aaa', letterSpacing: 0.5 }}>FORMULATION</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: c.primary }}>{p.formulation}</div>
-        </div>
-      </div>
-      <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
-    </div>
-  )
-}
-
-function ShareCardShield({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
-  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
-  const _enRaw = splitBenefits(p.benefits)
-  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
-  return (
-    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
-      <div style={{ background: `linear-gradient(125deg,${c.darkest} 0%,${c.primary} 100%)`, padding: '18px 20px 22px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '45%', background: 'linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.07) 100%)' }} />
-        <div style={{ position: 'absolute', bottom: -30, right: -30, width: 150, height: 150, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.12)' }} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-            <ShareMadvetLogoLight size={0.88} logoSrc={logoSrc} />
-            <div style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 5, padding: '4px 12px', border: '1px solid rgba(255,255,255,0.3)' }}>
-              <div style={{ fontSize: 11, color: '#FFE000', fontWeight: 700, letterSpacing: 2 }}>{p.formulation?.toUpperCase()}</div>
-              <div style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.65)', textAlign: 'center' }}>{p.packaging}</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 14 ? 34 : p.name.length > 10 ? 44 : 54, color: '#fff', letterSpacing: 2, lineHeight: 1, textShadow: '0 3px 20px rgba(0,0,0,0.4)' }}>{p.name}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', marginTop: 6, letterSpacing: 0.5 }}>{p.salt}</div>
-              <div style={{ marginTop: 10, background: '#FFE000', borderRadius: 5, padding: '5px 14px', display: 'inline-block' }}>
-                <span style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.darkest }}>{hi[0] || (p.indication || '').split(/[,،]/)[0].trim()}</span>
-              </div>
-            </div>
-            <ShareImgBox url={p.image_url} w={108} h={108} c={c} emoji={p.formulation === 'Spray' ? '🫧' : '🧼'} />
-          </div>
-        </div>
-      </div>
-      <div style={{ padding: '14px 18px 6px' }}>
-        <ShareDescBar p={p} c={c} />
-        <div style={{ fontSize: 13, fontWeight: 800, color: c.primary, fontFamily: "'Noto Sans Devanagari',sans-serif", marginBottom: 10, marginTop: 8 }}>लाभ एवं उपयोग :</div>
-        {hi.slice(0, 5).map((b, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 7, background: `linear-gradient(90deg,${c.pale},white)`, border: `1px solid ${c.primary}25`, borderLeft: `4px solid ${i === 0 ? c.primary : c.bright}`, boxShadow: i === 0 ? `2px 2px 12px ${c.glow}` : 'none' }}>
-            <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2, boxShadow: `0 2px 8px ${c.glow}` }}>
-              <span style={{ fontSize: 13, color: '#fff', fontWeight: 900 }}>✓</span>
-            </div>
-            <div>
-              <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', fontWeight: isHindi(b) ? 600 : 700, lineHeight: 1.35 }}>{b}</div>
-              {en[i] && <div style={{ paddingTop: 1, fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ padding: '4px 18px 8px' }}>
-        <ShareSpecies sp={p.species} c={c} />
-      </div>
-      <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
-    </div>
-  )
-}
-
-function ShareCardClinical({ p, c, logoSrc, logoOrigSrc }: { p: Product; c: ReturnType<typeof getShareColors>; logoSrc?: string; logoOrigSrc?: string }) {
-  const _hiRaw = splitBenefitsSafe(p.usp_benefits_hi || '', p.benefits)
-  const _enRaw = splitBenefits(p.benefits)
-  const { hi, en } = augmentBenefits(_hiRaw, _enRaw, p.indication || '', p.description || '')
-  const isInj = p.formulation === 'Injection'
-  return (
-    <div style={{ width: 480, background: '#fff', fontFamily: "'Barlow Condensed',sans-serif", boxShadow: '0 20px 70px rgba(0,0,0,0.28)' }}>
-      <div style={{ background: `linear-gradient(135deg,hsl(${c.h},${c.s}%,${c.l - 18}%) 0%,hsl(${c.h},${c.s}%,${c.l - 10}%) 50%,${c.primary} 100%)`, padding: '16px 20px 20px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 24px,rgba(255,255,255,1) 24px,rgba(255,255,255,1) 25px),repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(255,255,255,1) 24px,rgba(255,255,255,1) 25px)' }} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <ShareMadvetLogoLight size={0.88} logoSrc={logoSrc} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
-              <div style={{ background: c.primary, borderRadius: 4, padding: '3px 10px' }}>
-                <span style={{ fontSize: 10, color: '#fff', fontWeight: 700, letterSpacing: 1 }}>{p.category?.split('/')[0]?.trim()}</span>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: p.name.length > 14 ? 32 : p.name.length > 10 ? 42 : 52, color: '#fff', letterSpacing: 1.5, lineHeight: 1, textShadow: '0 3px 16px rgba(0,0,0,0.35)' }}>{p.name}</div>
-              <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.72)', marginTop: 5, letterSpacing: 0.3, fontStyle: 'italic' }}>{p.salt}</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 4, padding: '3px 10px', border: '1px solid rgba(255,255,255,0.2)' }}>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: 1 }}>{p.packaging}</span>
-                </div>
-              </div>
-            </div>
-            <ShareImgBox url={p.image_url} w={104} h={110} c={c} emoji={isInj ? '💉' : '💊'} />
-          </div>
-        </div>
-      </div>
-      <div style={{ height: 4, background: `linear-gradient(90deg,${c.darkest},${c.bright},hsl(${(c.h + 35) % 360},90%,52%))` }} />
-      <ShareDescBar p={p} c={c} />
-      <div style={{ padding: '14px 18px 6px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Noto Sans Devanagari',sans-serif", fontSize: 13, fontWeight: 800, color: c.primary }}>प्रमुख लाभ</div>
-          <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg,${c.primary}50,transparent)` }} />
-          <div style={{ fontSize: 9.5, color: '#aaa', fontStyle: 'italic' }}>Key Benefits</div>
-        </div>
-        {hi.slice(0, 5).map((b, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 7, padding: '8px 12px', borderRadius: 8, background: i === 0 ? c.pale : i === 1 ? `${c.pale}88` : '#fafafa', border: `1px solid ${i < 2 ? c.primary + '30' : '#eeeeee'}`, boxShadow: i === 0 ? `2px 3px 12px ${c.glow}` : 'none' }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: i === 0 ? c.primary : i === 1 ? c.mid : c.bright, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', fontWeight: 800, flexShrink: 0, marginTop: 2, boxShadow: `0 2px 6px ${c.glow}` }}>{i + 1}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ marginTop: -3, fontSize: benefitFontSize(b, 12), fontFamily: benefitFont(b), color: '#111', lineHeight: 1.35, fontWeight: isHindi(b) ? 600 : 700 }}>{b}</div>
-              {en[i] && <div style={{ paddingTop: 1, fontSize: 9.5, color: '#888', fontFamily: "'Barlow Condensed',sans-serif" }}>{en[i]}</div>}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ padding: '4px 18px 8px' }}>
-        <ShareSpecies sp={p.species} c={c} />
-      </div>
-      <ShareAllProductsTag c={c} />
-      <ShareFooter c={c} logoOrigSrc={logoOrigSrc} />
-    </div>
-  )
-}
-
-
-// ── Template map (used by modal preview) ─────────────────────────────────────
-const SHARE_CARD_TEMPLATES: Record<string, any> = {
-  vitality: ShareCardVitality,
-  digest: ShareCardDigest,
-  herbal: ShareCardHerbal,
-  shield: ShareCardShield,
-  clinical: ShareCardClinical,
-}
-
-// ── Share card modal ───────────────────────────────────────────────────────────────────────────
-// PNG generation is 100% client-side via html2canvas.
-// A full-size (480px) card is rendered off-screen, captured, then saved/shared.
-// No server route needed — eliminates all runtime/font/binary issues.
-
-function ShareCardModal({ product, onClose }: { product: Product; onClose: () => void }) {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const [errMsg, setErrMsg] = useState('')
-  const [previewW, setPreviewW] = useState(0)
-  const [logoB64, setLogoB64] = useState<string | null>(null)
-  const [logoOrigB64, setLogoOrigB64] = useState<string | null>(null)
-  const [productImgB64, setProductImgB64] = useState<string | null>(null)
-  // Track when all image pre-loading is complete (or failed) so we can enable Save
-  const [imagesReady, setImagesReady] = useState(false)
-  const previewContainerRef = useRef<HTMLDivElement>(null)
-  const cardRef = useRef<HTMLDivElement>(null)  // ref to the full-size card for capture
-  const tmpl     = getTemplate(product.category)
-  const c        = getShareColors(product.id, product.category)
-  const CardComp = SHARE_CARD_TEMPLATES[tmpl]
-
-  // Pre-load logo + product image as base64 on mount.
-  // This ensures html-to-image can embed them (no CORS, no CSS filter issues).
-  // We mark imagesReady=true only after BOTH loaders complete (success or failure)
-  // so the Save button is never enabled before base64 images are in React state.
-  useEffect(() => {
-    setImagesReady(false)
-
-    const toB64 = (url: string): Promise<string | null> => {
-      if (!url || url.trim() === '') return Promise.resolve(null)
-      if (url.startsWith('data:')) return Promise.resolve(url)
-      // Only Supabase storage images go through the proxy (avoids CORS).
-      // Local/relative paths are fetched directly (same origin, no CORS issue).
-      const supaMatch = url.match(/supabase\.co\/storage\/v1\/object\/public\/(.+?)(?:\?|$)/)
-      let fetchUrl: string
-      if (supaMatch) {
-        fetchUrl = `/api/images/proxy?path=${encodeURIComponent(supaMatch[1])}`
-      } else {
-        // Relative or same-origin URL — fetch directly, no proxy needed
-        fetchUrl = url.startsWith('/') ? url : url.startsWith('http') ? url : '/' + url
-      }
-      return fetch(fetchUrl)
-        .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.blob() })
-        .then(blob => {
-          if (blob.size < 100) return null
-          return new Promise<string>((res) => {
-            const fr = new FileReader()
-            fr.onload = () => res(fr.result as string)
-            fr.onerror = () => res('')
-            fr.readAsDataURL(blob)
-          })
-        })
-        .catch(() => null)
-    }
-
-    // Logo — canvas-invert to white so header background shows correctly.
-    // Doing it via canvas avoids relying on CSS `filter` which html-to-image cannot render.
-    const loadLogo = async (): Promise<void> => {
-      try {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        // Add cache-bust only if served from same origin to ensure fresh CORS headers
-        img.src = window.location.origin + '/madvet-icon.png?_cb=1'
-        await new Promise<void>((res, rej) => {
-          img.onload = () => res()
-          img.onerror = () => rej(new Error('logo load failed'))
-          setTimeout(() => rej(new Error('logo timeout')), 8000)
-        })
-        // Original (for yellow footer)
-        const canvasOrig = document.createElement('canvas')
-        canvasOrig.width = img.naturalWidth; canvasOrig.height = img.naturalHeight
-        canvasOrig.getContext('2d')!.drawImage(img, 0, 0)
-        setLogoOrigB64(canvasOrig.toDataURL('image/png'))
-        // White-inverted (for dark header backgrounds)
-        const canvas = document.createElement('canvas')
-        canvas.width = img.naturalWidth; canvas.height = img.naturalHeight
-        const ctx = canvas.getContext('2d')!
-        ctx.filter = 'brightness(0) invert(1)'
-        ctx.drawImage(img, 0, 0)
-        setLogoB64(canvas.toDataURL('image/png'))
-      } catch {
-        // Fallback: proxy-fetch the logo and use as-is (dark logo on dark bg is still better than broken)
-        const b64 = await toB64('/madvet-icon.png')
-        if (b64) { setLogoB64(b64); setLogoOrigB64(b64) }
-      }
-    }
-
-    // Product image — always route through proxy so we get raw bytes we can base64-encode
-    const loadProductImg = async (): Promise<void> => {
-      if (product.image_url) {
-        const b64 = await toB64(product.image_url)
-        if (b64) setProductImgB64(b64)
-      }
-    }
-
-    // Run both loaders in parallel.
-    // IMPORTANT: setImagesReady must be delayed by two rAFs AFTER the base64 state
-    // setters (setLogoB64, setProductImgB64) so React has fully committed the new
-    // <img src="data:..."> values to the DOM before buttons are enabled.
-    // Without this delay, clicking Save immediately after unlock still captures
-    // the old (non-base64) src because React hasn't re-rendered yet.
-    Promise.all([loadLogo(), loadProductImg()]).finally(() => {
-      requestAnimationFrame(() => requestAnimationFrame(() => setImagesReady(true)))
-    })
-  }, [product.image_url])
-
-  useEffect(() => {
-    const measure = () => {
-      const w = previewContainerRef.current?.offsetWidth || 0
-      if (w > 0) setPreviewW(w)
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(measure)
-    if (previewContainerRef.current) ro.observe(previewContainerRef.current)
-    return () => ro.disconnect()
-  }, [])
-
-  const scale = previewW > 0 ? Math.min(1, previewW / 480) : 0
-
-  // Android-compatible save: Web Share API → anchor download → window.open
-  const saveBlob = async (blob: Blob, filename: string, shareIntent: boolean) => {
-    const isAndroid = /android/i.test(navigator.userAgent)
-
-    if (shareIntent && typeof navigator.canShare === 'function') {
-      const file = new File([blob], filename, { type: 'image/png' })
-      if (navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ title: product.name + ' — Madvet', files: [file] })
-          return
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return
-        }
-      }
-    }
-
-    if (!isAndroid) {
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
-      return
-    }
-
-    const url = URL.createObjectURL(blob)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 30000)
-  }
-
-  const handleSave = async (shareIntent: boolean) => {
-    if (!cardRef.current || !imagesReady) return
-    setStatus('loading')
-    setErrMsg('')
-    try {
-      const { toPng } = await import('html-to-image')
-
-      // Two rAFs: let React commit any in-flight state updates (e.g. setStatus)
-      // before we touch the DOM.
-      await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
-
-      const el = cardRef.current!
-      const prev = el.style.transform
-      el.style.transform = 'none'
-
-      // One more frame to let the transform change settle in the browser layout.
-      await new Promise<void>(r => requestAnimationFrame(() => r()))
-
-      // Now wait for EVERY <img> in the card to finish decoding.
-      // img.decode() is the only reliable API that confirms an image is
-      // paint-ready. We must call it even for img.complete===true images
-      // because "complete" just means the src was set — not that the pixels
-      // are decoded and available for canvas drawing (which toPng uses).
-      const imgEls = Array.from(el.querySelectorAll<HTMLImageElement>('img'))
-      await Promise.all(
-        imgEls.map(img => {
-          // If src isn't base64 yet (shouldn't happen since imagesReady gate),
-          // wait for load then decode.
-          if (!img.complete || img.naturalWidth === 0) {
-            return new Promise<void>(resolve => {
-              img.onload = () => img.decode().catch(() => {}).finally(resolve)
-              img.onerror = () => resolve()
-              setTimeout(resolve, 5000)
-            })
-          }
-          return img.decode().catch(() => {})
-        })
-      )
-
-      // html-to-image has a known first-call bug: on the first invocation it
-      // doesn't fully embed images (its internal fetch cache is cold).
-      // The fix is to call toPng twice — discard the first result, use the second.
-      // This is the standard workaround used across html-to-image issues.
-      const captureOpts = {
-        width: 480,
-        height: el.scrollHeight,
-        pixelRatio: 3,
-        style: { transform: 'none' },
-        cacheBust: true,
-      }
-      await toPng(el, { ...captureOpts, pixelRatio: 1 }) // warm-up pass — discard
-      const dataUrl = await toPng(el, captureOpts)       // real capture
-
-      el.style.transform = prev
-
-      const blob = await (await fetch(dataUrl)).blob()
-      if (blob.size < 500) throw new Error('Empty image — try again')
-      await saveBlob(blob, `${product.name.replace(/\s+/g, '-')}-madvet.png`, shareIntent)
-      setStatus('done')
-    } catch (e: any) {
-      setErrMsg(e?.message || 'Failed'); setStatus('error')
-    } finally {
-      setTimeout(() => { setStatus('idle'); setErrMsg('') }, 5000)
-    }
-  }
-
-    const busy = status === 'loading'
-
-  return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.92)', overflowY: 'auto' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 12px 40px' }}>
-        <div style={{ background: '#1a1e2a', borderRadius: 16, padding: '16px 14px', width: '100%', maxWidth: 540, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
-
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>SHARE CARD</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{product.name} · {product.category}</div>
-            </div>
-            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-          </div>
-
-          {/* Visible scaled preview */}
-          <div
-            ref={previewContainerRef}
-            style={{ width: '100%', height: scale > 0 ? Math.round(700 * scale) : 340, position: 'relative', overflow: 'hidden', borderRadius: 8, background: '#0a0d14' }}
-          >
-            <div ref={cardRef} style={{ position: 'absolute', top: 0, left: 0, width: 480, transformOrigin: 'top left', transform: scale > 0 ? `scale(${scale})` : 'none', pointerEvents: 'none' }}>
-              <CardComp p={productImgB64 ? { ...product, image_url: productImgB64 } : product} c={c} logoSrc={logoB64 || undefined} logoOrigSrc={logoOrigB64 || undefined} />
-            </div>
-          </div>
-
-          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 6, marginBottom: 0, textAlign: 'center' }}>
-            Preview — tap Save to download as PNG
-          </p>
-
-          {busy && (
-            <div style={{ textAlign: 'center', padding: '8px 0 0', color: '#FFE000', fontSize: 12 }}>
-              ⏳ Generating image…
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <button
-              onClick={() => handleSave(false)}
-              disabled={busy || !imagesReady}
-              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: (busy || !imagesReady) ? '#2a2a2a' : '#1d4ed8', color: (busy || !imagesReady) ? '#555' : '#fff', border: 'none', cursor: (busy || !imagesReady) ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
-            >
-              {busy ? '⏳ Working…' : !imagesReady ? '⏳ Loading…' : '↓ SAVE IMAGE'}
-            </button>
-            <button
-              onClick={() => handleSave(true)}
-              disabled={busy || !imagesReady}
-              style={{ flex: 1, padding: '13px 0', borderRadius: 8, background: (busy || !imagesReady) ? '#3a3a2a' : '#FFE000', color: (busy || !imagesReady) ? '#777' : '#1a2f8a', border: 'none', cursor: (busy || !imagesReady) ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, letterSpacing: 0.8 }}
-            >
-              {busy ? '⏳ Working…' : !imagesReady ? '⏳ Loading…' : '↗ SHARE / WHATSAPP'}
-            </button>
-          </div>
-
-          <p style={{ textAlign: 'center', fontSize: 11, marginTop: 6, minHeight: 14, color: status === 'error' ? '#ff6b6b' : status === 'done' ? '#4ade80' : 'rgba(255,255,255,0.28)' }}>
-            {status === 'done'  && '✅ Done! Image saved / shared.'}
-            {status === 'error' && `❌ ${errMsg}`}
-            {status === 'idle'  && 'Tap Save or Share to download the card as PNG'}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Lang toggle ──────────────────────────────────────────────────────────────
-function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.07)', borderRadius: 8, border: '1px solid rgba(200,169,110,0.25)', padding: 3, gap: 2, flexShrink: 0 }}>
-      {(['en', 'hi'] as Lang[]).map(l => (
-        <button key={l} onClick={() => setLang(l)} style={{ padding: '5px 13px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, transition: 'all 0.15s', background: lang === l ? '#c8a96e' : 'transparent', color: lang === l ? '#1a3a2a' : 'rgba(245,240,232,0.5)' }}>
-          {l === 'en' ? 'EN' : 'हिंदी'}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// ── Main component ───────────────────────────────────────────────────────────
-// The factory's film for this product: our MP4 until it is on YouTube.
 export interface ProductFilm {
   key:        string
   youtubeId:  string
@@ -985,256 +26,258 @@ export interface ProductFilm {
   download:   string
   downloadMB: number
 }
+export interface RelatedProduct { id: number; name: string; category: string; packaging: string; formulation: string; img: string; cut: boolean }
 
-export default function ProductDetailClient({ product, film, folderPage = 0 }: { product: Product; film?: ProductFilm | null; folderPage?: number }) {
+type Lang = 'en' | 'hi'
+const HI_SP: Record<string, string> = { Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी', Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा', Calf: 'बछड़ा', Camel: 'ऊँट', Pig: 'सूअर' }
+
+export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', related = [] }: {
+  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; related?: RelatedProduct[]
+}) {
   const [lang, setLang] = useState<Lang>('en')
-  const [showShare, setShowShare] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const hi = lang === 'hi'
+  const c = getColor(p.category)
 
-  const color      = getColor(product.category)
-  const indChunks  = product.indication.split(',').map(s => s.trim()).filter(s => s.length > 3)
-  const engInd     = indChunks.filter(s => /^[\x00-\x7F]+$/.test(s)).slice(0, 12)
-  const hiInd      = indChunks.filter(s => /[^\x00-\x7F]/.test(s)).slice(0, 12)
-  const displayInd = lang === 'hi' ? (hiInd.length > 0 ? hiInd : engInd) : engInd
-  const speciesArr = product.species.split(/[,\/]/).map(s => s.trim()).filter(Boolean)
+  const uses = cleanIndications(p.indication, 12, p.id)
+  const usesHi = hindiIndications(p.indication, 12)
+  const comp = compList(p.salt)
+  const sps = speciesList(p.species)
+  const benefits = (hi && p.usp_benefits_hi ? p.usp_benefits_hi : p.benefits).split(/\n|•|;|(?<=\.)\s+(?=[A-Z])/).map(s => s.replace(/^[-–•\s]+/, '').trim()).filter(s => s.length > 8).slice(0, 6)
+  const about = hi && p.description_hi ? p.description_hi : p.description
+  const linkedYt = p.video_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1] || ''
+  const ytId = film ? film.youtubeId : linkedYt
+  const hasFilm = !!(film || ytId)
+  const shareText = productShareText(p, scheme, hasFilm)
+  const orderText = `नमस्ते Madvet, मुझे *${p.name}* (${packLabel(p)}) चाहिए / Hello Madvet, I would like to order *${p.name}* (${packLabel(p)}).\n${SITE}/products/${p.id}`
+  const img = pack || p.image_url
 
-  const t = {
-    allProducts: lang === 'hi' ? 'सभी उत्पाद' : 'All Products',
-    about:       lang === 'hi' ? 'इस उत्पाद के बारे में' : 'About This Product',
-    benefits:    lang === 'hi' ? 'मुख्य फायदे' : 'Key Benefits',
-    indications: lang === 'hi' ? 'किसके लिए उपयोग' : 'Indications / Used For',
-    composition: lang === 'hi' ? 'संरचना (Composition)' : 'Composition',
-    forAnimals:  lang === 'hi' ? 'किस जानवर के लिए' : 'For Animals',
-    quickFacts:  lang === 'hi' ? 'मुख्य जानकारी' : 'Quick Facts',
-    category:    lang === 'hi' ? 'श्रेणी' : 'Category',
-    form:        lang === 'hi' ? 'रूप' : 'Form',
-    packaging:   lang === 'hi' ? 'पैकेजिंग' : 'Packaging',
-    productId:   lang === 'hi' ? 'उत्पाद ID' : 'Product ID',
-    vetOnly:     lang === 'hi' ? 'सिर्फ पशु चिकित्सा उपयोग के लिए। सही खुराक के लिए पंजीकृत पशु चिकित्सक से मिलें।' : 'For veterinary use only. Always consult a registered veterinarian for correct dosage and treatment plan.',
-    backBtn:     lang === 'hi' ? '← सभी उत्पाद' : '← Back to All Products',
-    footerNote:  lang === 'hi' ? 'सिर्फ पशु चिकित्सा में उपयोग के लिए' : 'All products for veterinary use only',
-    assistant:   lang === 'hi' ? 'सहायक' : 'Assistant',
-    products:    lang === 'hi' ? 'उत्पाद' : 'Products',
-    training:    lang === 'hi' ? 'ट्रेनिंग' : 'Training',
-    videoDemo:   lang === 'hi' ? 'उत्पाद का वीडियो' : 'Product Video Demo',
-    watchYT:     lang === 'hi' ? 'YouTube पर देखें / शेयर करें' : 'Watch on YouTube / Share',
-    shareCard:   lang === 'hi' ? '↗ शेयर कार्ड' : '↗ Share Card',
-  }
-
-  const displayCat  = lang === 'hi' ? (HI_CATS[product.category] || product.category) : product.category
-  const displayForm = lang === 'hi' ? (HI_FORM[product.formulation] || product.formulation) : product.formulation
+  const T = (en: string, h: string) => (hi ? h : en)
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { overflow-x: hidden; }
-        :root {
-          --forest: #1a3a2a; --forest-mid: #264d39; --cream: #f5f0e8;
-          --cream-dark: #ede6d6; --gold: #c8a96e; --gold-light: #e8d5a8;
-        }
-        body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: #1c2b22; }
-        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }
-        .section-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
-        .card { background: #fff; border: 1px solid #d4c9b0; border-radius: 16px; padding: 28px 32px; }
-        @media (max-width: 640px) {
-          .hero-inner { padding: 28px 16px 24px !important; }
-          .hero-title { font-size: 28px !important; }
-          .content-wrap { padding: 24px 16px !important; }
-          .grid-2 { grid-template-columns: 1fr !important; }
-          .card { padding: 20px 18px !important; }
-          .top-nav { padding: 0 14px !important; height: 48px !important; }
-        }
-      `}</style>
+      <style>{CSS}</style>
+      <div className="pd" style={{ '--c': c } as React.CSSProperties}>
+        <SiteNav active="products" hi={hi} />
 
-      {/* NAV */}
-      <SiteNav active="products" hi={lang === 'hi'} />
-
-      {/* HERO */}
-      <header style={{ background: 'var(--forest)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 60% at 70% 50%, rgba(200,169,110,0.10) 0%, transparent 70%)' }} />
-        <div className="hero-inner" style={{ position: 'relative', zIndex: 1, maxWidth: 960, margin: '0 auto', padding: '48px 48px 40px' }}>
-          <div style={{ fontSize: 12, color: 'rgba(245,240,232,0.4)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Link href="/products" style={{ color: 'rgba(200,169,110,0.7)', textDecoration: 'none' }}>{t.products}</Link>
-            <span>›</span>
-            <span>{displayCat}</span>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <span className="chip" style={{ background: `${color}22`, color, border: `1px solid ${color}44`, fontSize: 12 }}>
-              {displayCat}
-              {lang === 'hi' && <span style={{ fontSize: 11, opacity: 0.6, marginLeft: 4 }}>({product.category})</span>}
-            </span>
-          </div>
-          <h1 className="hero-title" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 42, color: 'var(--cream)', lineHeight: 1.1, marginBottom: 16 }}>{product.name}</h1>
-          {product.image_url && (
-            <div style={{ position: 'relative', width: '100%', maxWidth: 320, marginBottom: product.video_url ? 12 : 20, display: 'inline-block' }}>
-              <div style={{ borderRadius: 16, background: 'linear-gradient(135deg,#f9f6f1 0%,#ede8e0 100%)', border: '1px solid rgba(200,169,110,0.25)', height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  loading="eager"
-                  decoding="async"
-                  style={{ maxWidth: '100%', maxHeight: 260, objectFit: 'contain', padding: 12 }}
-                  onError={(e) => {
-                    const img = e.target as HTMLImageElement
-                    if (!img.dataset.retried) {
-                      // Retry once with cache-bust — handles transient CDN failures on mobile
-                      img.dataset.retried = '1'
-                      img.src = img.src.split('?')[0] + '?t=' + Date.now()
-                    } else {
-                      img.style.display = 'none'
-                    }
-                  }}
-                />
+        <header className="pd-hero">
+          <div className="pd-hero-in">
+            <div className="pd-crumbs">
+              <Link href="/products">{T('Products', 'उत्पाद')}</Link><span>›</span>
+              <Link href={`/products?cat=${encodeURIComponent(p.category)}`}>{hi ? HI_CATS[p.category] || p.category : p.category}</Link>
+              <div className="pd-lang">{(['en', 'hi'] as Lang[]).map(l => <button key={l} className={lang === l ? 'on' : ''} onClick={() => setLang(l)}>{l === 'en' ? 'EN' : 'हिं'}</button>)}</div>
+            </div>
+            <div className="pd-top">
+              <div className={`pd-stage ${scheme ? 'has-offer' : ''}`}>
+                <div className="pd-glow" />
+                {img ? <img src={img} alt={p.name} className={pack ? 'cut' : 'photo'} /> : <span className="pd-initial">{p.name.slice(0, 1)}</span>}
+                {scheme && <div className="pd-offer"><b>🎁 {T('Scheme this month', 'इस महीने की स्कीम')}</b>{scheme}</div>}
               </div>
-              {/* Floating share button on image */}
-              <button onClick={() => setShowShare(true)}
-                style={{ position: 'absolute', top: 10, right: 10, width: 44, height: 44, borderRadius: '50%', background: '#FFE000', border: '2px solid rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.4)', zIndex: 2 }}>
-                ↗
-              </button>
-            </div>
-          )}
-          {!product.image_url && (
-            <div style={{ marginBottom: 16 }}>
-              <button onClick={() => setShowShare(true)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 8, background: '#FFE000', color: '#1a2f8a', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-                ↗ {lang === 'hi' ? 'शेयर कार्ड' : 'Share Card'}
-              </button>
-            </div>
-          )}
-          {(() => {
-            // The factory's film first; otherwise the link set by hand in /admin.
-            const linkedId = product.video_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1] || ''
-            const ytId     = film ? film.youtubeId : linkedId
-            if (!film && !ytId) return null
-            const tall = film ? film.vertical : false
-            const btn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }
-            return (
-              <div style={{ width: '100%', maxWidth: tall ? 300 : 480, marginBottom: 20 }}>
-                <div style={{ position: 'relative', paddingBottom: tall ? '177.78%' : '56.25%', height: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(200,169,110,0.25)', background: '#000' }}>
-                  {ytId
-                    ? <iframe src={`https://www.youtube.com/embed/${ytId}?rel=0&playsinline=1`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />
-                    : <video src={film!.mp4} poster={film!.poster} controls playsInline preload="none" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: '#000' }} />}
+              <div className="pd-info">
+                <div className="pd-cat"><i />{hi ? HI_CATS[p.category] || p.category : p.category}</div>
+                <h1>{p.name}</h1>
+                <div className="pd-meta">
+                  <span>{packLabel(p)}</span>
+                  {p.formulation && <span>{p.formulation}</span>}
                 </div>
-                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <ShareVideo name={product.name} src={film?.mp4}
-                    text={shareCaption({ name: product.name, productId: product.id, youtubeId: ytId })}
-                    waUrl={whatsappShareUrl({ name: product.name, youtubeId: ytId, filmKey: film?.key, productId: product.id })}
-                    style={{ ...btn, background: '#25a244' }}
-                    loadingLabel={lang === 'hi' ? 'वीडियो तैयार हो रहा है…' : 'Preparing video…'}
-                    readyLabel={lang === 'hi' ? 'भेजने के लिए फिर दबाएँ' : 'Tap again to send'}>
-                    {lang === 'hi' ? 'WhatsApp पर वीडियो भेजें' : 'Send video on WhatsApp'}
+                <p className="pd-lead">{purposeLine(p, 180)}</p>
+                {sps.length > 0 && (
+                  <div className="pd-sp">{sps.map(s => <span key={s}>{SP_ICON[s]} {hi ? HI_SP[s] || s : s}</span>)}</div>
+                )}
+                <div className="pd-cta">
+                  {hasFilm && <button className="pd-btn film" onClick={() => setPlaying(true)}>▶ {T('Watch the 1-minute film', '1 मिनट की फ़िल्म देखें')}</button>}
+                  <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={shareText} waUrl={productWaUrl(shareText)} className="pd-btn wa"
+                    loadingLabel={<>{T('Preparing card…', 'कार्ड तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
+                    {T('Send to a customer on WhatsApp', 'WhatsApp पर ग्राहक को भेजें')}
                   </ShareVideo>
-                  {film && (
-                    <a href={film.download} download style={{ ...btn, background: 'rgba(245,240,232,0.92)', color: '#1a3a2a' }}>
-                      ⬇ {lang === 'hi' ? 'डाउनलोड करें' : 'Download'} · {film.downloadMB} MB
-                    </a>
-                  )}
-                  {ytId && (
-                    <a href={`https://youtu.be/${ytId}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: '#d4302b' }}>
-                      ▶ {t.watchYT}
-                    </a>
-                  )}
+                  <a className="pd-btn order" href={`https://wa.me/${COMPANY.phoneRaw}?text=${encodeURIComponent(orderText)}`} target="_blank" rel="noopener">{T('Order / enquire', 'ऑर्डर / पूछताछ')}</a>
+                </div>
+                <div className="pd-links">
+                  {folderPage > 0 && <Link href={`/folder?p=${folderPage}`}>📖 {T('Product folder', 'प्रोडक्ट फ़ोल्डर')} · {T('page', 'पेज')} {folderPage}</Link>}
+                  {film && <a href={film.download} download>⬇ {T('Download film', 'फ़िल्म डाउनलोड')} · {film.downloadMB} MB</a>}
+                  <a href={`tel:+${COMPANY.phoneRaw}`}>📞 {COMPANY.phone}</a>
                 </div>
               </div>
-            )
-          })()}
-          {folderPage > 0 && (
-            <Link href={`/folder?p=${folderPage}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(200,169,110,0.35)', color: 'var(--gold-light)', textDecoration: 'none', fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
-              📖 {lang === 'hi' ? 'प्रोडक्ट फ़ोल्डर में देखें' : 'See in product folder'} · {lang === 'hi' ? 'पेज' : 'page'} {folderPage}
-            </Link>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span className="chip" style={{ background: 'rgba(200,169,110,0.12)', color: 'var(--gold-light)', border: '1px solid rgba(200,169,110,0.2)', fontSize: 12 }}>{product.packaging}</span>
-            <span className="chip" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(245,240,232,0.55)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 12 }}>{displayForm}</span>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div style={{ height: 4, background: `linear-gradient(90deg, ${color}, ${color}44)` }} />
-
-      {/* CONTENT */}
-      <main className="content-wrap" style={{ maxWidth: 960, margin: '0 auto', padding: '40px 48px 80px' }}>
-        <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {product.description && (
-              <div className="card">
-                <div className="section-label">{t.about}</div>
-                <p style={{ fontSize: 15, lineHeight: 1.75, color: '#1c2b22' }}>{lang === 'hi' && product.description_hi ? product.description_hi : product.description}</p>
-              </div>
-            )}
-            {product.benefits && product.benefits !== 'N/A' && (
-              <div className="card">
-                <div className="section-label">{t.benefits}</div>
-                <p style={{ fontSize: 15, lineHeight: 1.75, color: '#1c2b22' }}>{lang === 'hi' && product.usp_benefits_hi ? product.usp_benefits_hi : product.benefits}</p>
-              </div>
-            )}
-            {displayInd.length > 0 && (
-              <div className="card">
-                <div className="section-label">{t.indications}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                  {displayInd.map((ind, i) => (
-                    <span key={i} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, background: '#f0ebe0', color: '#5a7060', border: '1px solid #d4c9b0' }}>{ind}</span>
-                  ))}
-                </div>
-              </div>
-            )}
+        <main className="pd-main">
+          <div className="pd-grid">
+            <div className="pd-col">
+              {(uses.length > 0 || usesHi.length > 0) && (
+                <section className="pd-card">
+                  <h2>{T('What it treats', 'किसमें काम आता है')}</h2>
+                  <div className="pd-chips">{(hi && usesHi.length ? usesHi : uses).map(u => <span key={u}>{u}</span>)}</div>
+                </section>
+              )}
+              {benefits.length > 0 && (
+                <section className="pd-card">
+                  <h2>{T('Why it works', 'क्यों असरदार है')}</h2>
+                  <ul className="pd-ticks">{benefits.map(b => <li key={b}>{b}</li>)}</ul>
+                </section>
+              )}
+              {about && (
+                <section className="pd-card">
+                  <h2>{T('About this product', 'इस उत्पाद के बारे में')}</h2>
+                  <p className="pd-about">{about}</p>
+                </section>
+              )}
+            </div>
+            <div className="pd-col">
+              {comp.length > 0 && (
+                <section className="pd-card">
+                  <h2>{T('Composition', 'संरचना')}</h2>
+                  <ul className="pd-comp">{comp.map(x => { const m = x.match(/^(.*?)\s*((?:\d[\d.,]*\s*(?:mg|mcg|g|gm|iu|i\.u\.|%|ml|m\.s\.|million|cfu)[^,]*))$/i); return <li key={x}><span>{m ? m[1] : x}</span>{m && <b>{m[2]}</b>}</li> })}</ul>
+                </section>
+              )}
+              <section className="pd-card facts">
+                <h2>{T('Quick facts', 'मुख्य जानकारी')}</h2>
+                <dl>
+                  <dt>{T('Category', 'श्रेणी')}</dt><dd>{hi ? HI_CATS[p.category] || p.category : p.category}</dd>
+                  <dt>{T('Form', 'रूप')}</dt><dd>{p.formulation || '—'}</dd>
+                  <dt>{T('Pack', 'पैक')}</dt><dd>{packLabel(p)}</dd>
+                  {sps.length > 0 && <><dt>{T('For', 'किसके लिए')}</dt><dd>{sps.map(s => hi ? HI_SP[s] || s : s).join(', ')}</dd></>}
+                </dl>
+                <p className="pd-rx">{T('For veterinary use only. Dose as directed by a registered veterinarian.', 'केवल पशु चिकित्सा उपयोग के लिए। खुराक पंजीकृत पशु चिकित्सक की सलाह से।')}</p>
+              </section>
+              <section className="pd-card share">
+                <h2>{T('The card your customer receives', 'ग्राहक को यह कार्ड जाता है')}</h2>
+                <img src={productCardUrl(p.id)} alt={`${p.name} share card`} loading="lazy" />
+                <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={shareText} waUrl={productWaUrl(shareText)} className="pd-btn wa full"
+                  loadingLabel={<>{T('Preparing card…', 'कार्ड तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
+                  {T('Send this card on WhatsApp', 'यह कार्ड WhatsApp पर भेजें')}
+                </ShareVideo>
+              </section>
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {product.salt && (
-              <div className="card">
-                <div className="section-label">{t.composition}</div>
-                <p style={{ fontSize: 14, lineHeight: 1.7, color: '#1c2b22', fontFamily: 'monospace', background: '#f5f0e8', padding: '12px 16px', borderRadius: 8, border: '1px solid #ede6d6', marginTop: 4 }}>{product.salt}</p>
-              </div>
-            )}
-            {speciesArr.length > 0 && (
-              <div className="card">
-                <div className="section-label">{t.forAnimals}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
-                  {speciesArr.map(sp => (
-                    <span key={sp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 12, fontSize: 13, fontWeight: 500, background: '#f0ebe0', color: '#1a3a2a', border: '1px solid #d4c9b0' }}>
-                      <span>{SPECIES_EMOJI[sp] || '🐾'}</span>
-                      {lang === 'hi' ? `${HI_SP[sp] || sp} (${sp})` : sp}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="card" style={{ background: `${color}0d`, borderColor: `${color}33` }}>
-              <div className="section-label" style={{ color }}>{t.quickFacts}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
-                {[{ label: t.category, value: displayCat }, { label: t.form, value: displayForm }, { label: t.packaging, value: product.packaging }, { label: t.productId, value: `#${product.id}` }].map(({ label, value }, i, arr) => (
-                  <div key={label}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                      <span style={{ color: '#5a7060' }}>{label}</span>
-                      <span style={{ fontWeight: 600, color: '#1a3a2a' }}>{value}</span>
-                    </div>
-                    {i < arr.length - 1 && <div style={{ height: 1, background: '#d4c9b022', marginTop: 12 }} />}
-                  </div>
+
+          {related.length > 0 && (
+            <section className="pd-related">
+              <h2>{T('More in', 'और भी')} {hi ? HI_CATS[p.category] || p.category : p.category}</h2>
+              <div className="pd-rel-grid">
+                {related.map(r => (
+                  <Link key={r.id} href={`/products/${r.id}`} className="pd-rel">
+                    <div className="pd-rel-img">{r.img ? <img src={r.img} alt="" className={r.cut ? 'cut' : 'photo'} loading="lazy" /> : null}</div>
+                    <b>{r.name}</b><span>{r.packaging || r.formulation}</span>
+                  </Link>
                 ))}
               </div>
-            </div>
-            <div style={{ padding: '16px 20px', borderRadius: 12, background: 'rgba(26,58,42,0.06)', border: '1px solid rgba(26,58,42,0.1)', fontSize: 12, color: '#5a7060', lineHeight: 1.6 }}>
-              ⚕️ <strong>{lang === 'hi' ? 'केवल पशु चिकित्सा उपयोग।' : 'For veterinary use only.'}</strong> {t.vetOnly}
+            </section>
+          )}
+        </main>
+
+        {playing && (
+          <div className="pd-modal" onClick={() => setPlaying(false)} role="dialog" aria-label={`${p.name} film`}>
+            <div className={`pd-player ${film?.vertical !== false ? 'tall' : ''}`} onClick={e => e.stopPropagation()}>
+              <button className="pd-close" onClick={() => setPlaying(false)} aria-label="Close">×</button>
+              {ytId
+                ? <iframe src={`https://www.youtube.com/embed/${ytId}?rel=0&playsinline=1&autoplay=1`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+                : film && <video src={film.mp4} poster={film.poster} controls autoPlay playsInline />}
             </div>
           </div>
-        </div>
-        <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid #d4c9b0' }}>
-          <Link href="/products" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 8, background: 'var(--forest)', color: 'var(--cream)', textDecoration: 'none', fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
-            {t.backBtn}
-          </Link>
-        </div>
-      </main>
-
-      <footer style={{ background: '#0f2318', padding: '24px 48px', borderTop: '1px solid rgba(200,169,110,0.1)', textAlign: 'center' }}>
-        <p style={{ fontSize: 13, color: 'rgba(245,240,232,0.35)', margin: 0 }}>
-          <strong style={{ color: 'rgba(245,240,232,0.6)' }}>Madvet Animal Healthcare</strong>
-          &nbsp;·&nbsp; {t.footerNote}
-        </p>
-      </footer>
-
-      {/* Share Card Modal */}
-      {showShare && <ShareCardModal product={product} onClose={() => setShowShare(false)} />}
+        )}
+      </div>
     </>
   )
 }
+
+const CSS = `
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin:0; padding:0; overflow-x:clip; }
+:root { --forest:#1a3a2a; --night:#0f2318; --cream:#f5f0e8; --gold:#c8a96e; --gold-light:#e8d5a8; --ink:#1c2b22; --muted:#5b6b60; }
+.pd { font-family:'DM Sans','Noto Sans Devanagari',sans-serif; background:var(--cream); color:var(--ink); min-height:100vh; }
+.pd button { font:inherit; }
+
+.pd-hero { background:radial-gradient(ellipse at 20% 30%, #2c5a41 0%, var(--forest) 45%, var(--night) 100%); color:var(--cream); }
+.pd-hero-in { max-width:1240px; margin:0 auto; padding:20px 40px 48px; }
+.pd-crumbs { display:flex; align-items:center; gap:8px; font-size:13px; color:rgba(245,240,232,.55); }
+.pd-crumbs a { color:rgba(245,240,232,.75); text-decoration:none; }
+.pd-crumbs a:hover { color:var(--gold-light); }
+.pd-lang { margin-left:auto; display:flex; background:rgba(255,255,255,.07); border:1px solid rgba(200,169,110,.3); border-radius:10px; padding:3px; }
+.pd-lang button { border:0; background:none; color:rgba(245,240,232,.6); padding:5px 11px; border-radius:7px; cursor:pointer; font-weight:700; font-size:12px; }
+.pd-lang .on { background:var(--gold); color:var(--night); }
+.pd-top { display:grid; grid-template-columns:1fr 1.1fr; gap:48px; align-items:center; margin-top:22px; }
+.pd-stage { position:relative; display:flex; align-items:center; justify-content:center; height:460px; border-radius:28px; background:radial-gradient(circle at 50% 42%, #fff 0%, #efe9dc 62%, #e2d9c5 100%); box-shadow:0 40px 80px -30px rgba(0,0,0,.6); overflow:hidden; }
+.pd-glow { position:absolute; width:70%; height:26px; bottom:50px; border-radius:50%; background:radial-gradient(rgba(26,58,42,.35), transparent 70%); filter:blur(6px); animation:pdShadow 6s ease-in-out infinite; }
+.pd-stage img { position:relative; max-width:78%; max-height:78%; object-fit:contain; animation:pdFloat 6s ease-in-out infinite; }
+.pd-stage img.cut { filter:drop-shadow(0 26px 24px rgba(26,58,42,.3)); }
+.pd-stage.has-offer { padding-bottom:88px; }
+.pd-stage.has-offer img { max-height:72%; }
+.pd-stage.has-offer .pd-glow { bottom:112px; }
+.pd-stage img.photo { max-width:100%; max-height:100%; mix-blend-mode:multiply; animation:none; }
+@keyframes pdFloat { 0%,100% { transform:translateY(0) rotate(-.6deg); } 50% { transform:translateY(-12px) rotate(.6deg); } }
+@keyframes pdShadow { 0%,100% { transform:scaleX(1); opacity:.9; } 50% { transform:scaleX(.86); opacity:.6; } }
+.pd-initial { font-family:'DM Serif Display',serif; font-size:120px; color:var(--c); }
+.pd-offer { position:absolute; left:16px; right:16px; bottom:16px; display:flex; flex-direction:column; gap:2px; padding:12px 16px; border-radius:16px; background:linear-gradient(90deg,var(--gold),#e2c98f); color:var(--night); font-size:15px; font-weight:700; }
+.pd-offer b { font-size:11px; letter-spacing:2px; text-transform:uppercase; }
+.pd-cat { display:inline-flex; align-items:center; gap:8px; font-size:12px; letter-spacing:2px; text-transform:uppercase; font-weight:700; color:var(--gold-light); }
+.pd-cat i { width:9px; height:9px; border-radius:50%; background:var(--c); box-shadow:0 0 0 4px color-mix(in srgb, var(--c) 30%, transparent); }
+.pd-info h1 { margin:10px 0 0; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:clamp(38px,4.6vw,60px); line-height:1.02; }
+.pd-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.pd-meta span { padding:6px 12px; border-radius:99px; background:rgba(245,240,232,.09); border:1px solid rgba(245,240,232,.16); font-size:13px; font-weight:600; }
+.pd-lead { margin:18px 0 0; font-size:17px; line-height:1.65; color:rgba(245,240,232,.82); max-width:560px; }
+.pd-sp { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.pd-sp span { padding:7px 12px; border-radius:12px; background:rgba(200,169,110,.14); color:var(--gold-light); font-size:13.5px; font-weight:600; }
+.pd-cta { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+.pd-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 20px; border-radius:14px; font-weight:700; font-size:15px; text-decoration:none; cursor:pointer; border:0; transition:transform .15s, filter .15s; }
+.pd-btn:hover { transform:translateY(-2px); filter:brightness(1.06); }
+.pd-btn.film { background:#fff; color:var(--forest); }
+.pd-btn.wa { background:#25a244; color:#fff; }
+.pd-btn.order { background:transparent; color:var(--cream); border:1.5px solid rgba(245,240,232,.4); }
+.pd-btn.full { width:100%; margin-top:14px; }
+.pd-links { display:flex; flex-wrap:wrap; gap:18px; margin-top:18px; font-size:14px; }
+.pd-links a { color:var(--gold-light); text-decoration:none; font-weight:600; }
+.pd-links a:hover { text-decoration:underline; }
+
+.pd-main { max-width:1240px; margin:0 auto; padding:40px 40px 64px; }
+.pd-grid { display:grid; grid-template-columns:1.15fr 1fr; gap:22px; align-items:start; }
+.pd-col { display:flex; flex-direction:column; gap:22px; }
+.pd-card { background:#fff; border-radius:22px; padding:24px 26px; border:1px solid rgba(26,58,42,.08); animation:pdIn .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes pdIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+.pd-card h2 { margin:0 0 14px; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:24px; color:var(--forest); }
+.pd-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.pd-chips span { padding:8px 14px; border-radius:99px; background:color-mix(in srgb, var(--c) 10%, #fff); border:1px solid color-mix(in srgb, var(--c) 30%, transparent); font-size:14px; font-weight:600; }
+.pd-ticks { margin:0; padding:0; list-style:none; display:grid; gap:10px; }
+.pd-ticks li { position:relative; padding-left:30px; font-size:15px; line-height:1.55; }
+.pd-ticks li::before { content:'✓'; position:absolute; left:0; top:1px; width:20px; height:20px; border-radius:50%; background:var(--forest); color:var(--gold-light); font-size:12px; display:grid; place-items:center; font-weight:800; }
+.pd-about { margin:0; font-size:15.5px; line-height:1.75; color:#34443a; }
+.pd-comp { margin:0; padding:0; list-style:none; }
+.pd-comp li { display:flex; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px dashed rgba(26,58,42,.14); font-size:15px; }
+.pd-comp li:last-child { border-bottom:0; }
+.pd-comp b { flex:none; color:var(--forest); font-weight:700; }
+.facts dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:10px 18px; font-size:14.5px; }
+.facts dt { color:var(--muted); }
+.facts dd { margin:0; font-weight:700; text-align:right; }
+.pd-rx { margin:16px 0 0; padding:12px 14px; border-radius:12px; background:#f6f1e6; font-size:13px; color:var(--muted); }
+.share img { width:100%; border-radius:16px; display:block; box-shadow:0 18px 40px -20px rgba(15,35,24,.6); }
+
+.pd-related { margin-top:44px; }
+.pd-related h2 { font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:28px; color:var(--forest); margin:0 0 16px; }
+.pd-rel-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; }
+.pd-rel { display:flex; flex-direction:column; gap:4px; padding:14px; border-radius:18px; background:#fff; border:1px solid rgba(26,58,42,.08); text-decoration:none; color:var(--ink); transition:transform .2s, box-shadow .2s; }
+.pd-rel:hover { transform:translateY(-4px); box-shadow:0 18px 34px -18px rgba(26,58,42,.4); }
+.pd-rel-img { height:140px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:radial-gradient(circle,#fff,#f0ebdf); margin-bottom:8px; padding:10px; }
+.pd-rel-img img { max-width:100%; max-height:100%; object-fit:contain; }
+.pd-rel-img img.photo { mix-blend-mode:multiply; }
+.pd-rel b { font-size:15px; color:var(--forest); }
+.pd-rel span { font-size:12.5px; color:var(--muted); }
+
+.pd-modal { position:fixed; inset:0; z-index:100; background:rgba(8,20,13,.86); display:flex; align-items:center; justify-content:center; padding:20px; animation:pdFade .2s both; }
+@keyframes pdFade { from { opacity:0; } }
+.pd-player { position:relative; width:min(960px,100%); aspect-ratio:16/9; background:#000; border-radius:18px; overflow:hidden; }
+.pd-player.tall { width:auto; height:min(86vh, 900px); aspect-ratio:9/16; }
+.pd-player iframe, .pd-player video { width:100%; height:100%; border:0; display:block; background:#000; }
+.pd-close { position:absolute; top:10px; right:10px; z-index:2; width:40px; height:40px; border-radius:50%; border:0; background:rgba(0,0,0,.6); color:#fff; font-size:24px; cursor:pointer; }
+
+@media (max-width:900px) {
+  .pd-hero-in, .pd-main { padding-left:16px; padding-right:16px; }
+  .pd-top { grid-template-columns:1fr; gap:24px; margin-top:14px; }
+  .pd-stage { height:320px; border-radius:22px; }
+  .pd-grid { grid-template-columns:1fr; }
+  .pd-btn { flex:1 1 100%; }
+  .pd-card { padding:20px; border-radius:18px; }
+  .pd-player.tall { height:auto; width:min(92vw, 480px); }
+}
+@media (prefers-reduced-motion: reduce) { .pd-stage img, .pd-glow, .pd-card { animation:none !important; } }
+`

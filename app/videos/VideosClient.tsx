@@ -6,7 +6,8 @@ import { shareCaption, whatsappShareUrl } from '@/lib/share'
 import ShareVideo from '@/components/ShareVideo'
 import FolderButtons from '@/components/FolderButtons'
 import SiteNav from '@/components/SiteNav'
-import { CAT_ORDER, HI_CATS, getColor, Pill, LangToggle, type Lang } from '../products/ProductsClient'
+import { CAT_ORDER, HI_CATS, getColor } from '../products/ProductsClient'
+import { Pill, LangToggle, type Lang } from '@/components/Controls'
 
 export interface VideoItem {
   key:        string   // youtubeId, or the film's slug while it is not on YouTube

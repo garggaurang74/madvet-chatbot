@@ -1,734 +1,344 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+// The product list (29 Sep 2026 redesign). What changed and why:
+//  • The pack is the hero of each card: the clean cut-out carton (93 of 94
+//    products, film-downloads/packs/) on a tinted stage, not a small photo
+//    floating in a white box.
+//  • Every card has three actions at thumb reach: details, the film, and
+//    WhatsApp — which sends the product's card IMAGE with a sales message on a
+//    phone (the link alone on a desktop, which unfolds into the same card).
+//  • Text shown is the customer text from lib/productCopy (no romanised Hindi
+//    search words, no "Pigs" and "Pig" as two animals).
+//  • Filters sit in one sticky bar; cards rise in as they load.
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { Product } from './types'
-import FolderButtons from '@/components/FolderButtons'
 import SiteNav from '@/components/SiteNav'
+import FolderButtons from '@/components/FolderButtons'
+import ShareVideo from '@/components/ShareVideo'
+import { cleanIndications, packLabel, speciesList, SP_ICON, purposeLine } from '@/lib/productCopy'
+import { productShareText, productWaUrl, productCardUrl } from '@/lib/productShare'
 
-// ── PAGINATION ────────────────────────────────────────────────────────────────
-// Rendering 500 cards at once freezes the browser. We render PAGE_SIZE at a time
-// and let the user load more. This is the single biggest perf win in this file.
-const PAGE_SIZE = 36
-
-// ── CONSTANTS ────────────────────────────────────────────────────────────────
+const PACKS = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/film-downloads/packs`
 
 const CAT_COLORS: Record<string, string> = {
-  'Antibiotic':                      '#3b82f6',
-  'Anti-inflammatory / Analgesic':   '#f59e0b',
-  'Vitamin Supplement':              '#10b981',
-  'Anthelmintic / Antiparasitic':    '#8b5cf6',
-  'Ectoparasiticide':                '#ef4444',
-  'Reproductive Hormone':            '#f472b6',
-  'Probiotic':                       '#14b8a6',
-  'Antidiarrheal':                   '#84cc16',
-  'Antihistamine':                   '#a78bfa',
-  'Dermatological':                  '#fb7185',
-  'Udder Care':                      '#2dd4bf',
+  'Antibiotic': '#2f6fd6', 'Anti-inflammatory / Analgesic': '#d98a12', 'Vitamin Supplement': '#139a6b',
+  'Anthelmintic / Antiparasitic': '#7b4fd6', 'Ectoparasiticide': '#d6453d', 'Reproductive Hormone': '#d6508f',
+  'Probiotic': '#129a93', 'Antidiarrheal': '#6c9a14', 'Antihistamine': '#8a6cd6', 'Dermatological': '#d65a70',
+  'Udder Care / Herbal Antimicrobial': '#1f9e8c', 'Digestive / Antiflatulent': '#9a7614', 'Udder Care': '#1f9e8c',
 }
-export const getColor = (cat: string) => CAT_COLORS[cat] || '#94a3b8'
+export const getColor = (cat: string) => CAT_COLORS[cat] || '#6b7f73'
 
 export const CAT_ORDER = [
-  'Antibiotic', 'Anti-inflammatory / Analgesic', 'Vitamin Supplement',
-  'Anthelmintic / Antiparasitic', 'Ectoparasiticide', 'Reproductive Hormone',
-  'Probiotic', 'Antidiarrheal', 'Antihistamine', 'Dermatological', 'Udder Care',
+  'Antibiotic', 'Anti-inflammatory / Analgesic', 'Vitamin Supplement', 'Anthelmintic / Antiparasitic',
+  'Ectoparasiticide', 'Reproductive Hormone', 'Probiotic', 'Antidiarrheal', 'Antihistamine', 'Dermatological',
+  'Udder Care / Herbal Antimicrobial', 'Digestive / Antiflatulent', 'Udder Care',
 ]
-
-const FORM_ORDER = [
-  'Bolus', 'Injection', 'Liquid', 'Tablet', 'Powder',
-  'Spray', 'Gel / Ointment', 'Soap', 'Suspension', 'Pour-On', 'Other',
-]
-
-const SP_ORDER = ['Cattle', 'Buffalo', 'Sheep', 'Goat', 'Dog', 'Cat', 'Poultry', 'Horse']
-
-// ── HINDI TRANSLATIONS ───────────────────────────────────────────────────────
 
 export const HI_CATS: Record<string, string> = {
-  'Antibiotic':                    'एंटीबायोटिक (संक्रमण)',
-  'Anti-inflammatory / Analgesic': 'दर्द व बुखार की दवा',
-  'Vitamin Supplement':            'विटामिन / पोषण',
-  'Anthelmintic / Antiparasitic':  'पेट के कीड़े की दवा',
-  'Ectoparasiticide':              'टिक / जूँ की दवा',
-  'Reproductive Hormone':          'प्रजनन हार्मोन',
-  'Probiotic':                     'पेट के अच्छे बैक्टीरिया',
-  'Antidiarrheal':                 'दस्त की दवा',
-  'Antihistamine':                 'एलर्जी की दवा',
-  'Dermatological':                'त्वचा / चमड़ी की दवा',
-  'Udder Care':                    'थन की देखभाल',
+  'Antibiotic': 'एंटीबायोटिक', 'Anti-inflammatory / Analgesic': 'दर्द व बुखार', 'Vitamin Supplement': 'विटामिन / पोषण',
+  'Anthelmintic / Antiparasitic': 'पेट के कीड़े', 'Ectoparasiticide': 'चिचड़ी / जूँ', 'Reproductive Hormone': 'प्रजनन',
+  'Probiotic': 'प्रोबायोटिक', 'Antidiarrheal': 'दस्त', 'Antihistamine': 'एलर्जी', 'Dermatological': 'त्वचा',
+  'Udder Care / Herbal Antimicrobial': 'थन की देखभाल', 'Digestive / Antiflatulent': 'पाचन / अफारा', 'Udder Care': 'थन की देखभाल',
 }
-
-const HI_SP: Record<string, string> = {
-  Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी',
-  Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा',
-}
-
-const HI_FORM: Record<string, string> = {
-  'Bolus':         'बोलस (गोली)',
-  'Injection':     'इंजेक्शन',
-  'Liquid':        'तरल (लिक्विड)',
-  'Tablet':        'टैबलेट',
-  'Powder':        'पाउडर',
-  'Spray':         'स्प्रे',
-  'Gel / Ointment':'जेल / मलहम',
-  'Soap':          'साबुन',
-  'Suspension':    'सस्पेंशन',
-  'Pour-On':       'पोर-ऑन',
-  'Other':         'अन्य',
-}
-
+const HI_SP: Record<string, string> = { Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी', Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा', Calf: 'बछड़ा', Camel: 'ऊँट', Pig: 'सूअर' }
+const FORMS = ['Injection', 'Bolus', 'Tablet', 'Liquid', 'Powder', 'Gel / Ointment', 'Spray', 'Soap', 'Pour-On', 'Suspension']
+const HI_FORM: Record<string, string> = { Injection: 'इंजेक्शन', Bolus: 'बोलस', Tablet: 'टैबलेट', Liquid: 'लिक्विड', Powder: 'पाउडर', 'Gel / Ointment': 'जेल / मलहम', Spray: 'स्प्रे', Soap: 'साबुन', 'Pour-On': 'पोर-ऑन', Suspension: 'सस्पेंशन' }
 export type Lang = 'en' | 'hi'
 
-// ── SEARCH SCORING ────────────────────────────────────────────────────────────
-
-// Normalize: strip punctuation so "vh5" matches "V.H-5", "500ml" matches "500 ml"
-function norm(s: string): string {
-  return s.toLowerCase().replace(/[.\-_/\s]+/g, '')
+// Hindi words people type, and what the catalogue calls them.
+const HI_Q: Record<string, string> = {
+  'थनैला': 'mastitis', 'कीड़े': 'worm', 'कीड़ा': 'worm', 'बुखार': 'fever', 'दस्त': 'diarrh', 'चिचड़ी': 'tick', 'जूँ': 'lice',
+  'दूध': 'milk', 'खुजली': 'itch', 'दर्द': 'pain', 'सूजन': 'swelling', 'घाव': 'wound', 'कमजोरी': 'weak', 'कमज़ोरी': 'weak',
+  'भूख': 'appetite', 'अफारा': 'bloat', 'कैल्शियम': 'calcium', 'लीवर': 'liver', 'बच्चेदानी': 'uter', 'निमोनिया': 'pneumonia',
+  thanaila: 'mastitis', bukhar: 'fever', dast: 'diarrh', keede: 'worm', khujli: 'itch', doodh: 'milk', kamzori: 'weak', afara: 'bloat',
 }
+const norm = (s: string) => s.toLowerCase().replace(/[.\-_/\s]+/g, '')
 
-function scoreToken(p: Product, t: string): number {
-  const nt  = norm(t)
-  const nn  = norm(p.name)
-  const raw = p.name.toLowerCase()
-  let score = 0
-
-  // Name match — try both raw and normalized
-  if (nn === nt || raw === t)              score += 100
-  else if (nn.startsWith(nt) || raw.startsWith(t)) score += 60
-  else if (nn.includes(nt) || raw.includes(t))     score += 40
-
-  // Other fields — check both raw and normalized versions
-  const fields: [string, number][] = [
-    [p.aliases,     30],
-    [p.salt,        25],
-    [p.description, 20],
-    [p.benefits,    15],
-    [p.indication,   8],
-    [p.category,     5],
-    [p.species,      5],
-    [p.packaging,    3],
-    [p.formulation,  3],
-  ]
-  for (const [val, pts] of fields) {
-    if (!val) continue
-    if (val.toLowerCase().includes(t) || norm(val).includes(nt)) score += pts
-  }
-  return score
-}
-
-// Multi-token AND scoring: "vh5 100" matches V.H-5 in name AND 100ml in packaging
-function scoreProduct(p: Product, q: string): number {
-  const tokens = q.trim().split(/\s+/).filter(Boolean)
-  if (tokens.length === 0) return 0
+function score(p: Product, q: string): number {
   let total = 0
-  for (const t of tokens) {
-    const s = scoreToken(p, t)
-    if (s === 0) return 0   // ALL tokens must match (AND logic)
+  for (let t of q.toLowerCase().split(/\s+/).filter(Boolean)) {
+    t = HI_Q[t] || t
+    const nt = norm(t), nn = norm(p.name)
+    let s = 0
+    if (nn === nt) s += 100
+    else if (nn.startsWith(nt)) s += 60
+    else if (nn.includes(nt)) s += 40
+    for (const [v, pts] of [[p.aliases, 30], [p.salt, 25], [p.description, 15], [p.benefits, 10], [p.indication, 10], [p.category, 5], [p.species, 5], [p.packaging, 3]] as [string, number][])
+      if (v && (v.toLowerCase().includes(t) || norm(v).includes(nt))) s += pts
+    if (!s) return 0           // every word must match somewhere
     total += s
   }
   return total
 }
 
-// ── HIGHLIGHT ─────────────────────────────────────────────────────────────────
-
-function highlight(text: string, q: string): string {
-  if (!q || !text) return text
-  const tokens = q.split(/\s+/).filter(Boolean)
-  if (tokens.length === 0) return text
-  // Single combined regex so inserted <mark> HTML is never scanned again,
-  // preventing CSS style strings from getting corrupted by subsequent token replacements
-  const combined = tokens
-    .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('|')
-  return text.replace(
-    new RegExp(`(${combined})`, 'gi'),
-    '<mark style="background:#fef08a;color:#1a3a2a;border-radius:2px;padding:0 2px;">$1</mark>'
-  )
+function formOf(p: Product): string {
+  const f = (p.formulation || '').toLowerCase()
+  if (/inj/.test(f)) return 'Injection'
+  if (/bolus/.test(f)) return 'Bolus'
+  if (/tab/.test(f)) return 'Tablet'
+  if (/gel|oint|cream/.test(f)) return 'Gel / Ointment'
+  if (/powder/.test(f)) return 'Powder'
+  if (/spray/.test(f)) return 'Spray'
+  if (/soap/.test(f)) return 'Soap'
+  if (/pour/.test(f)) return 'Pour-On'
+  if (/susp/.test(f)) return 'Suspension'
+  if (/liq|syrup/.test(f)) return 'Liquid'
+  return p.formulation || 'Other'
 }
 
-// ── PRODUCT CARD ──────────────────────────────────────────────────────────────
+export default function ProductsClient({ products, packIds = [], schemes = {} }: { products: Product[]; packIds?: number[]; schemes?: Record<number, string> }) {
+  const [lang, setLang] = useState<Lang>('en')
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('')
+  const [sp, setSp] = useState('')
+  const [form, setForm] = useState('')
+  const hi = lang === 'hi'
+  const packs = useMemo(() => new Set(packIds), [packIds])
 
-function ProductCard({ p, q, lang }: { p: Product; q: string; lang: Lang }) {
-  const [open, setOpen] = useState(false)
-  const color = getColor(p.category)
-
-  const activeDesc = (lang === 'hi' && p.description_hi) ? p.description_hi : p.description
-  const shortDesc = activeDesc.length > 5
-    ? (activeDesc.length > 160 ? activeDesc.slice(0, 157) + '…' : activeDesc)
-    : p.indication.split(',').map(s => s.trim()).filter(s => s.length > 10 && /^[\x00-\x7F]+$/.test(s))[0] || ''
-
-  const indChunks = p.indication.split(',').map(s => s.trim()).filter(s => s.length > 6)
-  // Hindi mode: prefer Hindi indication terms; English mode: prefer English terms
-  const displayInd = lang === 'hi'
-    ? (indChunks.filter(s => /[^\x00-\x7F]/.test(s)).slice(0, 6).join(', ')
-        || indChunks.filter(s => /^[\x00-\x7F]+$/.test(s)).slice(0, 6).join(', '))
-    : (indChunks.filter(s => /^[\x00-\x7F]+$/.test(s)).slice(0, 8).join(', ')
-        + (indChunks.length > 8 ? '…' : ''))
-
-  const speciesArr = p.species.split(/[,/]/).map(s => s.trim()).filter(Boolean)
-
-  const copyComposition = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigator.clipboard.writeText(p.salt).catch(() => {
-      const ta = document.createElement('textarea')
-      ta.value = p.salt
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-    })
-    const btn = e.currentTarget as HTMLButtonElement
-    btn.textContent = lang === 'hi' ? 'हो गया!' : 'Copied!'
-    setTimeout(() => { btn.textContent = lang === 'hi' ? 'कॉपी' : 'Copy' }, 1800)
-  }
-
-  return (
-    <div style={{
-      background: '#fff', border: '1px solid #d4c9b0', borderRadius: 14,
-      overflow: 'hidden', display: 'flex', flexDirection: 'column',
-      transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s', alignSelf: 'start',
-    }}
-      onMouseEnter={e => {
-        const el = e.currentTarget as HTMLDivElement
-        el.style.transform = 'translateY(-3px)'
-        el.style.boxShadow = '0 12px 36px rgba(26,58,42,0.12)'
-        el.style.borderColor = '#c8a96e'
-      }}
-      onMouseLeave={e => {
-        const el = e.currentTarget as HTMLDivElement
-        el.style.transform = ''
-        el.style.boxShadow = ''
-        el.style.borderColor = '#d4c9b0'
-      }}
-    >
-      <div style={{ height: 3, background: color }} />
-
-      {/* Product Image */}
-      {p.image_url && (
-        <div style={{ width: '100%', height: 140, background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img
-            src={p.image_url.includes('supabase') ? p.image_url + '?width=300&quality=80' : p.image_url}
-            alt={p.name}
-            loading="lazy"
-            decoding="async"
-            style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
-            onError={(e) => {
-              const img = e.target as HTMLImageElement
-              // Try without transform params on first error
-              if (!img.dataset.retried) {
-                img.dataset.retried = '1'
-                img.src = p.image_url
-              } else {
-                img.parentElement!.style.display = 'none'
-              }
-            }}
-          />
-        </div>
-      )}
-
-      <div style={{ padding: '20px 22px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Top row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
-          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, color: '#1a3a2a', lineHeight: 1.2 }}
-            dangerouslySetInnerHTML={{ __html: q ? highlight(p.name, q) : p.name }}
-          />
-          <span style={{
-            fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', color: '#5a7060',
-            background: '#ede6d6', borderRadius: 6, padding: '4px 9px',
-            whiteSpace: 'nowrap', flexShrink: 0, textTransform: 'uppercase',
-            maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis',
-          }} title={p.packaging}>{p.packaging}</span>
-        </div>
-
-        {/* Composition */}
-        {p.salt && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 10 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5a7060" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
-              <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
-            </svg>
-            <span style={{ fontSize: 12, color: '#5a7060', lineHeight: 1.5 }}
-              dangerouslySetInnerHTML={{ __html: q ? highlight(p.salt, q) : p.salt }}
-            />
-          </div>
-        )}
-
-        {/* Short desc */}
-        {shortDesc && (
-          <p style={{ fontSize: 13, color: '#5a7060', lineHeight: 1.65, marginBottom: 14, flex: 1 }}
-            dangerouslySetInnerHTML={{ __html: q ? highlight(shortDesc, q) : shortDesc }}
-          />
-        )}
-
-        {/* Footer row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid #ede6d6', gap: 6 }}>
-          <button
-            onClick={() => setOpen(o => !o)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', color: '#5a7060',
-              fontSize: 13, fontFamily: "'DM Sans', sans-serif", fontWeight: 500,
-              padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4,
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              {open ? <path d="M18 15l-6-6-6 6" /> : <path d="M6 9l6 6 6-6" />}
-            </svg>
-            {open ? (lang === 'hi' ? 'कम' : 'Less') : (lang === 'hi' ? 'जानकारी' : 'Details')}
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-            {/* Video link */}
-            {(p.film_key || p.video_url) && (
-              <a
-                href={p.film_key ? `/videos?film=${encodeURIComponent(p.film_key)}` : p.video_url}
-                target={p.film_key ? undefined : '_blank'}
-                rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                style={{
-                  fontSize: 11, color: '#fff', fontWeight: 600, textDecoration: 'none',
-                  padding: '3px 8px', borderRadius: 4, background: '#e00000',
-                  display: 'flex', alignItems: 'center', gap: 4,
-                }}
-              >
-                ▶ {lang === 'hi' ? 'वीडियो' : 'Video'}
-              </a>
-            )}
-
-            {/* Link to full product page */}
-            <Link href={`/products/${p.id}`} style={{
-              fontSize: 11, color: '#c8a96e', fontWeight: 600, textDecoration: 'none',
-              padding: '3px 8px', borderRadius: 4, border: '1px solid rgba(200,169,110,0.3)',
-            }}>
-              {lang === 'hi' ? 'पूरा देखें →' : 'View →'}
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Expanded panel */}
-      {open && (
-        <div style={{ borderTop: '1px solid #ede6d6', background: '#f5f0e8', padding: '16px 22px 20px' }}>
-          {p.description && (
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
-                {lang === 'hi' ? 'विवरण' : 'Description'}
-              </div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{(lang === 'hi' && p.description_hi) ? p.description_hi : p.description}</div>
-            </div>
-          )}
-          {p.salt && (
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
-                {lang === 'hi' ? 'संरचना' : 'Composition'}
-              </div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <span>{p.salt}</span>
-                <button onClick={copyComposition} style={{
-                  padding: '2px 8px', fontSize: 11, fontWeight: 600, borderRadius: 4,
-                  border: '1px solid #d4c9b0', background: '#fff', cursor: 'pointer',
-                  color: '#5a7060', flexShrink: 0, fontFamily: "'DM Sans', sans-serif",
-                }}>{lang === 'hi' ? 'कॉपी' : 'Copy'}</button>
-              </div>
-            </div>
-          )}
-          {p.benefits && p.benefits !== 'N/A' && (
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
-                {lang === 'hi' ? 'मुख्य फायदे' : 'Key Benefits'}
-              </div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{(lang === 'hi' && p.usp_benefits_hi) ? p.usp_benefits_hi : p.benefits}</div>
-            </div>
-          )}
-          {displayInd && (
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
-                {lang === 'hi' ? 'किसके लिए' : 'Used For'}
-              </div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>{displayInd}</div>
-            </div>
-          )}
-          {speciesArr.length > 0 && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 3 }}>
-                {lang === 'hi' ? 'जानवर' : 'Species'}
-              </div>
-              <div style={{ fontSize: 13, color: '#1c2b22', lineHeight: 1.6 }}>
-                {lang === 'hi'
-                  ? speciesArr.map(s => `${HI_SP[s] || s} (${s})`).join(', ')
-                  : speciesArr.join(', ')
-                }
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── PILL BUTTON ───────────────────────────────────────────────────────────────
-
-export function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: '6px 14px', borderRadius: 20,
-      border: `1px solid ${active ? '#c8a96e' : 'rgba(200,169,110,0.25)'}`,
-      background: active ? '#c8a96e' : 'transparent',
-      color: active ? '#1a3a2a' : 'rgba(245,240,232,0.6)',
-      fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: active ? 600 : 500,
-      cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.18s',
-    }}>{label}</button>
-  )
-}
-
-// ── LANGUAGE TOGGLE ───────────────────────────────────────────────────────────
-
-export function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center',
-      background: 'rgba(255,255,255,0.07)', borderRadius: 8,
-      border: '1px solid rgba(200,169,110,0.25)', padding: 3, gap: 2, flexShrink: 0,
-    }}>
-      {(['en', 'hi'] as Lang[]).map(l => (
-        <button key={l} onClick={() => setLang(l)} style={{
-          padding: '5px 13px', borderRadius: 6, border: 'none', cursor: 'pointer',
-          fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600,
-          transition: 'all 0.15s',
-          background: lang === l ? '#c8a96e' : 'transparent',
-          color: lang === l ? '#1a3a2a' : 'rgba(245,240,232,0.5)',
-        }}>
-          {l === 'en' ? 'EN' : 'हिंदी'}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// ── MAIN CLIENT COMPONENT ─────────────────────────────────────────────────────
-
-export default function ProductsClient({ products }: { products: Product[] }) {
-  const [lang, setLang]             = useState<Lang>('en')
-  const [searchText, setSearchText] = useState('')
-  const [activeCat, setActiveCat]   = useState('all')
-  const [activeSp, setActiveSp]     = useState('all')
-  const [activeForm, setActiveForm] = useState('all')
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-
-  // Reset to first page whenever the result set changes
+  // ?q= and ?cat= deep links (the chatbot and the home page use them)
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE)
-  }, [searchText, activeCat, activeSp, activeForm])
-
-  const { cats, species, forms } = useMemo(() => {
-    const usedCats = [...new Set(products.map(p => p.category))].filter(Boolean)
-    const cats     = [...CAT_ORDER.filter(c => usedCats.includes(c)), ...usedCats.filter(c => !CAT_ORDER.includes(c))]
-    const allSp    = new Set<string>()
-    products.forEach(p => p.species.split(/[,/]/).map(s => s.trim()).filter(Boolean).forEach(s => allSp.add(s)))
-    const species  = [...SP_ORDER.filter(s => allSp.has(s)), ...[...allSp].filter(s => !SP_ORDER.includes(s))]
-    const usedForms = [...new Set(products.map(p => p.formulation))].filter(Boolean)
-    const forms    = [...FORM_ORDER.filter(f => usedForms.includes(f)), ...usedForms.filter(f => !FORM_ORDER.includes(f))]
-    return { cats, species, forms }
-  }, [products])
-
-  const filtered = useMemo(() => {
-    const q = searchText.toLowerCase().trim()
-    let base = products
-    // All filters apply regardless of whether search is active
-    if (activeCat  !== 'all') base = base.filter(p => p.category === activeCat)
-    if (activeSp   !== 'all') base = base.filter(p => p.species.toLowerCase().includes(activeSp.toLowerCase()))
-    if (activeForm !== 'all') base = base.filter(p => p.formulation === activeForm)
-    if (q) {
-      return base.map(p => ({ p, score: scoreProduct(p, q) }))
-        .filter(({ score }) => score > 0)
-        .sort((a, b) => b.score - a.score)
-        .map(({ p }) => p)
-    }
-    return base
-  }, [products, searchText, activeCat, activeSp, activeForm])
-
-  const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchText(e.target.value)
-    // Removed: do NOT reset activeCat when typing — category filter should persist during search
+    const u = new URLSearchParams(window.location.search)
+    if (u.get('q')) setQ(u.get('q')!)
+    if (u.get('cat')) setCat(u.get('cat')!)
   }, [])
 
-  const grouped = useMemo(() => {
-    if (searchText.trim()) return null
-    // Only build groups from the visible slice — no point computing groups for
-    // products that aren't rendered yet.
-    const source = filtered.slice(0, visibleCount)
-    const g: Record<string, Product[]> = {}
-    source.forEach(p => { if (!g[p.category]) g[p.category] = []; g[p.category].push(p) })
-    const ordered = [...CAT_ORDER.filter(c => g[c]), ...Object.keys(g).filter(c => !CAT_ORDER.includes(c))]
-    return ordered.map(cat => ({ cat, prods: g[cat] }))
-  }, [filtered, searchText, visibleCount])
+  const cats = useMemo(() => {
+    const present = new Set(products.map(p => p.category).filter(Boolean))
+    return [...CAT_ORDER.filter(c => present.has(c)), ...[...present].filter(c => !CAT_ORDER.includes(c)).sort()]
+  }, [products])
+  const allSp = useMemo(() => {
+    const order = ['Cattle', 'Buffalo', 'Sheep', 'Goat', 'Horse', 'Dog', 'Cat', 'Poultry', 'Calf', 'Camel', 'Pig']
+    const present = new Set(products.flatMap(p => speciesList(p.species)))
+    return order.filter(s => present.has(s))
+  }, [products])
+  const allForms = useMemo(() => FORMS.filter(f => products.some(p => formOf(p) === f)), [products])
 
-  const q = searchText.toLowerCase().trim()
-  const hasMore = filtered.length > visibleCount
-  const loadMore = useCallback(() => setVisibleCount(n => n + PAGE_SIZE), [])
+  const shown = useMemo(() => {
+    let list = products.filter(p =>
+      (!cat || p.category === cat) && (!sp || speciesList(p.species).includes(sp)) && (!form || formOf(p) === form))
+    if (q.trim()) list = list.map(p => ({ p, s: score(p, q) })).filter(x => x.s > 0).sort((a, b) => b.s - a.s).map(x => x.p)
+    return list
+  }, [products, q, cat, sp, form])
+
+  const grouped = !q.trim() && !cat
+  const groups = useMemo(() => {
+    if (!grouped) return [{ cat: '', items: shown }]
+    return cats.map(c => ({ cat: c, items: shown.filter(p => p.category === c) })).filter(g => g.items.length)
+  }, [grouped, shown, cats])
+  const filtersOn = !!(q || cat || sp || form)
 
   return (
     <>
-      <style>{`
-        /* Fonts loaded in layout.tsx */
-        *, *::before, *::after { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; overflow-x: hidden; max-width: 100%; }
-        :root {
-          --forest: #1a3a2a; --forest-mid: #264d39; --cream: #f5f0e8;
-          --cream-dark: #ede6d6; --gold: #c8a96e; --gold-light: #e8d5a8;
-        }
-        .products-page { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height: 100vh; color: #1c2b22; width: 100%; overflow-x: hidden; }
-        .filter-scroll { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-        @media (max-width: 900px) {
-          .header-inner { padding: 32px 20px 28px !important; flex-direction: column !important; align-items: flex-start !important; }
-          .header-stats { align-self: stretch; justify-content: flex-start !important; flex-wrap: wrap; gap: 20px !important; }
-          .controls-inner { padding: 12px 16px !important; flex-wrap: wrap !important; }
-          .main-content { padding: 24px 16px 60px !important; }
-          .product-grid { grid-template-columns: 1fr 1fr !important; }
-        }
-        @media (max-width: 640px) {
-          .top-nav { padding: 0 14px !important; height: 48px !important; }
-          .top-nav > a:first-child { font-size: 0 !important; gap: 0 !important; }
-          .header-inner { padding: 16px 14px 14px !important; }
-          .header-subtitle { display: none; }
-          .header-stats { gap: 16px !important; }
-          .stat-number { font-size: 22px !important; }
-          .header-title { font-size: 20px !important; }
-          .controls-inner { flex-direction: column !important; align-items: stretch !important; padding: 8px 12px !important; gap: 6px !important; width: 100% !important; }
-          .search-wrap { width: 100% !important; min-width: unset !important; flex: unset !important; }
-          .filter-scroll { flex-wrap: nowrap !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 6px !important; width: 100%; padding-bottom: 2px; }
-          .filter-scroll::-webkit-scrollbar { display: none; }
-          .filter-label { display: none !important; }
-          .main-content { padding: 12px 10px 60px !important; }
-          .product-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
-          .nav-link-item { padding: 4px 8px !important; font-size: 11px !important; }
-          .training-btn { margin-left: 4px !important; padding: 5px 10px !important; font-size: 11px !important; }
-          .results-count { display: none !important; }
-        }
-      `}</style>
+      <style>{CSS}</style>
+      <div className="pl">
+        <SiteNav active="products" hi={hi} />
 
-      <div className="products-page">
-
-        {/* ── TOP NAV ── */}
-        <SiteNav active="products" hi={lang === 'hi'} />
-
-        {/* ── HEADER ── */}
-        <header style={{ background: 'var(--forest)', padding: 0, position: 'relative', overflow: 'hidden' }}>
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'radial-gradient(ellipse 80% 60% at 70% 50%, rgba(200,169,110,0.12) 0%, transparent 70%), radial-gradient(ellipse 40% 80% at 10% 20%, rgba(61,122,87,0.3) 0%, transparent 60%)',
-          }} />
-          <div className="header-inner" style={{
-            position: 'relative', zIndex: 1, maxWidth: 1400, margin: '0 auto',
-            padding: '56px 48px 48px', display: 'flex', alignItems: 'flex-end',
-            justifyContent: 'space-between', gap: 32,
-          }}>
+        <header className="pl-hero">
+          <div className="pl-hero-in">
             <div>
-              <div style={{
-                fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600,
-                letterSpacing: 3, textTransform: 'uppercase', color: 'var(--gold)',
-                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
-              }}>
-                <span style={{ width: 28, height: 1, background: 'var(--gold)', display: 'inline-block' }} />
-                Madvet Animal Healthcare
-              </div>
-              <h1 className="header-title" style={{
-                fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(42px, 5vw, 68px)',
-                lineHeight: 1.05, color: 'var(--cream)', letterSpacing: -1, margin: 0,
-              }}>
-                {lang === 'hi' ? 'हमारे' : 'Our'}<br />
-                <em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>
-                  {lang === 'hi' ? 'उत्पाद' : 'Products'}
-                </em>
-              </h1>
-              <p className="header-subtitle" style={{ marginTop: 16, fontSize: 15, color: 'rgba(245,240,232,0.55)', fontWeight: 300, letterSpacing: '0.3px', maxWidth: 420, lineHeight: 1.7 }}>
-                {lang === 'hi'
-                  ? 'Madvet की पूरी दवाओं की सूची — एंटीबायोटिक, विटामिन, कीड़े मारने की दवा और बहुत कुछ।'
-                  : 'Complete range of Madvet veterinary medicines — antibiotics, supplements, dewormers and more.'
-                }
-              </p>
-              <div style={{ marginTop: 20 }}><FolderButtons hi={lang === 'hi'} /></div>
+              <div className="pl-eyebrow">{hi ? 'मैडवेट एनिमल हेल्थकेयर' : 'Madvet Animal Healthcare'}</div>
+              <h1>{hi ? <>हमारे <em>उत्पाद</em></> : <>The <em>range</em></>}</h1>
+              <p>{hi ? 'हर उत्पाद की संरचना, उपयोग, पैक और छोटी फ़िल्म — एक जगह।' : 'Composition, uses, packs and a short film for every product — send any of them to a customer in one tap.'}</p>
+              <div className="pl-hero-cta"><FolderButtons hi={hi} /></div>
             </div>
-            <div className="header-stats" style={{ display: 'flex', gap: 40, flexShrink: 0 }}>
-              <div style={{ textAlign: 'right' }}>
-                <div className="stat-number" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 38, color: 'var(--gold-light)', lineHeight: 1 }}>{products.length}</div>
-                <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.45)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 4 }}>
-                  {lang === 'hi' ? 'उत्पाद' : 'Products'}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="stat-number" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 38, color: 'var(--gold-light)', lineHeight: 1 }}>{cats.length}</div>
-                <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.45)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 4 }}>
-                  {lang === 'hi' ? 'श्रेणियाँ' : 'Categories'}
-                </div>
-              </div>
+            <div className="pl-stats">
+              <div><b>{products.length}</b><span>{hi ? 'उत्पाद' : 'Products'}</span></div>
+              <div><b>{cats.length}</b><span>{hi ? 'श्रेणियाँ' : 'Categories'}</span></div>
+              <div><b>{products.filter(p => p.film_key).length}</b><span>{hi ? 'फ़िल्म के साथ' : 'With a film'}</span></div>
             </div>
           </div>
         </header>
 
-        {/* ── STICKY CONTROLS ── */}
-        <div style={{
-          background: 'var(--forest-mid)', borderBottom: '1px solid rgba(200,169,110,0.2)',
-          position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 20px rgba(0,0,0,0.15)',
-        }}>
-          <div className="controls-inner" style={{
-            maxWidth: 1400, margin: '0 auto', padding: '16px 48px',
-            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
-          }}>
-
-            {/* ── LANGUAGE TOGGLE ── */}
-            <LangToggle lang={lang} setLang={setLang} />
-
-            {/* Search */}
-            <div className="search-wrap" style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-              <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', opacity: 0.7, pointerEvents: 'none' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                placeholder={lang === 'hi' ? 'उत्पाद, संरचना, बीमारी, जानवर खोजें…' : 'Search products, composition, indications, species…'}
-                value={searchText}
-                onChange={handleSearch}
-                autoComplete="off"
-                style={{
-                  width: '100%', padding: '10px 16px 10px 42px',
-                  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(200,169,110,0.25)',
-                  borderRadius: 8, color: 'var(--cream)', fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 14, outline: 'none',
-                }}
-              />
+        <div className="pl-bar">
+          <div className="pl-bar-in">
+            <div className="pl-row">
+              <div className="pl-search">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <input value={q} onChange={e => setQ(e.target.value)} placeholder={hi ? 'उत्पाद, दवा, बीमारी या जानवर खोजें — जैसे थनैला, बुखार…' : 'Search a product, molecule, disease or animal — e.g. mastitis, fever, Butacin…'} aria-label="Search products" />
+                {q && <button className="pl-x" onClick={() => setQ('')} aria-label="Clear search">×</button>}
+              </div>
+              <select value={sp} onChange={e => setSp(e.target.value)} aria-label="Animal">
+                <option value="">{hi ? 'सभी जानवर' : 'All animals'}</option>
+                {allSp.map(s => <option key={s} value={s}>{SP_ICON[s]} {hi ? HI_SP[s] || s : s}</option>)}
+              </select>
+              <select value={form} onChange={e => setForm(e.target.value)} aria-label="Form">
+                <option value="">{hi ? 'सभी रूप' : 'All forms'}</option>
+                {allForms.map(f => <option key={f} value={f}>{hi ? HI_FORM[f] || f : f}</option>)}
+              </select>
+              <div className="pl-lang">
+                {(['en', 'hi'] as Lang[]).map(l => <button key={l} className={lang === l ? 'on' : ''} onClick={() => setLang(l)}>{l === 'en' ? 'EN' : 'हिं'}</button>)}
+              </div>
             </div>
-
-            {/* Category filter */}
-            <div className="filter-scroll">
-              <span className="filter-label" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(200,169,110,0.6)', whiteSpace: 'nowrap' }}>
-                {lang === 'hi' ? 'श्रेणी' : 'Category'}
-              </span>
-              <Pill label={lang === 'hi' ? 'सब' : 'All'} active={activeCat === 'all'} onClick={() => setActiveCat('all')} />
+            <div className="pl-cats">
+              <button className={!cat ? 'on' : ''} onClick={() => setCat('')}>{hi ? 'सभी' : 'All'}</button>
               {cats.map(c => (
-                <Pill
-                  key={c}
-                  label={lang === 'hi' ? (HI_CATS[c] || c) : c.replace(' / Analgesic', '').replace(' / Antiparasitic', '')}
-                  active={activeCat === c}
-                  onClick={() => setActiveCat(c)}
-                />
+                <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(cat === c ? '' : c)} style={{ '--c': getColor(c) } as React.CSSProperties}>
+                  <i />{hi ? HI_CATS[c] || c : c}
+                </button>
               ))}
-            </div>
-
-            {/* Species filter */}
-            <div className="filter-scroll">
-              <Pill label={lang === 'hi' ? 'सभी जानवर' : 'All Species'} active={activeSp === 'all'} onClick={() => setActiveSp('all')} />
-              {species.map(s => (
-                <Pill
-                  key={s}
-                  label={lang === 'hi' ? (HI_SP[s] || s) : s}
-                  active={activeSp === s}
-                  onClick={() => setActiveSp(s)}
-                />
-              ))}
-            </div>
-
-            {/* Formulation filter */}
-            <div className="filter-scroll">
-              <span className="filter-label" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(200,169,110,0.6)', whiteSpace: 'nowrap' }}>
-                {lang === 'hi' ? 'रूप' : 'Form'}
-              </span>
-              <Pill label={lang === 'hi' ? 'सब' : 'All'} active={activeForm === 'all'} onClick={() => setActiveForm('all')} />
-              {forms.map(f => (
-                <Pill
-                  key={f}
-                  label={lang === 'hi' ? (HI_FORM[f] || f) : f}
-                  active={activeForm === f}
-                  onClick={() => setActiveForm(f)}
-                />
-              ))}
-            </div>
-
-            {/* Count */}
-            <div className="results-count" style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(245,240,232,0.4)', whiteSpace: 'nowrap' }}>
-              <span style={{ color: 'var(--gold-light)', fontWeight: 600 }}>{filtered.length}</span> {lang === 'hi' ? 'उत्पाद' : 'products'}
             </div>
           </div>
         </div>
 
-        {/* ── MAIN CONTENT ── */}
-        <main className="main-content" style={{ maxWidth: 1400, margin: '0 auto', padding: '48px 48px 80px' }}>
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '80px 20px', color: '#5a7060' }}>
-              <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>🔍</div>
-              <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: '#1a3a2a', marginBottom: 8 }}>
-                {lang === 'hi' ? 'कोई उत्पाद नहीं मिला' : 'No products found'}
-              </h3>
-              <p style={{ fontSize: 14 }}>{lang === 'hi' ? 'दूसरे शब्द या फ़िल्टर से खोजें।' : 'Try a different search or filter.'}</p>
+        <main className="pl-main">
+          <div className="pl-count">
+            {shown.length} {hi ? 'उत्पाद' : shown.length === 1 ? 'product' : 'products'}
+            {filtersOn && <button onClick={() => { setQ(''); setCat(''); setSp(''); setForm('') }}>{hi ? 'फ़िल्टर हटाएँ' : 'Clear filters'}</button>}
+          </div>
+          {shown.length === 0 && (
+            <div className="pl-empty">
+              <p>{hi ? 'कोई उत्पाद नहीं मिला।' : 'No product matches that.'}</p>
+              <Link href={`/ask`} className="pl-btn">{hi ? 'AI से पूछें →' : 'Ask our assistant →'}</Link>
             </div>
-          ) : q ? (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #d4c9b0' }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#c8a96e', flexShrink: 0 }} />
-                <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>
-                  {lang === 'hi' ? 'खोज परिणाम' : 'Search Results'}
-                </h2>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>
-                  {filtered.length} {lang === 'hi' ? 'मिले' : `match${filtered.length !== 1 ? 'es' : ''}`}
-                </span>
+          )}
+          {groups.map(g => (
+            <section key={g.cat || 'all'} className="pl-group">
+              {g.cat && <h2 style={{ '--c': getColor(g.cat) } as React.CSSProperties}><i />{hi ? HI_CATS[g.cat] || g.cat : g.cat}<span>{g.items.length}</span></h2>}
+              <div className="pl-grid">
+                {g.items.map((p, i) => <Card key={p.id} p={p} i={i} hi={hi} pack={packs.has(p.id)} scheme={schemes[p.id] || ''} />)}
               </div>
-              <div className="product-grid">
-                {filtered.slice(0, visibleCount).map(p => <ProductCard key={p.id} p={p} q={q} lang={lang} />)}
-              </div>
-              {hasMore && (
-                <div style={{ textAlign: 'center', marginTop: 32 }}>
-                  <button onClick={loadMore} style={{
-                    padding: '12px 32px', background: '#c8a96e', color: '#1a3a2a',
-                    border: 'none', borderRadius: 8, fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  }}>
-                    {lang === 'hi' ? `और दिखाएं (${filtered.length - visibleCount} बाकी)` : `Load more (${filtered.length - visibleCount} remaining)`}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : grouped ? (
-            <>
-              {grouped.map(({ cat, prods }) => (
-                <div key={cat} style={{ marginBottom: 56 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #d4c9b0' }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: getColor(cat), flexShrink: 0 }} />
-                    <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: '#1a3a2a', margin: 0 }}>
-                      {lang === 'hi' ? (HI_CATS[cat] || cat) : cat}
-                      {lang === 'hi' && (
-                        <span style={{ fontSize: 13, fontFamily: "'DM Sans', sans-serif", color: '#5a7060', fontWeight: 400, marginLeft: 10 }}>({cat})</span>
-                      )}
-                    </h2>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#5a7060', background: '#ede6d6', padding: '3px 10px', borderRadius: 12 }}>
-                      {prods.length} {lang === 'hi' ? 'उत्पाद' : `product${prods.length !== 1 ? 's' : ''}`}
-                    </span>
-                  </div>
-                  <div className="product-grid">
-                    {prods.map(p => <ProductCard key={p.id} p={p} q="" lang={lang} />)}
-                  </div>
-                </div>
-              ))}
-              {hasMore && (
-                <div style={{ textAlign: 'center', marginTop: 8, marginBottom: 32 }}>
-                  <button onClick={loadMore} style={{
-                    padding: '12px 32px', background: '#c8a96e', color: '#1a3a2a',
-                    border: 'none', borderRadius: 8, fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  }}>
-                    {lang === 'hi' ? `और दिखाएं (${filtered.length - visibleCount} बाकी)` : `Load more (${filtered.length - visibleCount} remaining)`}
-                  </button>
-                </div>
-              )}
-            </>
-          ) : null}
+            </section>
+          ))}
         </main>
-
-        <footer style={{ background: '#0f2318', padding: '24px 48px', borderTop: '1px solid rgba(200,169,110,0.1)', textAlign: 'center' }}>
-          <p style={{ fontSize: 13, color: 'rgba(245,240,232,0.35)', margin: 0 }}>
-            <strong style={{ color: 'rgba(245,240,232,0.6)' }}>Madvet Animal Healthcare</strong>
-            &nbsp;·&nbsp; {lang === 'hi' ? 'सिर्फ पशु चिकित्सा में उपयोग के लिए' : 'All products for veterinary use only'}
-          </p>
-        </footer>
       </div>
     </>
   )
 }
+
+function Card({ p, i, hi, pack, scheme }: { p: Product; i: number; hi: boolean; pack: boolean; scheme: string }) {
+  const c = getColor(p.category)
+  const img = pack ? `${PACKS}/${p.id}.webp` : p.image_url
+  const sps = speciesList(p.species)
+  const text = productShareText(p, scheme, !!p.film_key)
+  const uses = cleanIndications(p.indication, 3, p.id)
+  return (
+    <article className="pc" style={{ '--c': c, animationDelay: `${Math.min(i, 11) * 45}ms` } as React.CSSProperties}>
+      <Link href={`/products/${p.id}`} className="pc-media" aria-label={p.name}>
+        <span className="pc-form">{hi ? HI_FORM[formOf(p)] || formOf(p) : formOf(p)}</span>
+        {scheme && <span className="pc-offer">🎁 {hi ? 'स्कीम' : 'Scheme'}</span>}
+        {img ? <img src={img} alt={p.name} loading={i < 8 ? 'eager' : 'lazy'} className={pack ? 'cut' : 'photo'} /> : <span className="pc-initial">{p.name.slice(0, 1)}</span>}
+      </Link>
+      <div className="pc-body">
+        <div className="pc-cat">{hi ? HI_CATS[p.category] || p.category : p.category}</div>
+        <h3><Link href={`/products/${p.id}`}>{p.name}</Link></h3>
+        <div className="pc-pack">{packLabel(p)}</div>
+        <p className="pc-use">{uses.length ? uses.join(' · ') : purposeLine(p, 90)}</p>
+        {scheme && <div className="pc-scheme">🎁 {scheme}</div>}
+        <div className="pc-sp">{sps.slice(0, 6).map(s => <span key={s} title={hi ? HI_SP[s] || s : s}>{SP_ICON[s] || '•'}</span>)}</div>
+      </div>
+      <div className="pc-actions">
+        <Link href={`/products/${p.id}`} className="pc-go">{hi ? 'पूरी जानकारी' : 'View details'} <b>→</b></Link>
+        {p.film_key && <Link href={`/videos?film=${encodeURIComponent(p.film_key)}`} className="pc-icon film" aria-label="Watch the film" title={hi ? 'फ़िल्म देखें' : 'Watch the film'}>▶</Link>}
+        <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={text} waUrl={productWaUrl(text)}
+          className="pc-icon wa" loadingLabel={<span className="spin" />} readyLabel={<span className="ready">↗</span>}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-label="Share on WhatsApp"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3.1s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.1.1.3 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l2 .9c.3.2.5.2.5.4.1.1.1.8-.1 1.5Z" /></svg>
+        </ShareVideo>
+      </div>
+    </article>
+  )
+}
+
+const CSS = `
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; overflow-x: clip; }
+:root { --forest:#1a3a2a; --night:#0f2318; --cream:#f5f0e8; --cream-dark:#ede6d6; --gold:#c8a96e; --gold-light:#e8d5a8; --ink:#1c2b22; --muted:#5b6b60; }
+.pl { font-family:'DM Sans','Noto Sans Devanagari',sans-serif; background:var(--cream); color:var(--ink); min-height:100vh; }
+.pl button, .pl select, .pl input { font:inherit; }
+
+.pl-hero { position:relative; overflow:hidden; background:radial-gradient(ellipse at 85% 0%, #2c5a41 0%, var(--forest) 45%, var(--night) 100%); color:var(--cream); }
+.pl-hero-in { max-width:1360px; margin:0 auto; padding:48px 40px 40px; display:flex; justify-content:space-between; align-items:flex-end; gap:32px; flex-wrap:wrap; }
+.pl-eyebrow { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:12px; }
+.pl-hero h1 { margin:0; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:clamp(38px,5vw,62px); line-height:1.05; }
+.pl-hero h1 em { color:var(--gold-light); }
+.pl-hero p { margin:14px 0 0; max-width:560px; color:rgba(245,240,232,.7); font-size:15.5px; line-height:1.65; }
+.pl-hero-cta { margin-top:22px; }
+.pl-stats { display:flex; gap:36px; }
+.pl-stats div { text-align:right; }
+.pl-stats b { display:block; font-family:'DM Serif Display',serif; font-weight:400; font-size:42px; color:var(--gold-light); line-height:1; }
+.pl-stats span { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:rgba(245,240,232,.55); }
+
+.pl-bar { position:sticky; top:0; z-index:40; background:rgba(245,240,232,.92); backdrop-filter:saturate(1.4) blur(12px); -webkit-backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid rgba(26,58,42,.1); }
+.pl-bar-in { max-width:1360px; margin:0 auto; padding:14px 40px 10px; }
+.pl-row { display:flex; gap:10px; align-items:center; }
+.pl-search { flex:1; position:relative; display:flex; align-items:center; gap:10px; padding:0 14px; height:46px; border-radius:14px; background:#fff; border:1px solid rgba(26,58,42,.14); color:var(--muted); transition:border-color .15s, box-shadow .15s; }
+.pl-search:focus-within { border-color:var(--gold); box-shadow:0 0 0 4px rgba(200,169,110,.18); }
+.pl-search input { flex:1; border:0; outline:0; background:none; font-size:15px; color:var(--ink); min-width:0; }
+.pl-x { border:0; background:rgba(26,58,42,.08); width:26px; height:26px; border-radius:50%; cursor:pointer; color:var(--ink); }
+.pl-row select { height:46px; border-radius:14px; border:1px solid rgba(26,58,42,.14); background:#fff; padding:0 12px; font-size:14px; color:var(--ink); cursor:pointer; }
+.pl-lang { display:flex; background:#fff; border:1px solid rgba(26,58,42,.14); border-radius:14px; padding:4px; }
+.pl-lang button { border:0; background:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:700; font-size:13px; color:var(--muted); }
+.pl-lang .on { background:var(--forest); color:var(--cream); }
+.pl-cats { display:flex; gap:8px; overflow-x:auto; padding:12px 0 4px; scrollbar-width:none; }
+.pl-cats::-webkit-scrollbar { display:none; }
+.pl-cats button { flex:none; display:flex; align-items:center; gap:7px; padding:8px 14px; border-radius:999px; border:1px solid rgba(26,58,42,.14); background:#fff; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; transition:all .15s; }
+.pl-cats button i { width:8px; height:8px; border-radius:50%; background:var(--c, var(--gold)); }
+.pl-cats button:hover { border-color:var(--c, var(--gold)); }
+.pl-cats button.on { background:var(--forest); border-color:var(--forest); color:var(--cream); }
+
+.pl-main { max-width:1360px; margin:0 auto; padding:18px 40px 64px; }
+.pl-count { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--muted); margin-bottom:8px; }
+.pl-count button { border:0; background:none; color:#9a7a3e; font-weight:700; cursor:pointer; padding:0; }
+.pl-empty { padding:60px 0; text-align:center; color:var(--muted); }
+.pl-btn { display:inline-block; margin-top:10px; padding:12px 20px; border-radius:12px; background:var(--forest); color:var(--cream); text-decoration:none; font-weight:700; }
+.pl-group { margin-top:26px; }
+.pl-group h2 { display:flex; align-items:center; gap:10px; margin:0 0 14px; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:26px; color:var(--forest); }
+.pl-group h2 i { width:10px; height:10px; border-radius:50%; background:var(--c); box-shadow:0 0 0 5px color-mix(in srgb, var(--c) 18%, transparent); }
+.pl-group h2 span { font-family:'DM Sans',sans-serif; font-size:12px; font-weight:700; color:var(--muted); background:rgba(26,58,42,.07); padding:3px 9px; border-radius:99px; }
+.pl-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:18px; }
+
+.pc { display:flex; flex-direction:column; background:#fff; border-radius:20px; overflow:hidden; border:1px solid rgba(26,58,42,.08); box-shadow:0 1px 2px rgba(26,58,42,.04); transition:transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s; animation:pcRise .55s cubic-bezier(.2,.8,.2,1) both; }
+.pc:hover { transform:translateY(-6px); box-shadow:0 24px 44px -20px rgba(26,58,42,.4); }
+@keyframes pcRise { from { opacity:0; transform:translateY(18px) scale(.985); } to { opacity:1; transform:none; } }
+.pc-media { position:relative; display:flex; align-items:center; justify-content:center; height:240px; padding:44px 16px 14px; background:radial-gradient(circle at 50% 38%, #fff 0%, color-mix(in srgb, var(--c) 10%, #f3efe6) 70%); overflow:hidden; }
+.pc-media img { max-width:100%; max-height:100%; object-fit:contain; transition:transform .45s cubic-bezier(.2,.8,.2,1); }
+.pc-media img.cut { filter:drop-shadow(0 16px 18px rgba(26,58,42,.28)); }
+.pc-media img.photo { max-width:100%; max-height:100%; mix-blend-mode:multiply; }
+.pc:hover .pc-media img { transform:scale(1.06) rotate(-1deg); }
+.pc-initial { font-family:'DM Serif Display',serif; font-size:72px; color:var(--c); }
+.pc-form { position:absolute; top:12px; left:12px; padding:5px 10px; border-radius:99px; background:rgba(255,255,255,.9); font-size:11px; font-weight:700; letter-spacing:.5px; color:var(--ink); border:1px solid rgba(26,58,42,.1); }
+.pc-offer { position:absolute; top:12px; right:12px; padding:5px 10px; border-radius:99px; background:var(--gold); font-size:11px; font-weight:800; color:var(--night); }
+.pc-body { padding:16px 18px 6px; flex:1; display:flex; flex-direction:column; gap:5px; }
+.pc-cat { font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; font-weight:700; color:var(--c); }
+.pc h3 { margin:0; font-family:'DM Serif Display','Noto Sans Devanagari',serif; font-weight:400; font-size:22px; line-height:1.15; }
+.pc h3 a { color:var(--forest); text-decoration:none; }
+.pc-pack { font-size:12.5px; color:var(--muted); font-weight:600; }
+.pc-use { margin:4px 0 0; font-size:13.5px; line-height:1.5; color:#34443a; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.pc-scheme { margin-top:6px; font-size:12px; font-weight:700; color:#7a5a1e; background:#fbf3e2; border:1px dashed rgba(200,169,110,.8); padding:6px 9px; border-radius:10px; }
+.pc-sp { display:flex; gap:4px; margin-top:auto; padding-top:8px; font-size:17px; }
+.pc-actions { display:flex; gap:8px; padding:12px 14px 14px; }
+.pc-go { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:42px; border-radius:12px; background:var(--forest); color:var(--cream); text-decoration:none; font-size:13.5px; font-weight:700; transition:background .15s; }
+.pc-go:hover { background:#24503a; }
+.pc-go b { transition:transform .2s; }
+.pc-go:hover b { transform:translateX(3px); }
+.pc-icon { flex:none; display:flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:12px; text-decoration:none; font-size:14px; transition:transform .15s; }
+.pc-icon:hover { transform:scale(1.07); }
+.pc-icon.film { background:#fdecea; color:#d4302b; }
+.pc-icon.wa { background:#25a244; color:#fff; }
+.pc-icon .spin { width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite; }
+.pc-icon .ready { font-weight:800; }
+@keyframes spin { to { transform:rotate(360deg) } }
+
+@media (max-width:900px) {
+  .pl-hero-in, .pl-bar-in, .pl-main { padding-left:16px; padding-right:16px; }
+  .pl-hero-in { padding-top:32px; padding-bottom:28px; }
+  .pl-stats { gap:22px; } .pl-stats b { font-size:32px; }
+  .pl-row { flex-wrap:wrap; }
+  .pl-search { flex-basis:100%; }
+  .pl-row select { flex:1; min-width:0; }
+}
+@media (max-width:520px) {
+  .pl-grid { grid-template-columns:1fr 1fr; gap:10px; }
+  .pc { border-radius:16px; }
+  .pc-media { height:160px; padding:32px 8px 8px; }
+  .pc-body { padding:10px 11px 4px; }
+  .pc h3 { font-size:17px; }
+  .pc-use, .pc-sp, .pc-scheme { display:none; }
+  .pc-actions { padding:8px 9px 10px; gap:6px; }
+  .pc-go { height:38px; font-size:12px; } .pc-go b { display:none; }
+  .pc-icon { width:38px; height:38px; }
+  .pc-form { top:8px; left:8px; font-size:10px; padding:3px 8px; }
+  .pc-offer { top:8px; right:8px; font-size:10px; padding:3px 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .pc, .pc-media img { animation:none !important; transition:none !important; } }
+`
