@@ -211,7 +211,6 @@ function FooterStrip({ c }) {
             <div style={{ fontWeight: 800, fontSize: 9 }}>I.S.O. 9001:2013 COMPANY</div>
             <div>madvet.animal@gmail.com</div>
             <div>www.madvet.in · support@madvet.in</div>
-            <div style={{ fontWeight: 800, color: "#1a2f8a", fontSize: 10.5, marginTop: 1 }}>📞 9935257750 · 8400347331</div>
           </div>
         </div>
       </div>

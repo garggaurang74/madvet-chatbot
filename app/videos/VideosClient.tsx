@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { shareCaption, whatsappShareUrl } from '@/lib/share'
 import ShareVideo from '@/components/ShareVideo'
@@ -86,12 +86,52 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
   const hi = lang === 'hi'
   const catLabel = (c: string) => hi ? (HI_CATS[c] || HI_EXTRA[c] || c) : c.replace(' / Analgesic', '').replace(' / Antiparasitic', '')
 
-  // A shared link (?film=<key>) opens straight into the player.
+  // The player lives in the address bar, so the phone's back button behaves.
+  // A link from another page (?film=<key> from schemes, a product, the folder,
+  // WhatsApp) opens straight into the player, and closing it goes BACK to that
+  // page — client, 30 Sep: from a scheme to its film and back "came back to
+  // video starting page". A film opened from this page's own grid pushes
+  // ?film=<key>, so back closes the player instead of leaving the site.
+  const [cameFrom, setCameFrom] = useState<'link' | 'grid' | null>(null)
   useEffect(() => {
     const key = new URLSearchParams(window.location.search).get('film')
     const hit = key && videos.find(v => v.key === key)
-    if (hit) setOpen(hit)
+    if (hit) { setOpen(hit); setCameFrom('link') }
+    const sync = () => {
+      const k = new URLSearchParams(window.location.search).get('film')
+      const v = k ? videos.find(x => x.key === k) || null : null
+      setOpen(v)
+      if (!v) setCameFrom(null)
+    }
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
   }, [videos])
+
+  const play = useCallback((v: VideoItem) => {
+    window.history.pushState(window.history.state, '', `/videos?film=${encodeURIComponent(v.key)}`)
+    setOpen(v); setCameFrom('grid')
+  }, [])
+
+  // One close per open: the × sits inside the backdrop, and a close that ran
+  // twice stepped back two pages (schemes → film → × landed on the page
+  // BEFORE schemes).
+  const closing = useRef(false)
+  useEffect(() => { closing.current = false }, [open])
+  const close = useCallback(() => {
+    if (closing.current) return
+    closing.current = true
+    // Grid: pop the entry play() pushed. Link: go back to the page that sent
+    // us, when it was a page of this site (SiteFooter records it); a film
+    // opened cold from WhatsApp has nowhere to go back to, so it stays here.
+    let prev = ''
+    try { prev = sessionStorage.getItem('madvet:prev') || '' } catch {}
+    if (cameFrom === 'grid' || (cameFrom === 'link' && prev && !prev.startsWith('/videos'))) {
+      window.history.back()
+      return
+    }
+    window.history.replaceState(window.history.state, '', '/videos')
+    setOpen(null); setCameFrom(null)
+  }, [cameFrom])
 
   const cats = useMemo(() => {
     const used = [...new Set(videos.map(v => v.category))].filter(Boolean)
@@ -149,7 +189,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
             {featured.length > 0 && (
               <div className="vp-fan" aria-hidden={false}>
                 {featured.map((v, i) => (
-                  <button key={v.key} className={`vp-fan-card f${i} ${v.vertical ? 'tall' : 'wide'}`} onClick={() => setOpen(v)} aria-label={`${hi ? 'चलाएँ' : 'Play'}: ${v.name}`}>
+                  <button key={v.key} className={`vp-fan-card f${i} ${v.vertical ? 'tall' : 'wide'}`} onClick={() => play(v)} aria-label={`${hi ? 'चलाएँ' : 'Play'}: ${v.name}`}>
                     <Thumb v={v} />
                     <span className="vp-fan-name">{v.name}</span>
                     <PlayDot />
@@ -196,7 +236,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
               {[true, false].map(tall => items.some(v => v.vertical === tall) && (
                 <div key={String(tall)} className={`vp-grid${tall ? '' : ' wide'}`}>
                   {items.filter(v => v.vertical === tall).map(v =>
-                    <Card key={v.key} v={v} hi={hi} catLabel={catLabel} onPlay={() => setOpen(v)} />)}
+                    <Card key={v.key} v={v} hi={hi} catLabel={catLabel} onPlay={() => play(v)} />)}
                 </div>
               ))}
             </section>
@@ -212,7 +252,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
           <a className="vp-sub" href={subscribe} target="_blank" rel="noopener">{hi ? 'YouTube पर सब्सक्राइब करें' : 'Subscribe on YouTube'}</a>
         </section>
 
-        {open && <Player v={open} hi={hi} catLabel={catLabel} channelUrl={subscribe} onClose={() => setOpen(null)} />}
+        {open && <Player v={open} hi={hi} catLabel={catLabel} channelUrl={subscribe} onClose={close} />}
       </div>
     </>
   )
@@ -313,7 +353,7 @@ function Player({ v, hi, catLabel, channelUrl, onClose }: {
 
   return (
     <div className="vp-modal" role="dialog" aria-modal="true" aria-label={v.name} onClick={onClose}>
-      <button className="vp-x" onClick={onClose} aria-label={hi ? 'बंद करें' : 'Close'}>×</button>
+      <button className="vp-x" onClick={e => { e.stopPropagation(); onClose() }} aria-label={hi ? 'बंद करें' : 'Close'}>×</button>
       <div className={`vp-modal-in ${v.vertical ? 'tall' : 'wide'}`} onClick={e => e.stopPropagation()}>
         <div className="vp-frame">
           {v.youtubeId ? <iframe src={`https://www.youtube.com/embed/${v.youtubeId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}

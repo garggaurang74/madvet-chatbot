@@ -14,7 +14,7 @@
 import type { MadvetProduct } from './supabase'
 import { getCachedProducts } from './productCache'
 import { fetchFilms, fetchFolder, type SiteFilm, type FolderPage } from './catalog'
-import { fetchSchemes, matchScheme } from './schemes'
+import { fetchSchemes, schemeMatch } from './schemes'
 import { COMPANY } from './company'
 import { SITE } from './share'
 
@@ -113,7 +113,7 @@ export async function getChatKnowledge(): Promise<ChatKnowledge> {
   const knowledge = [
     `## Company`,
     `${COMPANY.name} — based in ${COMPANY.city}, in veterinary healthcare since ${COMPANY.since}. Pet products under the sub-brand ${COMPANY.petBrand}.`,
-    `Call or WhatsApp ${COMPANY.phone} · email ${COMPANY.email} · YouTube ${COMPANY.youtube}`,
+    `Contact: WhatsApp via www.madvet.in/contact · email ${COMPANY.email} · YouTube ${COMPANY.youtube} (never give a phone number)`,
     `Where the products are manufactured is NOT known to you — never state it.`,
     ``,
     `## Website pages (base ${SITE})`,
@@ -135,7 +135,7 @@ export async function getChatKnowledge(): Promise<ChatKnowledge> {
   const forMatch = products.map(x => ({ id: x.id!, name: x.product_name || '', packaging: x.packaging }))
   const schemeOf = new Map<number, string[]>()
   const schemeLines = schemes.map(s => {
-    const p = matchScheme(s.item, forMatch).product
+    const p = schemeMatch(s, forMatch).product
     const line = `Buy ${s.qty} ${s.item} → free ${s.free}`
     if (p) schemeOf.set(p.id, [...(schemeOf.get(p.id) || []), line])
     return `- ${line}${p ? ` (#${p.id})` : ''}`

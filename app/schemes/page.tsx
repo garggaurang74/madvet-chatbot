@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
 import { fetchFilms, fetchProducts } from '@/lib/catalog'
-import { fetchSchemes, matchScheme } from '@/lib/schemes'
+import { fetchSchemes, schemeMatch } from '@/lib/schemes'
 import SchemesClient, { type SchemeGroup } from './SchemesClient'
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ export default async function SchemesPage() {
   const filmOf = new Map<number, string>()
   for (const f of films) for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
 
-  // How a sheet line finds its product lives in lib/schemes.ts (matchScheme),
+  // How a sheet line finds its product lives in lib/schemes.ts (schemeMatch),
   // shared with /schemes/check, where the office can see every line's match.
   // A line whose exact product is not on the site (a pack we do not list —
   // CALCIFORCE 30ML — or a combo) keeps its own card, titled as the sheet
@@ -26,7 +26,7 @@ export default async function SchemesPage() {
   // 29 Sep: the 100 ml carton on the 30 ml line was "unacceptable").
   const groups = new Map<string, SchemeGroup>()
   for (const s of schemes) {
-    const p = matchScheme(s.item, products).product
+    const p = schemeMatch(s, products).product
     const k = p ? `p${p.id}` : `i${squash(s.item)}`
     if (!groups.has(k)) groups.set(k, {
       key: k, name: p?.name || title(s.item), productId: p?.id ?? 0, image: p?.image_url || '',

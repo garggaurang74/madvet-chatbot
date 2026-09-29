@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import SiteNav from '@/components/SiteNav'
 import { COMPANY_CSS } from '@/components/companyCss'
 import { COMPANY } from '@/lib/company'
+import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Careers | Madvet Animal Healthcare',
@@ -14,6 +15,7 @@ export default function CareersPage() {
   return (
     <>
       <style>{COMPANY_CSS}</style>
+      <PageMark photos />
       <div className="cp">
         <SiteNav active="careers" />
         <header className="cp-hero">
@@ -44,7 +46,7 @@ export default function CareersPage() {
             <ul className="cp-list">
               <li><b>Field sales</b>Veterinary sales officers and medical representatives.</li>
               <li><b>Distribution</b>Stockists and distributors for new areas.</li>
-              <li><b>How to apply</b>Email {COMPANY.email} or WhatsApp {COMPANY.phone} with your CV and the area you want to work in.</li>
+              <li><b>How to apply</b>Email {COMPANY.email} or message us on WhatsApp with your CV and the area you want to work in.</li>
             </ul>
           </div>
         </section>

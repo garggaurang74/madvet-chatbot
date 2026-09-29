@@ -117,7 +117,7 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }
 .sc-btn:hover { transform:translateY(-2px); filter:brightness(1.06); }
 .sc-btn.wa { background:#25a244; color:#fff; box-shadow:0 8px 24px rgba(37,162,68,.3); }
 .sc-btn.ghost { border:1px solid rgba(200,169,110,.4); color:var(--gold-light); }
-.sc-bar { position:sticky; top:0; z-index:40; background:rgba(38,77,57,.95); backdrop-filter:blur(10px); padding:12px 40px; display:flex; align-items:center; gap:14px; }
+.sc-bar { position:sticky; top:0; z-index:40; background:#2a5039; padding:12px 40px; display:flex; align-items:center; gap:14px; }
 .sc-bar input { flex:1; max-width:560px; padding:11px 16px; border-radius:9px; border:1px solid rgba(200,169,110,.3); background:rgba(255,255,255,.08); color:var(--cream); font:inherit; font-size:14px; outline:none; }
 .sc-bar input::placeholder { color:rgba(245,240,232,.45); }
 .sc-bar input:focus { border-color:var(--gold); }

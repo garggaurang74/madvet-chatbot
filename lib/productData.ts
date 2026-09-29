@@ -3,14 +3,14 @@
 // same matcher /schemes uses, so all three always agree.
 import { fetchProducts, fetchFolder } from './catalog'
 import type { Product } from '@/app/products/types'
-import { fetchSchemes, matchScheme } from './schemes'
+import { fetchSchemes, schemeMatch } from './schemes'
 import { schemeLine } from './productShare'
 
 export async function schemeMap(products?: Product[]): Promise<Map<number, string>> {
   const [ps, { schemes }] = await Promise.all([products ? Promise.resolve(products) : fetchProducts(), fetchSchemes()])
   const out = new Map<number, string>()
   for (const s of schemes) {
-    const p = matchScheme(s.item, ps).product
+    const p = schemeMatch(s, ps).product
     if (p && !out.has(p.id)) out.set(p.id, schemeLine(s))
   }
   return out

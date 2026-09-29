@@ -5,6 +5,7 @@ import { COMPANY_CSS } from '@/components/companyCss'
 import { COMPANY, TEAM_PHOTOS } from '@/lib/company'
 import PhotoSlideshow from '@/components/PhotoSlideshow'
 import { fetchProducts } from '@/lib/catalog'
+import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'About us | Madvet Animal Healthcare',
@@ -20,6 +21,7 @@ export default async function AboutPage() {
   return (
     <>
       <style>{COMPANY_CSS}</style>
+      <PageMark photos />
       <div className="cp">
         <SiteNav active="about" />
         <header className="cp-hero">

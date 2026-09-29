@@ -6,7 +6,7 @@
 // film), and how do I get it (order on WhatsApp, this month's scheme). Every
 // piece of text comes from lib/productCopy so it matches the list, the card
 // and the share message.
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { Product } from '../types'
 import SiteNav from '@/components/SiteNav'
@@ -36,6 +36,22 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
 }) {
   const [lang, setLang] = useState<Lang>('en')
   const [playing, setPlaying] = useState(false)
+  // The film is an entry in the address bar (#film), so a phone's back button
+  // closes the film instead of leaving the product — the same rule as /videos.
+  const pushed = useRef(false)
+  const play = useCallback(() => {
+    window.history.pushState(window.history.state, '', `${location.pathname}${location.search}#film`)
+    pushed.current = true
+    setPlaying(true)
+  }, [])
+  const stop = useCallback(() => {
+    if (pushed.current) { pushed.current = false; window.history.back() } else setPlaying(false)
+  }, [])
+  useEffect(() => {
+    const onPop = () => { if (location.hash !== '#film') { pushed.current = false; setPlaying(false) } }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   const hi = lang === 'hi'
   const c = getColor(p.category)
 
@@ -85,7 +101,7 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                   <div className="pd-sp">{sps.map(s => <span key={s}>{SP_ICON[s]} {hi ? HI_SP[s] || s : s}</span>)}</div>
                 )}
                 <div className="pd-cta">
-                  {hasFilm && <button className="pd-btn film" onClick={() => setPlaying(true)}><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg> {T('Watch the 1-minute film', '1 मिनट की फ़िल्म देखें')}</button>}
+                  {hasFilm && <button className="pd-btn film" onClick={play}><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg> {T('Watch the 1-minute film', '1 मिनट की फ़िल्म देखें')}</button>}
                   <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={shareText} waUrl={productWaUrl(shareText)} className="pd-btn wa"
                     loadingLabel={<>{T('Preparing…', 'तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
                     {T('Send to a customer on WhatsApp', 'WhatsApp पर ग्राहक को भेजें')}
@@ -95,7 +111,6 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                 <div className="pd-links">
                   {folderPage > 0 && <Link href={`/folder?p=${folderPage}`}>📖 {T('Product folder', 'प्रोडक्ट फ़ोल्डर')} · {T('page', 'पेज')} {folderPage}</Link>}
                   {film && <a href={film.download} download>⬇ {T('Download film', 'फ़िल्म डाउनलोड')} · {film.downloadMB} MB</a>}
-                  <a href={`tel:+${COMPANY.phoneRaw}`}>📞 {COMPANY.phone}</a>
                 </div>
               </div>
             </div>
@@ -168,9 +183,9 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
         </main>
 
         {playing && (
-          <div className="pd-modal" onClick={() => setPlaying(false)} role="dialog" aria-label={`${p.name} film`}>
+          <div className="pd-modal" onClick={stop} role="dialog" aria-label={`${p.name} film`}>
             <div className={`pd-player ${film?.vertical !== false ? 'tall' : ''}`} onClick={e => e.stopPropagation()}>
-              <button className="pd-close" onClick={() => setPlaying(false)} aria-label="Close">×</button>
+              <button className="pd-close" onClick={e => { e.stopPropagation(); stop() }} aria-label="Close">×</button>
               {ytId
                 ? <iframe src={`https://www.youtube.com/embed/${ytId}?rel=0&playsinline=1&autoplay=1`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
                 : film && <video src={film.mp4} poster={film.poster} controls autoPlay playsInline />}

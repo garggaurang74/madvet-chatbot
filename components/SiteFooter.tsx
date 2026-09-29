@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { COMPANY, TEAM_PHOTOS } from '@/lib/company'
 
@@ -9,14 +10,35 @@ import { COMPANY, TEAM_PHOTOS } from '@/lib/company'
 // and /admin is internal, so neither carries it.
 export default function SiteFooter() {
   const path = usePathname() || '/'
-  if (path.startsWith('/ask') || path.startsWith('/admin')) return null
+  const first = useRef(true)
+  // The site path the visitor was on before this one, so /videos can send the
+  // film player's close button back to the page that linked to it.
+  useEffect(() => {
+    try {
+      const last = sessionStorage.getItem('madvet:cur')
+      // A full page load from outside the site (WhatsApp, Google) has no
+      // site page behind it, whatever this tab visited earlier.
+      const fromOutside = !first.current ? false : !document.referrer.startsWith(location.origin)
+      first.current = false
+      if (fromOutside) sessionStorage.removeItem('madvet:prev')
+      else if (last && last !== path) sessionStorage.setItem('madvet:prev', last)
+      sessionStorage.setItem('madvet:cur', path)
+    } catch {}
+  }, [path])
   const year = new Date().getFullYear()
-  // Pages that already carry the team's photos in their own layout.
-  const hasPhotos = ['/', '/about', '/contact', '/careers'].includes(path) || path.startsWith('/schemes/check')
+  // ONE element, always, identical on server and phone — no decision in here
+  // may depend on the address. It used to hide the photo strip by pathname,
+  // and on Vercel the home page's one-minute rebuild renders as "/index", so
+  // the server sent a strip the phone then refused to own: an orphaned copy
+  // stayed, and the next page added a second (client, 30 Sep: "twice on the
+  // webpage", and an unstyled copy on /ask). Pages opt out with a marker
+  // instead, and CSS below does the hiding:
+  //   <PageMark photos />  — the page carries the team's photos itself
+  //   <PageMark noFooter /> — full-screen apps (/ask, /admin)
   return (
-    <>
+    <div className="sf-root">
       <style>{CSS}</style>
-      {!hasPhotos && (
+      {(
         <section className="sf-people" aria-label="The Madvet team">
           <div className="sf-people-head">
             <span>Our people · meets, visits and the trade</span>
@@ -55,7 +77,6 @@ export default function SiteFooter() {
             </div>
             <div>
               <h4>Reach us</h4>
-              <a href={`tel:+${COMPANY.phoneRaw}`}>{COMPANY.phone}</a>
               <a href={`https://wa.me/${COMPANY.phoneRaw}`}>WhatsApp</a>
               <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
               <a href={COMPANY.youtube} target="_blank" rel="noopener">YouTube</a>
@@ -64,11 +85,12 @@ export default function SiteFooter() {
         </div>
         <div className="sf-base">© {year} {COMPANY.name}. For veterinarians, retailers and stockists — use every product on veterinary advice.</div>
       </footer>
-    </>
+    </div>
   )
 }
 
 const CSS = `
+body:has([data-page-photos]) .sf-people, body:has([data-no-footer]) .sf-root { display:none; }
 .sf-people { background:#13291d; padding:26px 0 30px; font-family:'DM Sans','Noto Sans Devanagari',sans-serif; border-top:1px solid rgba(200,169,110,.18); }
 .sf-people-head { max-width:1320px; margin:0 auto 14px; padding:0 48px; display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
 .sf-people-head span { font-size:11px; letter-spacing:2.5px; text-transform:uppercase; font-weight:700; color:#c8a96e; }
@@ -93,3 +115,8 @@ const CSS = `
 .sf-base { max-width:1320px; margin:0 auto; padding:18px 48px 28px; border-top:1px solid rgba(245,240,232,.08); font-size:12px; color:rgba(245,240,232,.45); }
 @media (max-width:700px) { .sf-in { padding:36px 20px 24px; } .sf-cols { gap:32px; } .sf-base { padding:16px 20px 24px; } }
 `
+
+/** A page's opt-out from parts of the footer; see the note in SiteFooter. */
+export function PageMark({ photos, noFooter }: { photos?: boolean; noFooter?: boolean }) {
+  return <span hidden {...(photos ? { 'data-page-photos': '' } : {})} {...(noFooter ? { 'data-no-footer': '' } : {})} />
+}

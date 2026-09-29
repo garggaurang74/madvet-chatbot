@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import ChatWindow from '@/components/ChatWindow'
+import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Ask AI | Madvet Animal Healthcare',
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 }
 
 export default function AskPage() {
-  return <ChatWindow />
+  return <><ChatWindow /><PageMark noFooter /></>
 }

@@ -5,6 +5,7 @@ import { COMPANY_CSS } from '@/components/companyCss'
 import { COMPANY, TESTIMONIALS } from '@/lib/company'
 import { fetchFilms, fetchProducts, filmFiles } from '@/lib/catalog'
 import { fetchSchemes } from '@/lib/schemes'
+import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Madvet Animal Healthcare — veterinary medicines, Ghaziabad',
@@ -29,6 +30,7 @@ export default async function HomePage() {
   return (
     <>
       <style>{COMPANY_CSS}</style>
+      <PageMark photos />
       <div className="cp">
         <SiteNav active="home" />
 
@@ -141,7 +143,7 @@ export default async function HomePage() {
             <div className="cp-band">
               <div>
                 <h3>Stock Madvet, or become a distributor</h3>
-                <p>Call or WhatsApp {COMPANY.phone} — or write to {COMPANY.email}.</p>
+                <p>Message us on WhatsApp, or write to {COMPANY.email}.</p>
               </div>
               <div className="cp-cta" style={{ marginTop: 0 }}>
                 <a href={`https://wa.me/${COMPANY.phoneRaw}`} className="cp-btn gold">WhatsApp us</a>

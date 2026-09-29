@@ -12,6 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* The tab icon, in <head> itself: Next streams page metadata into
+            <body> on some routes (/about), where a browser may not look. */}
+        <link rel="icon" href="/icon.png" type="image/png" sizes="512x512" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" sizes="180x180" />
         {/* Preconnect for critical resources */}
         <link rel="dns-prefetch" href="https://pzijwpqaadhdfcjjtobf.supabase.co" />
         <link rel="preconnect" href="https://pzijwpqaadhdfcjjtobf.supabase.co" />

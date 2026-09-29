@@ -4,6 +4,7 @@ import { COMPANY_CSS } from '@/components/companyCss'
 import { COMPANY, TEAM_PHOTOS } from '@/lib/company'
 import Link from 'next/link'
 import PhotoSlideshow from '@/components/PhotoSlideshow'
+import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Contact | Madvet Animal Healthcare',
@@ -21,6 +22,7 @@ export default function ContactPage() {
   return (
     <>
       <style>{COMPANY_CSS + CSS}</style>
+      <PageMark photos />
       <div className="cp">
         <SiteNav active="contact" />
         <header className="cp-hero slim">
@@ -36,9 +38,8 @@ export default function ContactPage() {
         <section className="cp-sec">
           <div className="cp-wrap">
             <div className="cp-contact">
-              <div><div className="k">Call or WhatsApp</div><div className="v">{COMPANY.phone}</div>
+              <div><div className="k">WhatsApp</div><div className="v">Message us</div>
                 <div className="cp-cta" style={{ marginTop: 16 }}>
-                  <a href={`tel:+${COMPANY.phoneRaw}`} className="cp-btn dark">📞 Call</a>
                   <a href={`https://wa.me/${COMPANY.phoneRaw}?text=${encodeURIComponent(ENQUIRY)}`} className="cp-btn wa">WhatsApp</a>
                 </div>
               </div>
