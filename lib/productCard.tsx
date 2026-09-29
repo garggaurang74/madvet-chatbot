@@ -18,16 +18,23 @@ export const CARD_SIZE: Record<CardShape, { width: number; height: number }> = {
 }
 
 // Mukta (Latin + Devanagari), the films' own face, converted to TTF because
-// Satori cannot read woff2. Bundled via import.meta.url so Vercel ships them.
-export async function cardFonts() {
-  const { readFile } = await import('node:fs/promises')
-  const load = (f: string) => readFile(new URL(`./fonts/${f}`, import.meta.url))
-  const [b7, b8, d7] = await Promise.all([load('mukta-700-latin.ttf'), load('mukta-800-latin.ttf'), load('mukta-700-devanagari.ttf')])
-  return [
-    { name: 'Mukta', data: b7, weight: 700 as const, style: 'normal' as const },
-    { name: 'Mukta', data: b8, weight: 800 as const, style: 'normal' as const },
-    { name: 'Mukta', data: d7, weight: 700 as const, style: 'normal' as const },
-  ]
+// Satori cannot read woff2. Served from public/og-fonts and fetched over HTTP:
+// a file read next to the code worked locally but was not packaged on Vercel
+// (the card returned 500 there, 29 Sep). Cached for the life of the instance.
+let FONTS: Promise<{ name: string; data: ArrayBuffer; weight: 700 | 800; style: 'normal' }[]> | null = null
+export function cardFonts() {
+  if (!FONTS) {
+    const base = SITE   // not VERCEL_URL: deployment URLs can sit behind Vercel login
+    const load = (f: string) => fetch(`${base}/og-fonts/${f}`).then(r => { if (!r.ok) throw new Error(`font ${f}: ${r.status}`); return r.arrayBuffer() })
+    FONTS = Promise.all([load('mukta-700-latin.ttf'), load('mukta-800-latin.ttf'), load('mukta-700-devanagari.ttf')])
+      .then(([b7, b8, d7]) => [
+        { name: 'Mukta', data: b7, weight: 700 as const, style: 'normal' as const },
+        { name: 'Mukta', data: b8, weight: 800 as const, style: 'normal' as const },
+        { name: 'Mukta', data: d7, weight: 700 as const, style: 'normal' as const },
+      ])
+      .catch(e => { FONTS = null; throw e })
+  }
+  return FONTS
 }
 
 export function ProductCard({ p, scheme, shape, pack }: { p: CopyProduct & { image_url: string }; scheme: string; shape: CardShape; pack?: string }) {
