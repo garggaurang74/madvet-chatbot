@@ -106,7 +106,7 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                     loadingLabel={<>{T('Preparing…', 'तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
                     {T('Send to a customer on WhatsApp', 'WhatsApp पर ग्राहक को भेजें')}
                   </ShareVideo>
-                  <a className="pd-btn order" href={`https://wa.me/${COMPANY.phoneRaw}?text=${encodeURIComponent(orderText)}`} target="_blank" rel="noopener">{T('Order / enquire', 'ऑर्डर / पूछताछ')}</a>
+                  <a className="pd-btn order" href={`mailto:${COMPANY.email}?subject=${encodeURIComponent(`Order / enquiry — ${p.name}`)}&body=${encodeURIComponent(orderText)}`}>{T('Order / enquire', 'ऑर्डर / पूछताछ')}</a>
                 </div>
                 <div className="pd-links">
                   {folderPage > 0 && <Link href={`/folder?p=${folderPage}`}>📖 {T('Product folder', 'प्रोडक्ट फ़ोल्डर')} · {T('page', 'पेज')} {folderPage}</Link>}

@@ -77,7 +77,6 @@ export default function SiteFooter() {
             </div>
             <div>
               <h4>Reach us</h4>
-              <a href={`https://wa.me/${COMPANY.phoneRaw}`}>WhatsApp</a>
               <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
               <a href={COMPANY.youtube} target="_blank" rel="noopener">YouTube</a>
             </div>

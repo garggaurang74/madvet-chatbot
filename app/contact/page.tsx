@@ -8,7 +8,7 @@ import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Contact | Madvet Animal Healthcare',
-  description: 'Call, WhatsApp or email Madvet Animal Healthcare, Ghaziabad.',
+  description: 'Email Madvet Animal Healthcare, Ghaziabad — orders, distribution, product questions and schemes.',
 }
 
 const ENQUIRY = 'नमस्ते Madvet, मुझे आपके प्रोडक्ट्स के बारे में जानकारी चाहिए।'
@@ -30,7 +30,7 @@ export default function ContactPage() {
             <div>
               <div className="cp-eyebrow">Contact</div>
               <h1>Talk to <em>Madvet</em>.</h1>
-              <p className="lead">For orders, distribution, product questions or schemes — call, WhatsApp or write to us.</p>
+              <p className="lead">For orders, distribution, product questions or schemes — write to us.</p>
             </div>
           </div>
         </header>
@@ -38,11 +38,6 @@ export default function ContactPage() {
         <section className="cp-sec">
           <div className="cp-wrap">
             <div className="cp-contact">
-              <div><div className="k">WhatsApp</div><div className="v">Message us</div>
-                <div className="cp-cta" style={{ marginTop: 16 }}>
-                  <a href={`https://wa.me/${COMPANY.phoneRaw}?text=${encodeURIComponent(ENQUIRY)}`} className="cp-btn wa">WhatsApp</a>
-                </div>
-              </div>
               <a href={`mailto:${COMPANY.email}`}><div className="k">Email</div><div className="v sm">{COMPANY.email}</div><div className="s">Write to us</div></a>
               <div><div className="k">Based in</div><div className="v">{COMPANY.city}</div><div className="s">{COMPANY.name}</div></div>
             </div>
@@ -74,7 +69,7 @@ export default function ContactPage() {
             <div className="cp-kicker">How we can help</div>
             <h2>What would you like to do?</h2>
             <div className="cp-cards" style={{ marginTop: 28 }}>
-              <a href={`https://wa.me/${COMPANY.phoneRaw}?text=${encodeURIComponent('नमस्ते Madvet, मुझे ऑर्डर / डिस्ट्रीब्यूशन के बारे में बात करनी है।')}`} className="cp-card"><span className="ic">📦</span><h3>Order or distribute</h3><p>Stock Madvet, place an order or take up distribution in your area.</p><span className="go">WhatsApp us →</span></a>
+              <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent('Order / distribution — Madvet')}&body=${encodeURIComponent(ENQUIRY)}`} className="cp-card"><span className="ic">📦</span><h3>Order or distribute</h3><p>Stock Madvet, place an order or take up distribution in your area.</p><span className="go">Email us →</span></a>
               <Link href="/ask" className="cp-card"><span className="ic">💬</span><h3>Ask about a product</h3><p>Dose, composition or indication — our assistant answers from the catalogue.</p><span className="go">Ask AI →</span></Link>
               <Link href="/schemes" className="cp-card"><span className="ic">🎁</span><h3>This month’s schemes</h3><p>Trade offers for retailers and stockists, updated by our office.</p><span className="go">See schemes →</span></Link>
               <Link href="/careers" className="cp-card"><span className="ic">🤝</span><h3>Join the team</h3><p>Field sales and distribution roles across the region.</p><span className="go">Careers →</span></Link>

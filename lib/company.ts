@@ -6,8 +6,9 @@ export const COMPANY = {
   name:     'Madvet Animal Healthcare',
   city:     'Ghaziabad, Uttar Pradesh',
   since:    2010,
-  phone:    '+91 84003 47331',
-  phoneRaw: '918400347331',
+  // No phone number anywhere on the site (client, 30 Sep: "remove contact
+  // number from website" — a WhatsApp chat link shows the number too).
+  // Enquiries come by email.
   email:    'support@madvet.in',
   petBrand: 'Careegy',
   leaders: [

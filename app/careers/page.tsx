@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   description: 'Build a career in veterinary sales and marketing with Madvet Animal Healthcare.',
 }
 
-const APPLY = 'नमस्ते Madvet, मैं आपकी टीम में काम करना चाहता/चाहती हूँ। मेरा CV:'
 
 export default function CareersPage() {
   return (
@@ -26,7 +25,6 @@ export default function CareersPage() {
               <p className="lead">We look for hard-working people who want to work in the field — with veterinarians, retailers and dairy farmers — and grow with the company.</p>
               <div className="cp-cta">
                 <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent('Job application — Madvet')}`} className="cp-btn gold">Email your CV</a>
-                <a href={`https://wa.me/${COMPANY.phoneRaw}?text=${encodeURIComponent(APPLY)}`} className="cp-btn line">Apply on WhatsApp</a>
               </div>
             </div>
             <figure className="cp-photo" style={{ margin: 0, aspectRatio: '4 / 3' }}>
@@ -46,7 +44,7 @@ export default function CareersPage() {
             <ul className="cp-list">
               <li><b>Field sales</b>Veterinary sales officers and medical representatives.</li>
               <li><b>Distribution</b>Stockists and distributors for new areas.</li>
-              <li><b>How to apply</b>Email {COMPANY.email} or message us on WhatsApp with your CV and the area you want to work in.</li>
+              <li><b>How to apply</b>Email {COMPANY.email} with your CV and the area you want to work in.</li>
             </ul>
           </div>
         </section>

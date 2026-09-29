@@ -143,10 +143,10 @@ export default async function HomePage() {
             <div className="cp-band">
               <div>
                 <h3>Stock Madvet, or become a distributor</h3>
-                <p>Message us on WhatsApp, or write to {COMPANY.email}.</p>
+                <p>Write to {COMPANY.email} with your town and the products you stock — our team will get back to you.</p>
               </div>
               <div className="cp-cta" style={{ marginTop: 0 }}>
-                <a href={`https://wa.me/${COMPANY.phoneRaw}`} className="cp-btn gold">WhatsApp us</a>
+                <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent('Stocking / distribution — Madvet')}`} className="cp-btn gold">Email us</a>
                 <Link href="/contact" className="cp-btn line">Contact</Link>
               </div>
             </div>
