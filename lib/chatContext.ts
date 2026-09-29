@@ -24,6 +24,55 @@ const clip = (s: string | undefined, n: number) => {
 }
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9ऀ-ॿ]/g, '')
 
+// ── Dose form ────────────────────────────────────────────────────────────────
+// Every product is labelled with its form, and a customer's condition on form
+// ("no injection", "bolus only", "pilane wali") is enforced in code: a small
+// model told "no injection" still recommended an injection (29 Sep, 3D Plus
+// for fever). The model gets only products that obey, and the cards shown
+// under its answer are filtered the same way.
+export type Form = 'injection' | 'bolus' | 'tablet' | 'oral liquid' | 'powder' | 'gel' | 'spray' | 'soap' | 'pour-on' | 'ointment' | 'shampoo' | 'intrauterine' | 'other'
+
+export function formOf(p: MadvetProduct): Form {
+  const t = `${p.product_name} ${p.formulation} ${p.packaging}`.toLowerCase()
+  if (/\bi\.?u\b|intra.?uterine/.test(t)) return 'intrauterine'
+  if (/inj|vial|i\.m\.|i\.v\.|s\.c\./.test(t)) return 'injection'
+  if (/bolus/.test(t)) return 'bolus'
+  if (/tab(let)?s?\b/.test(t)) return 'tablet'
+  if (/pour.?on/.test(t)) return 'pour-on'
+  if (/spray/.test(t)) return 'spray'
+  if (/soap/.test(t)) return 'soap'
+  if (/shampoo/.test(t)) return 'shampoo'
+  if (/oint|cream/.test(t)) return 'ointment'
+  if (/\bgel\b/.test(t)) return 'gel'
+  if (/powder|sachet|\bgm\b|\bkg\b/.test(t)) return 'powder'
+  if (/syrup|syp|liquid|liq|suspension|susp|litre|ltr|\bml\b|oral/.test(t)) return 'oral liquid'
+  return 'other'
+}
+
+const ORAL: Form[] = ['bolus', 'tablet', 'oral liquid', 'powder', 'gel']
+export interface Constraints { avoid: Set<Form>; only: Set<Form> | null; note: string }
+
+export function parseConstraints(text: string): Constraints {
+  const t = text.toLowerCase()
+  const avoid = new Set<Form>()
+  let only: Set<Form> | null = null
+  const NEG = '(no|not|without|bina|binaa|except|avoid|mat|nahi|nahin|na|नहीं|नही|मत|बिना|ना)'
+  const INJ = '(inj|injection|injectable|injections|sui|इंजेक्शन|सुई)'
+  if (new RegExp(`${NEG}\\s*(an?\\s+|koi\\s+|कोई\\s+)?${INJ}`).test(t) || new RegExp(`${INJ}\\s*(wala\\s*|वाला\\s*)?${NEG}`).test(t) || /injection se dar|सुई से डर/.test(t)) avoid.add('injection')
+  if (new RegExp(`${NEG}\\s*(an?\\s+)?(bolus|बोलस)`).test(t) || /(bolus|बोलस)\s*(nahi|nahin|नहीं|mat|मत)/.test(t)) avoid.add('bolus')
+  if (/\b(oral|orally|by mouth|muh se|munh se|मुंह से|मुँह से|khilane|pilane|pilaane|पिलाने|खिलाने)\b/.test(t)) { only = new Set(ORAL); avoid.add('injection') }
+  if (/\b(only|sirf|bas|keval)\s+(bolus|बोलस)|bolus (only|hi|ही)|सिर्फ बोलस/.test(t)) only = new Set<Form>(['bolus'])
+  if (/\b(only|sirf|bas|keval)\s+(inj|injection)|injection (only|hi)|सिर्फ इंजेक्शन/.test(t)) only = new Set<Form>(['injection'])
+  if (/\b(syrup|liquid|syp|पिलाने वाली)\b/.test(t) && !only) only = new Set<Form>(['oral liquid'])
+  const bits: string[] = []
+  if (only) bits.push(`ONLY these forms: ${[...only].join(', ')}`)
+  if (avoid.size) bits.push(`NO ${[...avoid].join(', ')}`)
+  return { avoid, only, note: bits.join('; ') }
+}
+
+export const obeys = (p: MadvetProduct, c: Constraints) =>
+  !c.avoid.has(formOf(p)) && (!c.only || c.only.has(formOf(p)))
+
 export interface ChatKnowledge {
   products: MadvetProduct[]
   knowledge: string          // same for every visitor
@@ -48,7 +97,7 @@ export async function getChatKnowledge(): Promise<ChatKnowledge> {
 
   const productLines = [...products].sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).map(p => {
     const bits = [
-      `#${p.id} ${p.product_name}`,
+      `#${p.id} ${p.product_name} [${formOf(p).toUpperCase()}]`,
       clip(p.category, 40),
       clip(p.species, 60),
       clip(p.packaging || p.formulation, 50),
@@ -79,7 +128,7 @@ export async function getChatKnowledge(): Promise<ChatKnowledge> {
     `## Product folder sections`,
     sections.join(' · ') || '(not loaded)',
     ``,
-    `## Product index (${products.length} products). Format: #id name | category | species | pack | indications [film, folder page]`,
+    `## Product index (${products.length} products). Format: #id name [FORM] | category | species | pack | indications [film, folder page]`,
     ...productLines,
   ].join('\n')
 
@@ -124,14 +173,19 @@ const TERMS: Record<string, string[]> = {
 }
 const STOP = new Set(['the', 'and', 'for', 'kya', 'hai', 'mein', 'ke', 'ki', 'ka', 'ko', 'se', 'aur', 'what', 'which', 'with', 'about', 'batao', 'bataiye', 'dawa', 'dawai', 'medicine', 'product', 'products', 'है', 'में', 'के', 'की', 'का', 'को', 'से', 'और', 'क्या', 'दवा', 'please', 'give', 'best', 'use', 'kaun', 'konsa', 'कौन'])
 
-export function findRelevant(k: ChatKnowledge, text: string, max = 6): MadvetProduct[] {
-  const low = text.toLowerCase()
+export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints): MadvetProduct[] {
+  // When the customer sets a condition on form ("no injection"), the form
+  // words describe the condition, not the product, so they must not score
+  // injections up.
+  const raw = text.toLowerCase()
+  const low = c?.note ? raw.replace(/\b(inj|injection|injections|injectable|bolus|oral|syrup|tablet)s?\b|इंजेक्शन|बोलस/g, ' ') : raw
+  const species = speciesIn(raw)
   const words = low.split(/[^a-z0-9ऀ-ॿ%]+/).filter(w => w.length >= 3 && !STOP.has(w))
   const expanded = new Set<string>(words)
   for (const [t, en] of Object.entries(TERMS)) if (low.includes(t)) en.forEach(e => expanded.add(e))
   const q = squash(text)
 
-  const scored = k.products.map(p => {
+  const scored = k.products.filter(p => !c || obeys(p, c)).map(p => {
     const name = squash(p.product_name || '')
     const base = name.replace(/\d.*$/, '')
     const aliases = (p.aliases || '').toLowerCase()
@@ -144,19 +198,66 @@ export function findRelevant(k: ChatKnowledge, text: string, max = 6): MadvetPro
       if (w.length >= 4 && name.includes(squash(w))) s += 8
       if (body.includes(w)) s += 2
     }
+    // The animal named in the question: its products first; a product whose
+    // species list clearly leaves it out drops away (a dog question should not
+    // be answered with a cattle bolus).
+    if (s > 0) s += roleBoost(raw, p)
+    if (s > 0 && species.length) {
+      const sp = `${p.species} ${p.product_name}`.toLowerCase()
+      if (species.some(x => sp.includes(x))) s += 12
+      else if (p.species && p.species.trim()) s -= 30
+    }
     return { p, s }
   }).filter(x => x.s > 0).sort((a, b) => b.s - a.s)
 
   return scored.slice(0, max).map(x => x.p)
 }
 
+// Complaint → the molecules whose MAIN job it is, strongest first. A word in an
+// indication row is not enough to rank (Spas-Go lists "fever" too, but its
+// molecules are an antispasmodic and mefenamic acid; paracetamol is the
+// fever drug), so the product that actually treats the complaint goes first.
+const ROLES: [RegExp, [RegExp, number][]][] = [
+  [/fever|bukhar|bukhaar|बुखार|ज्वर|temperature|tap\b/, [[/paracetamol/, 30], [/meloxicam|flunixin|piroxicam|ketoprofen|nimesulide|meglumine/, 14]]],
+  [/pain|dard|दर्द|swelling|sujan|soojan|सूजन|lame|langda|लंगड/, [[/meloxicam|flunixin|piroxicam|ketoprofen|nimesulide|mefenamic|diclofenac|meglumine/, 18], [/serratiopeptidase|paracetamol/, 8]]],
+  [/marod|मरोड़|colic|spasm|ऐंठन|ainthan|pet dard|पेट दर्द|pet me dard/, [[/dicyclomine|hyoscine|drotaverine|pitofenone|fenpiverinium/, 30], [/flunixin|meglumine|mefenamic|meloxicam/, 10]]],
+  [/worm|keed|keede|kide|कीड़|कृमि|fluke|फ्लूक/, [[/albendazole|fenbendazole|oxyclozanide|levamisole|ivermectin|praziquantel|closantel|triclabendazole/, 25]]],
+  [/tick|chichdi|kilni|चिचड़|किलनी|lice|जूँ|mange|mite|khujli|खुजली|flea|पिस्सू/, [[/permethrin|amitraz|flumethrin|cypermethrin|deltamethrin|ivermectin|fipronil/, 22]]],
+  [/diarrh|dast|दस्त|pechish|पेचिश|scour/, [[/metronidazole|tinidazole|furazolidone|ciprofloxacin|ofloxacin|loperamide|norfloxacin/, 22]]],
+  [/mastitis|thanaila|थनैला|than\b|थन/, [[/ceftriaxone|cefoperazone|ceftiofur|amoxicillin|cloxacillin|enrofloxacin|levofloxacin|cefixime/, 18]]],
+  [/bloat|afara|अफारा|gas\b|गैस/, [[/simethicone|dimethicone|turpentine|dill/, 25]]],
+  [/milk fever|मिल्क फीवर|calcium|कैल्शियम|down cow|uth nahi/, [[/calcium/, 25]]],
+  [/allerg|एलर्जी|pitti|पित्ती|rash|chakatte/, [[/chlorpheniramine|pheniramine|cetirizine/, 25]]],
+]
+function roleBoost(q: string, p: MadvetProduct): number {
+  const salt = (p.salt_ingredient || '').toLowerCase()
+  let b = 0
+  for (const [complaint, mols] of ROLES) if (complaint.test(q)) for (const [m, w] of mols) if (m.test(salt)) { b += w; break }
+  return b
+}
+
+const SPECIES: [RegExp, string[]][] = [
+  [/\b(dog|dogs|puppy|kutta|kutte|kuttiya)\b|कुत्त|पिल्ल/, ['dog', 'canine', 'pet']],
+  [/\b(cat|cats|kitten|billi)\b|बिल्ली/, ['cat', 'feline', 'pet']],
+  [/\b(cow|cows|cattle|gaay|gay|gai|bachda|calf|calves|bachhiya)\b|गाय|बछ/, ['cattle', 'cow', 'calf', 'calves']],
+  [/\b(buffalo|bhains|bhais)\b|भैंस/, ['buffalo']],
+  [/\b(goat|goats|bakri|bakra)\b|बकरी|बकरा/, ['goat']],
+  [/\b(sheep|bhed)\b|भेड़/, ['sheep']],
+  [/\b(horse|ghoda|ghodi)\b|घोड़/, ['horse', 'equine']],
+  [/\b(poultry|chicken|murgi|hen)\b|मुर्गी/, ['poultry', 'bird']],
+]
+export function speciesIn(text: string): string[] {
+  return SPECIES.filter(([re]) => re.test(text)).flatMap(([, w]) => w)
+}
+
 export function productDetails(k: ChatKnowledge, list: MadvetProduct[]): string {
   if (!list.length) return ''
-  return '## Full details for the products this question is about\n' + list.map(p => {
+  return '## Full details for the products this question is about (best match for the main complaint FIRST)\n' + list.map(p => {
     const f = k.filmOf.get(p.id!)
     const pg = k.pageOf.get(p.id!)
     return [
       `### #${p.id} ${p.product_name}`,
+      `Form: ${formOf(p)}`,
       p.category && `Category: ${p.category}`,
       p.salt_ingredient && `Composition: ${clip(p.salt_ingredient, 400)}`,
       p.packaging && `Pack: ${p.packaging}`,

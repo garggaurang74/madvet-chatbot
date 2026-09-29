@@ -2,7 +2,8 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import SiteNav from '@/components/SiteNav'
 import { COMPANY_CSS } from '@/components/companyCss'
-import { COMPANY } from '@/lib/company'
+import { COMPANY, TEAM_PHOTOS } from '@/lib/company'
+import PhotoSlideshow from '@/components/PhotoSlideshow'
 import { fetchProducts } from '@/lib/catalog'
 
 export const metadata: Metadata = {
@@ -12,8 +13,8 @@ export const metadata: Metadata = {
 
 export const revalidate = 600
 
-// No photographs on this page — the client's instruction (28 Sep): leadership
-// is shown by name and title only.
+// No leadership block (client, 29 Sep: "remove people behind madvet ... just
+// add meeting photos in about to add the appeal").
 export default async function AboutPage() {
   const products = await fetchProducts()
   return (
@@ -21,13 +22,17 @@ export default async function AboutPage() {
       <style>{COMPANY_CSS}</style>
       <div className="cp">
         <SiteNav active="about" />
-        <header className="cp-hero slim">
+        <header className="cp-hero">
           <div className="cp-hero-in">
             <div>
               <div className="cp-eyebrow">About us</div>
               <h1>A veterinary company, <em>since {COMPANY.since}</em>.</h1>
               <p className="lead">{COMPANY.name} is based in {COMPANY.city}. We serve veterinarians, retailers and stockists with a range built for everyday practice.</p>
             </div>
+            <figure className="cp-photo" style={{ margin: 0, aspectRatio: '3 / 2' }}>
+              <img src="/company/diwali-meet-1.jpg" alt="Madvet Diwali Meet and Award Ceremony" />
+              <figcaption>Diwali Meet &amp; Award Ceremony</figcaption>
+            </figure>
           </div>
         </header>
 
@@ -38,7 +43,7 @@ export default async function AboutPage() {
               <p>{COMPANY.name} has been in veterinary healthcare since {COMPANY.since}, and is based in Ghaziabad.</p>
               <p>Our range covers antibiotics as injections and boluses, multivitamin injections, animal feed supplements and formulations that combine vitamins, minerals and herbs — {products.length} products today, for cattle, buffalo, sheep, goats, horses and companion animals.</p>
               <p>Our products reach the market under the brand name <b>Madvet</b>. Pet products carry our sub-brand <b>{COMPANY.petBrand}</b>.</p>
-              <p>Every product has its full composition, dosage and indications published on this site, with a short film and a page in our product folder — so a veterinarian, a retailer or a farmer can see exactly what they are buying.</p>
+              <p>Every product has its composition and indications published on this site, most with a short film, and each with a page in our product folder — so a veterinarian, a retailer or a farmer can see exactly what they are buying.</p>
             </div>
             <ul className="cp-list">
               <li><b>Injections and boluses</b>Antibiotics, anti-inflammatories and antipyretics for large animals.</li>
@@ -49,15 +54,19 @@ export default async function AboutPage() {
           </div>
         </section>
 
-        <section className="cp-sec alt" id="leadership">
-          <div className="cp-wrap">
-            <div className="cp-kicker">Leadership</div>
-            <h2>The people behind Madvet</h2>
-            <div className="cp-people" style={{ marginTop: 28 }}>
-              {COMPANY.leaders.map(l => (
-                <div key={l.name} className="cp-person"><h3>{l.name}</h3><p>{l.role}</p></div>
-              ))}
+        <section className="cp-sec alt" id="team">
+          <div className="cp-wrap cp-split">
+            <div>
+              <div className="cp-kicker">Our people</div>
+              <h2>Meets, visits and the trade</h2>
+              <p className="intro">Our team works with veterinarians, retailers and stockists across the region — at the counter, in the clinic, and every year at our Diwali Meet &amp; Award Ceremony.</p>
+              <div className="cp-grid4">
+                {TEAM_PHOTOS.slice(4, 7).concat(TEAM_PHOTOS.slice(2, 3)).map(ph => (
+                  <figure key={ph.src} className="cp-photo" style={{ margin: 0 }}><img src={ph.src} alt={ph.caption} loading="lazy" /></figure>
+                ))}
+              </div>
             </div>
+            <PhotoSlideshow slides={TEAM_PHOTOS} />
           </div>
         </section>
 

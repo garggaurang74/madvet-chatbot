@@ -24,3 +24,17 @@ export const TESTIMONIALS = [
   { quote: 'हम हमेशा अपने डॉक्टर से मैडवेट के उत्पादों का उपयोग करने के लिए कहते हैं, उनके उत्पाद अद्भुत हैं।', who: 'Seema', role: 'Farmer, UP' },
   { quote: 'Team is really helpful, encourages healthy work and life balance. I am proud to be a part of Madvet India.', who: 'Jitendra Pratap', role: 'VSO, Madvet' },
 ]
+
+// The team's own photographs (from the 2020 madvet.in media library). Used on
+// About, Contact, Careers, Home and as the band above the footer elsewhere —
+// the client wants meeting photos across the site (28–29 Sep). Captions say
+// what the photo shows, never who is in it.
+export const TEAM_PHOTOS = [
+  { src: '/company/diwali-meet-1.jpg', caption: 'Diwali Meet & Award Ceremony' },
+  { src: '/company/team-group.jpg',    caption: 'The Madvet team' },
+  { src: '/company/field-3.jpg',       caption: 'With a retailer, in the field' },
+  { src: '/company/diwali-meet-2.jpg', caption: 'Diwali Meet & Award Ceremony' },
+  { src: '/company/team-outdoor.jpg',  caption: 'Our sales team' },
+  { src: '/company/field-1.jpg',       caption: 'At the counter with our products' },
+  { src: '/company/field-2.jpg',       caption: 'Meeting the trade' },
+]

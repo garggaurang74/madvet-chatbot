@@ -94,8 +94,10 @@ export async function fetchSchemes(): Promise<{ month: string; schemes: Scheme[]
 // its pack size and container words, starts the line, and (2) any pack size
 // written on the line is the product's size. The longest such name wins, so
 // "MEGLUFORCE SP BOLUS" goes to Megluforce SP, not Megluforce. A line naming
-// two products ("A + B MIX") or a size we do not list (MADCOMIN 200ML) shows
-// as plain text with no product attached — never under the wrong pack.
+// two products ("A + B MIX") or a size we do not list (CALCIFORCE 30ML) is
+// never filed under the wrong pack: it keeps its own card, titled as the
+// sheet writes it, and borrows only the photo and links of its `family` —
+// the same formulation in the pack we do list.
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 const SIZE = /(\d+(?:\.\d+)?)\s*(ml|ltr|litre|liter|l|gms?|g|kg)\b/gi
@@ -116,20 +118,29 @@ const core = (s: string) => {
   return k
 }
 
-export interface MatchResult<P> { product: P | null; why: string }
+export interface MatchResult<P> {
+  product: P | null   // the exact product (name, and size if the line gives one)
+  family:  P | null   // when there is no exact product: the same formulation in another pack,
+                      // or the first product of a combo — used for the photo and links only
+  why: string
+}
 
 export function matchScheme<P extends { id: number; name: string; packaging?: string }>(item: string, products: P[]): MatchResult<P> {
-  if (/\+|\bmix\b/i.test(item)) return { product: null, why: 'names more than one product' }
+  if (/\+|\bmix\b/i.test(item)) {
+    const first = item.split(/\+|\bmix\b/i)[0]
+    const part = first.trim() ? matchScheme(first, products) : null
+    return { product: null, family: part?.product || part?.family || null, why: 'names more than one product' }
+  }
   const key = core(item)
   const want = sizeOf(item)
   const cands = products
     .map(p => ({ p, c: core(p.name), size: sizeOf(p.name) ?? sizeOf(p.packaging || '') }))
     .filter(x => x.c.length >= 4 && key.startsWith(x.c))
     .sort((a, b) => b.c.length - a.c.length)
-  if (!cands.length) return { product: null, why: 'no product name found in this line' }
+  if (!cands.length) return { product: null, family: null, why: 'no product name found in this line' }
   const best = cands.filter(x => x.c.length === cands[0].c.length)
-  if (want == null) return { product: best[0].p, why: best.length > 1 ? 'no size on the line — took the first pack' : 'name' }
+  if (want == null) return { product: best[0].p, family: null, why: best.length > 1 ? 'no size on the line — took the first pack' : 'name' }
   const sized = best.find(x => x.size === want)
-  if (sized) return { product: sized.p, why: 'name + size' }
-  return { product: null, why: `size ${want >= 1000 && want % 1000 === 0 ? want / 1000 + ' L/kg' : want} is not a pack we list` }
+  if (sized) return { product: sized.p, family: null, why: 'name + size' }
+  return { product: null, family: best[0].p, why: `size ${want >= 1000 && want % 1000 === 0 ? want / 1000 + ' L/kg' : want} is not a pack we list — shown with ${best[0].p.name}` }
 }

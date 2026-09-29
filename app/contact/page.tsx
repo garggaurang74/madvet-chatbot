@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import SiteNav from '@/components/SiteNav'
 import { COMPANY_CSS } from '@/components/companyCss'
-import { COMPANY } from '@/lib/company'
+import { COMPANY, TEAM_PHOTOS } from '@/lib/company'
 import Link from 'next/link'
 import PhotoSlideshow from '@/components/PhotoSlideshow'
 
@@ -16,15 +16,6 @@ const ENQUIRY = 'नमस्ते Madvet, मुझे आपके प्र�
 // meeting and field photos and a map. The map shows the CITY only — the office's
 // street address has not been given, and a guessed pin would send a stockist
 // to the wrong door. The 2020 site's Jhansi address is stale.
-const SLIDES = [
-  { src: '/company/diwali-meet-1.jpg', caption: 'Diwali Meet & Award Ceremony' },
-  { src: '/company/team-group.jpg',    caption: 'The Madvet team' },
-  { src: '/company/field-3.jpg',       caption: 'With a retailer, in the field' },
-  { src: '/company/diwali-meet-2.jpg', caption: 'Diwali Meet & Award Ceremony' },
-  { src: '/company/team-outdoor.jpg',  caption: 'Our sales team' },
-  { src: '/company/field-1.jpg',       caption: 'At the counter with our products' },
-  { src: '/company/field-2.jpg',       caption: 'Meeting the trade' },
-]
 const MAP = 'https://www.google.com/maps?q=Ghaziabad,+Uttar+Pradesh&z=11&output=embed'
 export default function ContactPage() {
   return (
@@ -63,7 +54,7 @@ export default function ContactPage() {
               <div>
                 <div className="cp-kicker">Our people</div>
                 <h2>Meets, visits and the trade</h2>
-                <PhotoSlideshow slides={SLIDES} />
+                <PhotoSlideshow slides={TEAM_PHOTOS} />
               </div>
               <div>
                 <div className="cp-kicker">Where we are</div>

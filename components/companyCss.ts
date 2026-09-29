@@ -69,6 +69,8 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }
 .cp-gallery .cp-photo:first-child { grid-row:span 2; }
 .cp-gallery .cp-photo { box-shadow:none; }
 
+.cp-grid4 { display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:150px; gap:12px; }
+.cp-grid4 .cp-photo { box-shadow:none; }
 .cp-quotes { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; }
 .cp-quote { margin:0; padding:26px; border-radius:16px; background:rgba(245,240,232,.05); border:1px solid rgba(200,169,110,.2); }
 .cp-quote blockquote { margin:0; font-size:15.5px; line-height:1.7; color:rgba(245,240,232,.88); }

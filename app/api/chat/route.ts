@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
-import { getChatKnowledge, findRelevant, productDetails } from '@/lib/chatContext'
+import { getChatKnowledge, findRelevant, productDetails, parseConstraints, obeys } from '@/lib/chatContext'
 import { Redis } from '@upstash/redis'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -169,9 +169,15 @@ export async function POST(req: NextRequest) {
     // The products this question is about: named or described in this message,
     // or in the last two user turns (so "aur dose?" still knows the product).
     const recentUser = messages.filter(m => m.role === 'user').slice(-2).map(m => m.content).join(' ')
-    const relevant   = findRelevant(kb, truncatedMessage, 5)
-    for (const p of findRelevant(kb, recentUser, 3)) if (!relevant.includes(p)) relevant.push(p)
+    // A condition the customer set ("no injection", "sirf bolus", "pilane wali")
+    // holds for the rest of the conversation until they change it.
+    const cons       = parseConstraints(`${recentUser} ${truncatedMessage}`)
+    const relevant   = findRelevant(kb, truncatedMessage, 5, cons)
+    for (const p of findRelevant(kb, recentUser, 3, cons)) if (!relevant.includes(p)) relevant.push(p)
     const details    = productDetails(kb, relevant.slice(0, 7))
+    const rule       = cons.note
+      ? `\n\n⚠️ CUSTOMER CONDITION — ${cons.note}. Recommend ONLY products whose [FORM] fits it. The details above already obey it; if none of them fits the problem, say that plainly instead of offering a product that breaks the condition.`
+      : ''
 
     // Language detection with conversation memory:
     // If current message is ambiguous but recent messages were Hindi, stay Hindi
@@ -197,7 +203,7 @@ export async function POST(req: NextRequest) {
     // The question, with the full records of the products it is about.
     const currentMessage = {
       role: 'user',
-      content: `Customer: "${truncatedMessage}"${details ? `\n\n${details}` : ''}${langInstruction}`
+      content: `Customer: "${truncatedMessage}"${details ? `\n\n${details}` : ''}${rule}${langInstruction}`
     }
 
     // Instructions + site knowledge first and identical for every visitor, so
@@ -278,8 +284,9 @@ export async function POST(req: NextRequest) {
           const { primary: primaryIds, complementary: complementaryIds } = extractProductIds(fullText)
 
           const byId = (id: number) => products.find(p => p.id === id)
-          const primaryProducts       = primaryIds.map(byId).filter(Boolean)
-          const complementaryProducts = complementaryIds.map(byId).filter(Boolean)
+          const ok = (p: any) => p && obeys(p, cons)        // never show a card that breaks the condition
+          const primaryProducts       = primaryIds.map(byId).filter(ok)
+          const complementaryProducts = complementaryIds.map(byId).filter(ok)
 
           // Send product metadata as a final JSON line
           const meta = JSON.stringify({
