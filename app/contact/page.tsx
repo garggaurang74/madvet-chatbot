@@ -30,7 +30,7 @@ export default function ContactPage() {
             <div>
               <div className="cp-eyebrow">Contact</div>
               <h1>Talk to <em>Madvet</em>.</h1>
-              <p className="lead">For orders, distribution, product questions or schemes — write to us.</p>
+              <p className="lead">Orders, distribution, a question about a product or this month&apos;s schemes — write to us and our office will reply.</p>
             </div>
           </div>
         </header>

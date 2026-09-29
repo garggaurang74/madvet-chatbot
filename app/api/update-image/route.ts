@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getAdminSupabase, isAdmin, unauthorized } from '@/lib/adminSession'
 
 // Uploads a product photo to the product-images bucket and, when product_id is
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     if (product_id) {
       const { error } = await supabase.from('products_enriched').update({ image_url: imageUrl }).eq('id', product_id)
       if (error) return Response.json({ error: error.message }, { status: 500 })
+      revalidateTag('products')
       revalidatePath('/products')
       revalidatePath(`/products/${product_id}`)
     }

@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* The assistant's answers are Markdown. The Tailwind typography plugin the
+   old 'prose' classes needed was never installed, so lists and links rendered
+   as one run of plain text (30 Sep). */
+.chat-md { font-size: 15.5px; line-height: 1.65; color: #1c2b22; overflow-wrap: anywhere; }
+.chat-md > :first-child { margin-top: 0; }
+.chat-md p { margin: .45em 0; }
+.chat-md ul, .chat-md ol { margin: .45em 0; padding-left: 1.3em; }
+.chat-md ul { list-style: disc; }
+.chat-md ol { list-style: decimal; }
+.chat-md li { margin: .25em 0; padding-left: .15em; }
+.chat-md li::marker { color: #9a7a3e; }
+.chat-md strong { font-weight: 700; color: #1a3a2a; }
+.chat-md a { color: #1a6b3c; font-weight: 600; text-decoration: underline; text-decoration-color: rgba(26,107,60,.35); text-underline-offset: 3px; }
+.chat-md a:hover { text-decoration-color: currentColor; }
+.chat-md h1, .chat-md h2, .chat-md h3 { font-weight: 700; margin: .7em 0 .3em; font-size: 1.05em; }
+.chat-md-dark, .chat-md-dark strong { color: #fff; }
+.chat-md-dark a { color: #86efac; }

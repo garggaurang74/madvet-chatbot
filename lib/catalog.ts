@@ -50,7 +50,12 @@ export async function fetchProducts(): Promise<Product[]> {
 
   if (!url || !key) return []
 
-  const supabase = createClient(url, key)
+  // Cached with the page and refreshed every 5 minutes; an admin save clears
+  // the 'products' tag at once (app/api/revalidate), so edits still show
+  // immediately. Fetched fresh on every visit before 30 Sep, which cost the
+  // product pages 1.5–2 s each.
+  const supabase = createClient(url, key, { global: { fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, next: { revalidate: 300, tags: ['products'] } } as RequestInit), } })
 
   const { data, error } = await supabase
     .from(table)

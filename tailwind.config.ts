@@ -10,8 +10,8 @@ const config: Config = {
     extend: {
       colors: {
         madvet: {
-          primary: '#1a6b3c',
-          accent: '#e8f5e9',
+          primary: '#1a3a2a',
+          accent: '#ede6d6',
         },
       },
       fontFamily: {

@@ -133,7 +133,7 @@ export default function ProductCard({ product, dark = false, lang }: ProductCard
           ? 'bg-green-900/25 text-green-400/80'
           : 'bg-green-50 text-green-700'
       }`}>
-        ⚕️ {isHindi ? 'सही खुराक के लिए अपने पशु चिकित्सक से मिलें 🙏' : 'Sahi dose ke liye apne vet se milein 🙏'}
+        ⚕️ {isHindi ? 'सही खुराक के लिए अपने पशु चिकित्सक से पूछें।' : 'For the right dose, ask your veterinarian.'}
       </p>
       </div>
     </div>

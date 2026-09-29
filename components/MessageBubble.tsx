@@ -71,7 +71,7 @@ function PrimaryProductCards({ products, dark, lang }: { products: MadvetProduct
       {rest.length > 0 && (
         <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
           <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${dark ? 'text-white/40' : 'text-gray-400'}`}>
-            {lang === 'HINDI' ? 'और विकल्प' : 'Aur options'}
+            {lang === 'HINDI' ? 'और विकल्प' : 'More options'}
           </p>
           <div className="space-y-1">
             {rest.map((p, i) => {
@@ -118,7 +118,7 @@ function ComplementaryProductCards({ products, dark, lang }: { products: MadvetP
   return (
     <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-green-800/50 bg-green-900/10' : 'border-green-200 bg-green-50'}`}>
       <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${dark ? 'text-green-400/70' : 'text-green-600'}`}>
-        ➕ {lang === 'HINDI' ? 'साथ में दीजिए' : 'Saath mein dijiye'}
+        ➕ {lang === 'HINDI' ? 'साथ में दीजिए' : 'Give alongside'}
       </p>
       <div className="space-y-1">
         {products.map((p, i) => {
@@ -193,7 +193,7 @@ export default function MessageBubble({
   return (
     <div className={`flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`}>
       {!isUser && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1a3a2a] flex items-center justify-center text-[#e8d5a8] font-bold text-sm">
           M
         </div>
       )}
@@ -205,7 +205,7 @@ export default function MessageBubble({
         ) : (
           <div className="space-y-3">
             {/* Bot text response */}
-            <div className={`prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 ${dark ? 'prose-invert' : ''}`}>
+            <div className={`chat-md ${dark ? 'chat-md-dark' : ''}`}>
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
 
@@ -222,7 +222,7 @@ export default function MessageBubble({
               <div className="flex items-center gap-1">
                 <button
                   onClick={handleSpeak}
-                  title={playing ? 'Rokein' : 'Sunein'}
+                  title={playing ? (lang === 'HINDI' ? 'रोकें' : 'Stop') : (lang === 'HINDI' ? 'सुनें' : 'Listen')}
                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${
                     playing
                       ? dark ? 'bg-white/20 text-white font-medium' : 'bg-madvet-primary/10 text-madvet-primary font-medium'
@@ -241,7 +241,7 @@ export default function MessageBubble({
                       <path d="M13.829 7.172a.75.75 0 00-1.061 1.06 2.5 2.5 0 010 3.536.75.75 0 001.06 1.06 4 4 0 000-5.656z" />
                     </svg>
                   )}
-                  <span>{playing ? 'Rok' : 'Sun'}</span>
+                  <span>{playing ? (lang === 'HINDI' ? 'रोकें' : 'Stop') : (lang === 'HINDI' ? 'सुनें' : 'Listen')}</span>
                 </button>
                 <span className="flex-1" />
                 {showFeedback && (

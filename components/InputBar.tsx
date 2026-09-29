@@ -35,11 +35,11 @@ export default function InputBar({ onSend, disabled, dark }: InputBarProps) {
 
   const inputClass = dark
     ? 'bg-[#2f2f2f] border-white/10 text-white placeholder-white/40 focus:ring-white/20 focus:border-white/30'
-    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-madvet-primary/50 focus:border-madvet-primary'
+    : 'bg-white border-[#1a3a2a]/20 text-[#1c2b22] placeholder-[#1c2b22]/40 focus:ring-[#1a3a2a]/25 focus:border-[#1a3a2a]/60 shadow-sm'
 
   const wrapperClass = dark
     ? 'flex items-end gap-2 p-3'
-    : 'flex items-end gap-2 p-4 bg-white border-t border-gray-200'
+    : 'flex items-end gap-2 pt-1'
 
   const sendBtnClass = dark
     ? 'bg-white text-black hover:bg-white/90'
@@ -52,11 +52,11 @@ export default function InputBar({ onSend, disabled, dark }: InputBarProps) {
         value={value}
         onChange={handleInput}
         onKeyDown={handleKeyDown}
-        placeholder="Apni problem Hindi ya English mein likhein..."
+        placeholder="Ask about a product or a problem…"
         lang="hi"
         rows={1}
         disabled={disabled}
-        className={`flex-1 resize-none rounded-2xl border px-4 py-3 text-base 
+        className={`flex-1 min-w-0 resize-none rounded-2xl border px-4 py-3 text-base 
           focus:outline-none focus:ring-2 disabled:opacity-60 
           max-h-[120px] overflow-y-auto ${inputClass}`}
       />

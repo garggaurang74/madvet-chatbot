@@ -6,6 +6,7 @@ import InputBar from './InputBar'
 import TypingIndicator from './TypingIndicator'
 import QuickReplies from './QuickReplies'
 import Sidebar from './Sidebar'
+import SiteNav from './SiteNav'
 import {
   createConversation, saveMessage, loadConversations,
   loadMessages, deleteConversation
@@ -26,7 +27,6 @@ export interface ChatMessage {
 
 export default function ChatWindow() {
   const [messages, setMessages]             = useState<ChatMessage[]>([])
-  const [loading, setLoading]               = useState(true)
   const [sending, setSending]               = useState(false)
   const [showQuickReplies, setShowQuickReplies] = useState(true)
   const [sidebarOpen, setSidebarOpen]       = useState(false)
@@ -49,9 +49,6 @@ export default function ChatWindow() {
           .catch(err => {
             console.error('Failed to load conversations:', err)
             if (mounted) setConversations([])
-          })
-          .finally(() => {
-            if (mounted) setLoading(false)
           })
       }
     }, 100) // Small delay to prevent blocking
@@ -143,7 +140,7 @@ export default function ChatWindow() {
     const slowHintTimer = setTimeout(() => {
       setMessages(prev => prev.map(m =>
         m.id === assistantId && m.content === ''
-          ? { ...m, content: '⏳ Pehli baar thoda waqt lagta hai, zaroor jawab aayega...' }
+          ? { ...m, content: '⏳ Looking through the catalogue — one moment…' }
           : m
       ))
     }, 6000)
@@ -160,7 +157,7 @@ export default function ChatWindow() {
         clearTimeout(slowHintTimer)
         setMessages(prev => prev.map(m =>
           m.id === assistantId
-            ? { ...m, content: 'Aap bahut tezi se sawaal pooch rahe hain 🙏 Ek minute rukein aur phir try karein.', isError: true, retryText: text.trim() }
+            ? { ...m, content: 'Too many questions in a short time — please wait a minute and try again.', isError: true, retryText: text.trim() }
             : m
         ))
         return
@@ -168,7 +165,7 @@ export default function ChatWindow() {
 
       if (!res.ok) {
         clearTimeout(slowHintTimer)
-        let errMsg = 'Thoda technical issue aa gaya, please dobara try karein 🙏'
+        let errMsg = 'Something went wrong on our side. Please try again.'
         try { const d = await res.json(); if (d?.error) errMsg = d.error } catch {}
         setMessages(prev => prev.map(m =>
           m.id === assistantId
@@ -259,8 +256,8 @@ export default function ChatWindow() {
       clearTimeout(abortTimer)
       const isAbort = error?.name === 'AbortError'
       const errMsg = isAbort
-        ? 'Connection timeout — internet slow hai, dobara try karein 🙏'
-        : 'Internet connection check karein aur dobara try karein 🙏'
+        ? 'The connection timed out. Please check your internet and try again.'
+        : 'Could not reach the server. Please check your internet and try again.'
       console.error('[ChatWindow] Error:', error)
       setMessages(prev => {
         // Update the existing assistant bubble if it exists, else add new
@@ -282,130 +279,110 @@ export default function ChatWindow() {
     }
   }, [messages, sending])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#212121]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-white/60 text-sm">Dr. Madvet load ho raha hai...</p>
-        </div>
-      </div>
-    )
-  }
 
   const isEmpty = messages.length === 0
 
   return (
-    <div className="flex h-screen bg-[#212121] text-white overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-[#f5f0e8] text-[#1c2b22]" style={{ fontFamily: "'DM Sans', 'Noto Sans Devanagari', sans-serif" }}>
+      {/* The site's own header (client, 30 Sep: "why can't Ask AI work like
+          other pages and why its header options changing"). */}
+      <SiteNav active="assistant" />
 
-      <Sidebar
-        conversations={conversations}
-        activeId={activeConversationId}
-        onSelect={selectConversation}
-        onNewChat={startNewChat}
-        onDelete={handleDelete}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(prev => !prev)}
-      />
+      <div className="flex flex-1 min-h-0 relative">
+        <Sidebar
+          conversations={conversations}
+          activeId={activeConversationId}
+          onSelect={selectConversation}
+          onNewChat={startNewChat}
+          onDelete={handleDelete}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(prev => !prev)}
+        />
 
-      <div className="flex flex-col flex-1 min-w-0 relative">
-
-        {/* Top Bar */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col flex-1 min-w-0 relative">
+          <div className="flex items-center justify-between gap-2 px-3 sm:px-5 py-2 border-b border-[#1a3a2a]/10 flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={() => setSidebarOpen(prev => !prev)}
+                className="p-2 rounded-lg hover:bg-[#1a3a2a]/10 transition-colors"
+                aria-label="Previous chats"
+                title="Previous chats"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <span className="font-semibold text-sm whitespace-nowrap">Ask Madvet</span>
+              <span className="hidden sm:inline text-xs text-[#1c2b22]/50 truncate">· answers from our own product catalogue</span>
+            </div>
             <button
-              onClick={() => setSidebarOpen(prev => !prev)}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              onClick={startNewChat}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1a3a2a] text-[#f5f0e8] hover:bg-[#264d39] transition-colors whitespace-nowrap"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <span className="font-semibold text-sm">Dr. Madvet Assistant</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <a href="/" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white">
-              <img src="/madvet-icon.png" alt="" className="w-4 h-4 rounded" />
-              <span>Home</span>
-            </a>
-            <a href="/products"className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <span>Products</span>
-            </a>
-            <a href="/madvet-training.html" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs font-medium text-white/70 hover:text-white">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-              </svg>
-              <span>Training</span>
-            </a>
-            <button onClick={startNewChat} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title="New Chat">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
+              New chat
             </button>
           </div>
-        </div>
 
-        {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          {isEmpty && (
-            <div className="flex flex-col items-center justify-center h-full px-4 text-center">
-              <img src="/madvet-center.png" alt="Madvet" style={{height:100,width:100,objectFit:"contain",marginBottom:16,borderRadius:20}} />
-              <h1 className="text-2xl font-semibold mb-2">Dr. Madvet Assistant</h1>
-              <p className="text-white/50 text-sm mb-8 max-w-sm">
-                Apne janwar ki koi bhi health problem puchein — Hindi, English, ya Hinglish mein
-              </p>
-              <QuickReplies onSelect={sendMessage} visible={showQuickReplies} dark={true} />
-            </div>
-          )}
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto">
+            {isEmpty && (
+              <div className="flex flex-col items-center justify-center min-h-full px-4 py-8 text-center">
+                <img src="/icon.png?v=3" alt="" width={72} height={72} className="mb-5 rounded-2xl shadow-sm" />
+                <h1 className="text-3xl sm:text-4xl mb-3 text-[#1a3a2a]" style={{ fontFamily: "'DM Serif Display', serif" }}>Ask about any Madvet product</h1>
+                <p className="text-[#1c2b22]/60 text-[15px] mb-7 max-w-md leading-relaxed">
+                  Composition, indications, schemes, or which product suits a problem — ask in English or हिंदी. Answers come from our own catalogue.
+                </p>
+                <QuickReplies onSelect={sendMessage} visible={showQuickReplies} />
+              </div>
+            )}
 
-          {!isEmpty && (
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-              {messages.map(m => (
-                <div key={m.id}>
-                  <MessageBubble
-                    messageId={m.id}
-                    role={m.role}
-                    content={m.content}
-                    primaryProducts={m.primaryProducts}
-                    complementaryProducts={m.complementaryProducts}
-                    lang={m.lang}
-                    showFeedback={m.role === 'assistant' && m.content.length > 0 && !m.isError}
-                    dark={true}
-                  />
-                  {m.isError && m.retryText && (
-                    <div className="flex justify-start mt-2 ml-12">
-                      <button
-                        onClick={() => sendMessage(m.retryText!)}
-                        disabled={sending}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        🔄 Dobara try karein
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {sending && messages[messages.length - 1]?.role === 'user' && (
-                <div className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-sm font-bold flex-shrink-0">M</div>
-                  <div className="pt-1"><TypingIndicator /></div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            {!isEmpty && (
+              <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+                {messages.map(m => (
+                  <div key={m.id}>
+                    <MessageBubble
+                      messageId={m.id}
+                      role={m.role}
+                      content={m.content}
+                      primaryProducts={m.primaryProducts}
+                      complementaryProducts={m.complementaryProducts}
+                      lang={m.lang}
+                      showFeedback={m.role === 'assistant' && m.content.length > 0 && !m.isError}
+                    />
+                    {m.isError && m.retryText && (
+                      <div className="flex justify-start mt-2 ml-12">
+                        <button
+                          onClick={() => sendMessage(m.retryText!)}
+                          disabled={sending}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-[#1a3a2a]/10 hover:bg-[#1a3a2a]/20 text-[#1a3a2a] transition-colors disabled:opacity-40"
+                        >
+                          ↻ Try again
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {sending && messages[messages.length - 1]?.role === 'user' && (
+                  <div className="flex gap-4">
+                    <div className="w-8 h-8 rounded-full bg-[#1a3a2a] text-[#f5f0e8] flex items-center justify-center text-sm font-bold flex-shrink-0">M</div>
+                    <div className="pt-1"><TypingIndicator /></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-        {/* Input */}
-        <div className="flex-shrink-0 px-4 pb-4 pt-2 max-w-3xl mx-auto w-full">
-          {!isEmpty && <QuickReplies onSelect={sendMessage} visible={showQuickReplies} dark={true} />}
-          <InputBar onSend={sendMessage} disabled={sending} dark={true} />
-          <p className="text-center text-white/25 text-xs mt-2">
-            Dr. Madvet Assistant medical advice replace nahi karta — serious cases mein vet se milein
-          </p>
+          {/* Input */}
+          <div className="flex-shrink-0 px-3 sm:px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 max-w-3xl mx-auto w-full">
+            {!isEmpty && <QuickReplies onSelect={sendMessage} visible={showQuickReplies} />}
+            <InputBar onSend={sendMessage} disabled={sending} />
+            <p className="text-center text-[#1c2b22]/40 text-[11px] mt-2">
+              Answers come from the Madvet catalogue. For a sick animal, always consult a veterinarian.
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   description: 'Complete range of Madvet veterinary products — antibiotics, supplements, dewormers and more.',
 }
 
-// Always fetch fresh from Supabase — admin image updates must reflect immediately.
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
+// Served pre-built, refreshed every 5 minutes; admin saves clear it at once
+// (app/api/revalidate). Rendered per request until 30 Sep, ~2.5 s a visit.
+export const revalidate = 300
 
 // ProductsFetcher is the async server component that does the Supabase call.
 // Wrapping it in Suspense means Next.js streams the outer shell (nav, header)
@@ -26,7 +26,10 @@ async function ProductsFetcher() {
   // Each product with a factory film gets a Video button that opens it
   const filmOf = new Map<number, string>()
   for (const f of films) for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
-  return <ProductsClient products={products.map(p => filmOf.has(p.id) ? { ...p, film_key: filmOf.get(p.id) } : p)} packIds={[...packs]} schemes={schemes} />
+  // Only what the grid shows or searches travels to the phone — the Hindi
+  // copy and the old video links belong to the product page.
+  const lean = products.map(p => ({ ...p, description_hi: '', usp_benefits_hi: '', video_url: '', ...(filmOf.has(p.id) ? { film_key: filmOf.get(p.id) } : {}) }))
+  return <ProductsClient products={lean} packIds={[...packs]} schemes={schemes} />
 }
 
 function ProductsSkeleton() {

@@ -19,7 +19,7 @@ export default function VoiceButton({ onTranscript, disabled, dark }: VoiceButto
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) {
-      alert('Voice input ke liye Chrome browser use karein.')
+      alert('Voice input works in Chrome. Please open this page in Chrome to speak your question.')
       return
     }
 
@@ -68,7 +68,7 @@ export default function VoiceButton({ onTranscript, disabled, dark }: VoiceButto
       onClick={listening ? stopListening : startListening}
       disabled={disabled}
       type="button"
-      title={listening ? 'Bol rahe hain... tap karein stop karne ke liye' : 'Voice mein bolen'}
+      title={listening ? 'Listening… tap to stop' : 'Speak your question'}
       className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center 
         transition-all duration-200
         ${listening

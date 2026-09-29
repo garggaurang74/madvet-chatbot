@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getAdminSupabase, isAdmin, unauthorized } from '@/lib/adminSession'
 import { invalidateProductCache } from '@/lib/productCache'
 import { embedAndStoreProduct } from '@/lib/semanticSearch'
@@ -155,6 +156,11 @@ export async function POST(req: NextRequest) {
 
     // Step 4: Invalidate cache — bot picks up new product immediately
     invalidateProductCache()
+    // The site's pages are cached (30 Sep): clear them so the saved product
+    // shows at once rather than within five minutes.
+    revalidateTag('products')
+    for (const path of ['/', '/products', '/videos', '/folder', '/schemes']) revalidatePath(path)
+    if (data?.id) revalidatePath(`/products/${data.id}`)
 
     return Response.json({ success: true, product: data })
   } catch (err) {

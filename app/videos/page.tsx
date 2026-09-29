@@ -9,7 +9,8 @@ export const metadata: Metadata = {
 
 // Same list as /products: a film appears here when its product is on the site
 // and disappears when the product is deleted.
-export const dynamic = 'force-dynamic'
+// Pre-built, refreshed every 5 minutes (was rendered per visit until 30 Sep).
+export const revalidate = 300
 
 const CHANNEL_URL = process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_URL || 'https://www.youtube.com/@madvetanimal9695'
 

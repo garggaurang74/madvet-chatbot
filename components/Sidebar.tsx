@@ -42,7 +42,7 @@ export default function Sidebar({
       {/* Sidebar */}
       <div className={`
         fixed md:relative z-30 h-full flex flex-col
-        bg-[#171717] text-white transition-all duration-300
+        bg-[#0f2318] text-[#f5f0e8] transition-all duration-300
         ${isOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:translate-x-0 md:w-0'}
         overflow-hidden
       `}>
@@ -115,7 +115,7 @@ export default function Sidebar({
             ))}
             {conversations.length === 0 && (
               <p className="text-white/30 text-xs text-center py-8 px-4">
-                Koi conversation nahi mili. Nayi chat shuru karein!
+                No previous chats yet.
               </p>
             )}
           </div>
@@ -125,8 +125,8 @@ export default function Sidebar({
             <div className="flex items-center gap-2 px-2 py-2 rounded-lg">
               <img src="/madvet-icon.png" alt="Madvet" style={{height:28,width:28,borderRadius:6,objectFit:"cover"}} />
               <div>
-                <p className="text-xs font-medium">Dr. Madvet Assistant</p>
-                <p className="text-xs text-white/40">Animal Healthcare AI</p>
+                <p className="text-xs font-medium">Ask Madvet</p>
+                <p className="text-xs text-white/40">From our product catalogue</p>
               </div>
             </div>
           </div>

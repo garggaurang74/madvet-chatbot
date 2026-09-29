@@ -21,7 +21,7 @@ export default function CareersPage() {
           <div className="cp-hero-in">
             <div>
               <div className="cp-eyebrow">Careers</div>
-              <h1>Our team is <em>our strength</em>.</h1>
+              <h1>Build a career in <em>veterinary healthcare</em>.</h1>
               <p className="lead">We look for hard-working people who want to work in the field — with veterinarians, retailers and dairy farmers — and grow with the company.</p>
               <div className="cp-cta">
                 <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent('Job application — Madvet')}`} className="cp-btn gold">Email your CV</a>

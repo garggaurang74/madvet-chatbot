@@ -7,7 +7,8 @@ export const metadata: Metadata = {
   description: 'The complete MADVET veterinary product folder — 65 brands in seven sections, page by page.',
 }
 
-export const dynamic = 'force-dynamic'
+// Pre-built, refreshed every 5 minutes (was rendered per visit until 30 Sep).
+export const revalidate = 300
 
 export default async function FolderPage() {
   const [pages, products, films] = await Promise.all([fetchFolder(), fetchProducts(), fetchFilms()])

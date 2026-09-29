@@ -1,7 +1,6 @@
 import { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { headers } from 'next/headers'
 import type { Product } from '../types'
 import ProductDetailClient, { type ProductFilm, type RelatedProduct } from './ProductDetailClient'
 import { fetchFilms, fetchFolder, filmFiles, fetchProducts } from '@/lib/catalog'
@@ -9,8 +8,13 @@ import { fetchPackIds, packUrl } from '@/lib/packs'
 import { schemeMap, folderPageOf, folderJpg } from '@/lib/productData'
 import { purposeLine } from '@/lib/productCopy'
 
-export const dynamic = 'force-dynamic'    // SSR on every request — no page cache
-export const fetchCache = 'force-no-store' // bypass Next.js fetch cache
+// Pre-built and served from the edge; refreshed every 5 minutes, and at once
+// when /admin saves (app/api/revalidate clears this path and the 'products'
+// tag). It was rendered on every request until 30 Sep — ~1.7 s per visit.
+export const revalidate = 300
+export async function generateStaticParams() {
+  return (await fetchProducts()).map(p => ({ id: String(p.id) }))
+}
 
 const CAT_NORMALIZE: Record<string, string> = {
   'Anti-inflammatory':                               'Anti-inflammatory / Analgesic',
@@ -57,7 +61,7 @@ async function fetchProduct(id: number): Promise<Product | null> {
   const supabase = createClient(url, key, {
     global: {
       fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-        fetch(input, { ...init, cache: 'no-store' }),
+        fetch(input, { ...init, next: { revalidate: 300, tags: ['products'] } } as RequestInit),
     },
   })
   const { data, error } = await supabase
@@ -108,10 +112,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // Explicitly set no-store headers so Vercel's CDN never caches this response.
-  // force-dynamic alone isn't enough — Vercel's edge network can still serve
-  // a stale cached HTML page unless these headers are present.
-  const headersList = await headers()
   const { id } = await params
   const [product, films, folder, packs, all] = await Promise.all([fetchProduct(Number(id)), fetchFilms(), fetchFolder(), fetchPackIds(), fetchProducts()])
   if (!product) notFound()

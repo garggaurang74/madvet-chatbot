@@ -1,11 +1,11 @@
 'use client'
 
 const SUGGESTIONS = [
-  { id: '1', label: '🐄 Gaay mein keede ka ilaaj', value: 'Gaay mein keede ka ilaaj' },
-  { id: '2', label: '🐔 Poultry vitamins', value: 'Poultry vitamins' },
-  { id: '3', label: '🩹 Wound treatment', value: 'Wound treatment' },
-  { id: '4', label: '💊 Antibiotic for cattle fever', value: 'Antibiotic for cattle fever' },
-  { id: '5', label: '🥛 Milk production badhana', value: 'Milk production badhana' },
+  { id: '1', label: '🐄  Dewormer for cattle', value: 'Which dewormer should I use for cattle?' },
+  { id: '2', label: '🥛  गाय का दूध कम हो गया', value: 'गाय का दूध कम हो गया है, कौन सा प्रोडक्ट दें?' },
+  { id: '3', label: '🦴  Calcium around calving', value: 'Which calcium product around calving?' },
+  { id: '4', label: '🩺  Antibiotic for mastitis', value: 'Which antibiotic for mastitis?' },
+  { id: '5', label: '🐕  Ticks on a dog', value: 'What do you have for ticks on a dog?' },
 ]
 
 interface QuickRepliesProps {
@@ -19,10 +19,10 @@ export default function QuickReplies({ onSelect, visible, dark = false }: QuickR
 
   const buttonClass = dark
     ? 'bg-[#2f2f2f] text-white/80 border-white/20 hover:bg-[#3f3f3f]'
-    : 'bg-madvet-accent text-madvet-primary border border-madvet-primary/30 hover:bg-madvet-primary/10'
+    : 'bg-white text-[#1a3a2a] border border-[#1a3a2a]/20 hover:border-[#1a3a2a]/50 hover:bg-[#ede6d6] shadow-sm'
 
   return (
-    <div className={`${dark ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'} px-4 pb-2`}>
+    <div className={`${dark ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap justify-center gap-2'} px-2 pb-2`}>
       {SUGGESTIONS.map((s) => (
         <button
           key={s.id}

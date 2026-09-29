@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { ADMIN_CONFIG_BUCKET, getAdminSupabase, isAdmin, unauthorized } from '@/lib/adminSession'
 
 // Remove a discontinued product. The whole row is copied to the private
@@ -13,6 +13,7 @@ import { ADMIN_CONFIG_BUCKET, getAdminSupabase, isAdmin, unauthorized } from '@/
 const DIR = 'deleted'
 
 function done(productId?: number) {
+  revalidateTag('products')
   revalidatePath('/products')
   revalidatePath('/videos')
   if (productId) revalidatePath(`/products/${productId}`)

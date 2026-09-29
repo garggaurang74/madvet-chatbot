@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getAdminSupabase, isAdmin, unauthorized } from '@/lib/adminSession'
 
 // Extract YouTube video ID from any YT URL format
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Bust Next.js cache so products page reflects the new video immediately
+    revalidateTag('products')
     revalidatePath('/products')
     revalidatePath('/products/[id]', 'page')
 

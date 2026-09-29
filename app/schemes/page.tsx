@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: "This month's MADVET trade schemes for retailers and stockists — buy the quantity, get the gift.",
 }
 
-export const dynamic = 'force-dynamic'
+// Pre-built, refreshed every 5 minutes (was rendered per visit until 30 Sep).
+export const revalidate = 300
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 const title = (s: string) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).replace(/(\d)(Ml|Gm|Ltr|Kg)\b/g, (_, d, u) => d + u.toLowerCase())
