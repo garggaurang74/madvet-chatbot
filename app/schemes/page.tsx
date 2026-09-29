@@ -20,17 +20,17 @@ export default async function SchemesPage() {
 
   // How a sheet line finds its product lives in lib/schemes.ts (matchScheme),
   // shared with /schemes/check, where the office can see every line's match.
-  // A line with a pack we do not list (CALCIFORCE 30ML) or a combo keeps its
-  // own card, titled as the sheet writes it, with the photo and links of its
-  // family — never filed under the other pack's name.
+  // A line whose exact product is not on the site (a pack we do not list —
+  // CALCIFORCE 30ML — or a combo) keeps its own card, titled as the sheet
+  // writes it, with NO photo or link: never another pack's carton (client,
+  // 29 Sep: the 100 ml carton on the 30 ml line was "unacceptable").
   const groups = new Map<string, SchemeGroup>()
   for (const s of schemes) {
-    const m = matchScheme(s.item, products)
-    const p = m.product, show = p || m.family
+    const p = matchScheme(s.item, products).product
     const k = p ? `p${p.id}` : `i${squash(s.item)}`
     if (!groups.has(k)) groups.set(k, {
-      key: k, name: p?.name || title(s.item), productId: show?.id ?? 0, image: show?.image_url || '',
-      category: show?.category || '', film: show ? filmOf.get(show.id) || '' : '', offers: [],
+      key: k, name: p?.name || title(s.item), productId: p?.id ?? 0, image: p?.image_url || '',
+      category: p?.category || '', film: p ? filmOf.get(p.id) || '' : '', offers: [],
     })
     groups.get(k)!.offers.push({ qty: s.qty, item: s.item, free: s.free })
   }

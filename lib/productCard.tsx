@@ -5,7 +5,6 @@
 //    (app/products/[id]/opengraph-image.tsx).
 // Drawn with next/og (Satori): every box with more than one child must be a
 // flex box, and the pack photo must be JPEG/PNG (the catalogue's are .jpg).
-import { COMPANY } from './company'
 import { SITE } from './share'
 import { cleanIndications, compShort, packLabel, speciesList, type CopyProduct } from './productCopy'
 
@@ -86,9 +85,8 @@ export function ProductCard({ p, scheme, shape, pack }: { p: CopyProduct & { ima
   ) : null
 
   const footer = (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', color: GL, fontSize: story ? 24 : 19 }}>
-      <div style={{ display: 'flex' }}>Call / WhatsApp  {COMPANY.phone}</div>
-      <div style={{ display: 'flex', color: CREAM, fontWeight: 700 }}>{SITE.replace('https://', '')}/products/{p.id}</div>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', color: CREAM, fontSize: story ? 26 : 20, fontWeight: 700 }}>
+      {SITE.replace('https://', '')}/products/{p.id}
     </div>
   )
 

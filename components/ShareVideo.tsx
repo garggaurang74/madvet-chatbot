@@ -60,7 +60,8 @@ export default function ShareVideo({ name, src, text, waUrl, className, style, c
     setStage('loading')
     try {
       const blob = await (await fetch(src)).blob()
-      const f = new File([blob], `${name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-MADVET.${ext}`, { type: mime })
+      const type = blob.type || mime
+      const f = new File([blob], `${name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-MADVET.${type === 'image/jpeg' ? 'jpg' : type === 'image/png' ? 'png' : ext}`, { type })
       if (!navigator.canShare({ files: [f] })) { setStage('idle'); return fallback() }
       file.current = f
       if (await shareFile()) setStage('idle')

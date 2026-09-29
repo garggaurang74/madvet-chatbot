@@ -31,8 +31,8 @@ export interface RelatedProduct { id: number; name: string; category: string; pa
 type Lang = 'en' | 'hi'
 const HI_SP: Record<string, string> = { Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी', Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा', Calf: 'बछड़ा', Camel: 'ऊँट', Pig: 'सूअर' }
 
-export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', related = [] }: {
-  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; related?: RelatedProduct[]
+export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', related = [], shareImg = '' }: {
+  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; related?: RelatedProduct[]; shareImg?: string
 }) {
   const [lang, setLang] = useState<Lang>('en')
   const [playing, setPlaying] = useState(false)
@@ -85,9 +85,9 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                   <div className="pd-sp">{sps.map(s => <span key={s}>{SP_ICON[s]} {hi ? HI_SP[s] || s : s}</span>)}</div>
                 )}
                 <div className="pd-cta">
-                  {hasFilm && <button className="pd-btn film" onClick={() => setPlaying(true)}>▶ {T('Watch the 1-minute film', '1 मिनट की फ़िल्म देखें')}</button>}
+                  {hasFilm && <button className="pd-btn film" onClick={() => setPlaying(true)}><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg> {T('Watch the 1-minute film', '1 मिनट की फ़िल्म देखें')}</button>}
                   <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={shareText} waUrl={productWaUrl(shareText)} className="pd-btn wa"
-                    loadingLabel={<>{T('Preparing card…', 'कार्ड तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
+                    loadingLabel={<>{T('Preparing…', 'तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
                     {T('Send to a customer on WhatsApp', 'WhatsApp पर ग्राहक को भेजें')}
                   </ShareVideo>
                   <a className="pd-btn order" href={`https://wa.me/${COMPANY.phoneRaw}?text=${encodeURIComponent(orderText)}`} target="_blank" rel="noopener">{T('Order / enquire', 'ऑर्डर / पूछताछ')}</a>
@@ -142,11 +142,11 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                 <p className="pd-rx">{T('For veterinary use only. Dose as directed by a registered veterinarian.', 'केवल पशु चिकित्सा उपयोग के लिए। खुराक पंजीकृत पशु चिकित्सक की सलाह से।')}</p>
               </section>
               <section className="pd-card share">
-                <h2>{T('The card your customer receives', 'ग्राहक को यह कार्ड जाता है')}</h2>
-                <img src={productCardUrl(p.id)} alt={`${p.name} share card`} loading="lazy" />
+                <h2>{T('What your customer receives', 'ग्राहक को यह जाता है')}</h2>
+                <img src={shareImg || productCardUrl(p.id)} alt={`${p.name} — what is sent`} loading="lazy" />
                 <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={shareText} waUrl={productWaUrl(shareText)} className="pd-btn wa full"
-                  loadingLabel={<>{T('Preparing card…', 'कार्ड तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
-                  {T('Send this card on WhatsApp', 'यह कार्ड WhatsApp पर भेजें')}
+                  loadingLabel={<>{T('Preparing…', 'तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
+                  {T('Send this on WhatsApp', 'इसे WhatsApp पर भेजें')}
                 </ShareVideo>
               </section>
             </div>
@@ -200,12 +200,13 @@ html, body { margin:0; padding:0; overflow-x:clip; }
 .pd-top { display:grid; grid-template-columns:1fr 1.1fr; gap:48px; align-items:center; margin-top:22px; }
 .pd-stage { position:relative; display:flex; align-items:center; justify-content:center; height:460px; border-radius:28px; background:radial-gradient(circle at 50% 42%, #fff 0%, #efe9dc 62%, #e2d9c5 100%); box-shadow:0 40px 80px -30px rgba(0,0,0,.6); overflow:hidden; }
 .pd-glow { position:absolute; width:70%; height:26px; bottom:50px; border-radius:50%; background:radial-gradient(rgba(26,58,42,.35), transparent 70%); filter:blur(6px); animation:pdShadow 6s ease-in-out infinite; }
-.pd-stage img { position:relative; max-width:78%; max-height:78%; object-fit:contain; animation:pdFloat 6s ease-in-out infinite; }
+/* Absolute box + contain: iPhone Safari ignores percentage max-height on an img
+   inside a flex box and showed the carton at full size, cropped (29 Sep). */
+.pd-stage img { position:absolute; left:11%; top:9%; width:78%; height:78%; object-fit:contain; animation:pdFloat 6s ease-in-out infinite; }
 .pd-stage img.cut { filter:drop-shadow(0 26px 24px rgba(26,58,42,.3)); }
-.pd-stage.has-offer { padding-bottom:88px; }
-.pd-stage.has-offer img { max-height:72%; }
+.pd-stage.has-offer img { top:6%; height:64%; }
 .pd-stage.has-offer .pd-glow { bottom:112px; }
-.pd-stage img.photo { max-width:100%; max-height:100%; mix-blend-mode:multiply; animation:none; }
+.pd-stage img.photo { left:0; top:0; width:100%; height:100%; mix-blend-mode:multiply; animation:none; }
 @keyframes pdFloat { 0%,100% { transform:translateY(0) rotate(-.6deg); } 50% { transform:translateY(-12px) rotate(.6deg); } }
 @keyframes pdShadow { 0%,100% { transform:scaleX(1); opacity:.9; } 50% { transform:scaleX(.86); opacity:.6; } }
 .pd-initial { font-family:'DM Serif Display',serif; font-size:120px; color:var(--c); }
@@ -257,8 +258,8 @@ html, body { margin:0; padding:0; overflow-x:clip; }
 .pd-rel-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; }
 .pd-rel { display:flex; flex-direction:column; gap:4px; padding:14px; border-radius:18px; background:#fff; border:1px solid rgba(26,58,42,.08); text-decoration:none; color:var(--ink); transition:transform .2s, box-shadow .2s; }
 .pd-rel:hover { transform:translateY(-4px); box-shadow:0 18px 34px -18px rgba(26,58,42,.4); }
-.pd-rel-img { height:140px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:radial-gradient(circle,#fff,#f0ebdf); margin-bottom:8px; padding:10px; }
-.pd-rel-img img { max-width:100%; max-height:100%; object-fit:contain; }
+.pd-rel-img { position:relative; height:140px; border-radius:12px; background:radial-gradient(circle,#fff,#f0ebdf); margin-bottom:8px; }
+.pd-rel-img img { position:absolute; left:10px; top:10px; width:calc(100% - 20px); height:calc(100% - 20px); object-fit:contain; }
 .pd-rel-img img.photo { mix-blend-mode:multiply; }
 .pd-rel b { font-size:15px; color:var(--forest); }
 .pd-rel span { font-size:12.5px; color:var(--muted); }

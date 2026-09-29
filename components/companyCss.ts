@@ -63,7 +63,7 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }
 .cp-film img { width:100%; height:100%; object-fit:cover; opacity:.92; transition:transform .3s; }
 .cp-film:hover img { transform:scale(1.04); }
 .cp-film span { position:absolute; left:0; right:0; bottom:0; padding:30px 10px 10px; font-size:12.5px; font-weight:600; color:#fff; background:linear-gradient(transparent, rgba(0,0,0,.8)); }
-.cp-film::after { content:'▶'; position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:50%; background:rgba(200,169,110,.92); color:var(--forest); font-size:11px; display:grid; place-items:center; }
+.cp-film::after { content:'\\25B6\\FE0E'; position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:50%; background:rgba(200,169,110,.92); color:var(--forest); font-size:11px; display:grid; place-items:center; }
 
 .cp-gallery { display:grid; grid-template-columns:2fr 1fr 1fr; grid-auto-rows:220px; gap:14px; }
 .cp-gallery .cp-photo:first-child { grid-row:span 2; }

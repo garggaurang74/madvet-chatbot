@@ -64,7 +64,9 @@ export default function SchemesClient({ month, groups }: { month: string; groups
             const share = `https://wa.me/?text=${encodeURIComponent([`*${title(g.name)}* — MADVET scheme ${monthName}`, ...g.offers.map(o => `• Buy ${o.qty} → FREE ${o.free}`), g.productId ? `${SITE}/products/${g.productId}` : `${SITE}/schemes`].join('\n'))}`
             return (
               <article key={g.key} className="sc-card">
-                <div className="sc-img">{g.image ? <img src={g.image} alt="" loading="lazy" /> : <span>{g.name.slice(0, 1)}</span>}</div>
+                <div className="sc-img">{g.image ? <img src={g.image} alt="" loading="lazy" /> : <span className="sc-noimg">{/\+|\bmix\b/i.test(g.name)
+                  ? <><b>COMBO</b><i>{g.name.replace(/\s*\d+(?:\.\d+)?\s*(?:ml|ltr|l|gm|g|kg)\b/gi, '').replace(/\bmix\b/i, '').trim()}</i></>
+                  : <><b>{(g.name.match(/\d+(?:\.\d+)?\s*(?:ml|ltr|l|gm|g|kg)\b/i) || [])[0] || 'MADVET'}</b><i>{g.name.replace(/\s*\d+(?:\.\d+)?\s*(?:ml|ltr|l|gm|g|kg)\b.*$/i, '')}</i></>}</span>}</div>
                 <div className="sc-body">
                   <h2>{g.productId ? g.name : title(g.name)}</h2>
                   {g.category && <div className="sc-cat">{g.category}</div>}
@@ -78,7 +80,7 @@ export default function SchemesClient({ month, groups }: { month: string; groups
                   </ul>
                   <div className="sc-acts">
                     {g.productId > 0 && <Link href={`/products/${g.productId}`}>Product</Link>}
-                    {g.film && <Link href={`/videos?film=${encodeURIComponent(g.film)}`}>▶ Film</Link>}
+                    {g.film && <Link href={`/videos?film=${encodeURIComponent(g.film)}`}>{"\u25B6\uFE0E"} Film</Link>}
                     <a className="wa" href={share} target="_blank" rel="noopener">WhatsApp</a>
                   </div>
                 </div>
@@ -93,6 +95,9 @@ export default function SchemesClient({ month, groups }: { month: string; groups
 }
 
 const CSS = `
+.sc-noimg { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:100%; height:100%; padding:6px; text-align:center; background:linear-gradient(160deg,#1a3a2a,#0f2318); border-radius:inherit; }
+.sc-noimg b { font-family:'DM Serif Display',serif; font-weight:400; font-size:20px; color:#e8d5a8; line-height:1; }
+.sc-noimg i { font-style:normal; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:rgba(245,240,232,.7); line-height:1.2; }
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; overflow-x: clip; }
 .sc { --forest:#1a3a2a; --cream:#f5f0e8; --cream-dark:#ede6d6; --gold:#c8a96e; --gold-light:#e8d5a8; min-height:100vh; background:var(--cream); color:#1c2b22; font-family:'DM Sans','Noto Sans Devanagari',sans-serif; }

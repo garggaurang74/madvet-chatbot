@@ -30,7 +30,7 @@ export default async function SchemeCheck() {
                 {rows.map((r, i) => (
                   <tr key={i} className={r.product ? '' : 'miss'}>
                     <td>{r.s.qty}</td><td>{r.s.item}</td><td>{r.s.free}</td>
-                    <td>{r.product ? <a href={`/products/${r.product.id}`}>{r.product.name}</a> : r.family ? <span>photo of <a href={`/products/${r.family.id}`}>{r.family.name}</a></span> : '—'}</td>
+                    <td>{r.product ? <a href={`/products/${r.product.id}`}>{r.product.name}</a> : '—'}</td>
                     <td>{r.why}</td>
                   </tr>
                 ))}

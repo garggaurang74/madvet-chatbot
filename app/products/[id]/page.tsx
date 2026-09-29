@@ -6,7 +6,7 @@ import type { Product } from '../types'
 import ProductDetailClient, { type ProductFilm, type RelatedProduct } from './ProductDetailClient'
 import { fetchFilms, fetchFolder, filmFiles, fetchProducts } from '@/lib/catalog'
 import { fetchPackIds, packUrl } from '@/lib/packs'
-import { schemeMap } from '@/lib/productData'
+import { schemeMap, folderPageOf, folderJpg } from '@/lib/productData'
 import { purposeLine } from '@/lib/productCopy'
 
 export const dynamic = 'force-dynamic'    // SSR on every request — no page cache
@@ -95,11 +95,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const product = await fetchProduct(Number(id))
   if (!product) return { title: 'Product Not Found | Madvet' }
   const description = purposeLine(product, 200) || `${product.name} — ${product.category}`
+  // A shared link unfolds into the product's folder page (the sheet a vet is
+  // sent), or the designed card for a product not yet in the folder.
+  const page = await folderPageOf(product.id)
+  const image = page ? { url: folderJpg(page), width: 1600, height: 1131 } : { url: `/api/card/${product.id}`, width: 1080, height: 1350 }
   return {
     title: `${product.name} | Madvet Animal Healthcare`,
     description,
-    openGraph: { title: `${product.name} — Madvet Animal Healthcare`, description, type: 'website' },
-    twitter: { card: 'summary_large_image', title: product.name, description },
+    openGraph: { title: `${product.name} — Madvet Animal Healthcare`, description, type: 'website', images: [image] },
+    twitter: { card: 'summary_large_image', title: product.name, description, images: [image.url] },
   }
 }
 
@@ -122,5 +126,5 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const f = films.find(x => x.ids.includes(product.id))
   const film: ProductFilm | null = f ? { key: f.youtubeId || f.slug, youtubeId: f.youtubeId, vertical: f.vertical, ...filmFiles(f) } : null
   const folderPage = folder.find(pg => pg.ids?.includes(product.id))?.p ?? 0
-  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} related={related} />
+  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} related={related} shareImg={folderPage ? folderJpg(folderPage) : `/api/card/${product.id}`} />
 }

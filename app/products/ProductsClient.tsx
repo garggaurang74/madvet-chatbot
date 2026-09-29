@@ -228,8 +228,8 @@ function Card({ p, i, hi, pack, scheme }: { p: Product; i: number; hi: boolean; 
         <div className="pc-sp">{sps.slice(0, 6).map(s => <span key={s} title={hi ? HI_SP[s] || s : s}>{SP_ICON[s] || '•'}</span>)}</div>
       </div>
       <div className="pc-actions">
-        <Link href={`/products/${p.id}`} className="pc-go">{hi ? 'पूरी जानकारी' : 'View details'} <b>→</b></Link>
-        {p.film_key && <Link href={`/videos?film=${encodeURIComponent(p.film_key)}`} className="pc-icon film" aria-label="Watch the film" title={hi ? 'फ़िल्म देखें' : 'Watch the film'}>▶</Link>}
+        <Link href={`/products/${p.id}`} className="pc-go"><span className="long">{hi ? 'पूरी जानकारी' : 'View details'}</span><span className="short">{hi ? 'जानकारी' : 'Details'}</span> <b>→</b></Link>
+        {p.film_key && <Link href={`/videos?film=${encodeURIComponent(p.film_key)}`} className="pc-icon film" aria-label="Watch the film" title={hi ? 'फ़िल्म देखें' : 'Watch the film'}><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg></Link>}
         <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={text} waUrl={productWaUrl(text)}
           className="pc-icon wa" loadingLabel={<span className="spin" />} readyLabel={<span className="ready">↗</span>}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-label="Share on WhatsApp"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3.1s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.1.1.3 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l2 .9c.3.2.5.2.5.4.1.1.1.8-.1 1.5Z" /></svg>
@@ -291,9 +291,9 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }
 .pc:hover { transform:translateY(-6px); box-shadow:0 24px 44px -20px rgba(26,58,42,.4); }
 @keyframes pcRise { from { opacity:0; transform:translateY(18px) scale(.985); } to { opacity:1; transform:none; } }
 .pc-media { position:relative; display:flex; align-items:center; justify-content:center; height:240px; padding:44px 16px 14px; background:radial-gradient(circle at 50% 38%, #fff 0%, color-mix(in srgb, var(--c) 10%, #f3efe6) 70%); overflow:hidden; }
-.pc-media img { max-width:100%; max-height:100%; object-fit:contain; transition:transform .45s cubic-bezier(.2,.8,.2,1); }
+.pc-media img { position:absolute; top:44px; left:16px; width:calc(100% - 32px); height:calc(100% - 58px); object-fit:contain; transition:transform .45s cubic-bezier(.2,.8,.2,1); }
 .pc-media img.cut { filter:drop-shadow(0 16px 18px rgba(26,58,42,.28)); }
-.pc-media img.photo { max-width:100%; max-height:100%; mix-blend-mode:multiply; }
+.pc-media img.photo { top:0; left:0; width:100%; height:100%; mix-blend-mode:multiply; }
 .pc:hover .pc-media img { transform:scale(1.06) rotate(-1deg); }
 .pc-initial { font-family:'DM Serif Display',serif; font-size:72px; color:var(--c); }
 .pc-form { position:absolute; top:12px; left:12px; padding:5px 10px; border-radius:99px; background:rgba(255,255,255,.9); font-size:11px; font-weight:700; letter-spacing:.5px; color:var(--ink); border:1px solid rgba(26,58,42,.1); }
@@ -309,6 +309,8 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }
 .pc-actions { display:flex; gap:8px; padding:12px 14px 14px; }
 .pc-go { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:42px; border-radius:12px; background:var(--forest); color:var(--cream); text-decoration:none; font-size:13.5px; font-weight:700; transition:background .15s; }
 .pc-go:hover { background:#24503a; }
+.pc-go { white-space:nowrap; }
+.pc-go .short { display:none; }
 .pc-go b { transition:transform .2s; }
 .pc-go:hover b { transform:translateX(3px); }
 .pc-icon { flex:none; display:flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:12px; text-decoration:none; font-size:14px; transition:transform .15s; }
@@ -323,19 +325,25 @@ html, body { margin: 0; padding: 0; overflow-x: clip; }
   .pl-hero-in, .pl-bar-in, .pl-main { padding-left:16px; padding-right:16px; }
   .pl-hero-in { padding-top:32px; padding-bottom:28px; }
   .pl-stats { gap:22px; } .pl-stats b { font-size:32px; }
-  .pl-row { flex-wrap:wrap; }
-  .pl-search { flex-basis:100%; }
-  .pl-row select { flex:1; min-width:0; }
+  .pl-bar-in { padding-top:10px; padding-bottom:6px; }
+  .pl-row { flex-wrap:wrap; gap:8px; }
+  .pl-search { flex-basis:100%; height:42px; border-radius:12px; }
+  .pl-search input { font-size:16px; }
+  .pl-row select { flex:1; min-width:0; height:38px; border-radius:11px; font-size:14px; padding:0 8px; }
+  .pl-lang { border-radius:11px; padding:3px; } .pl-lang button { padding:6px 10px; }
+  .pl-cats { padding:8px 0 2px; gap:6px; }
+  .pl-cats button { padding:6px 11px; font-size:12.5px; }
 }
 @media (max-width:520px) {
   .pl-grid { grid-template-columns:1fr 1fr; gap:10px; }
   .pc { border-radius:16px; }
-  .pc-media { height:160px; padding:32px 8px 8px; }
+  .pc-media { height:160px; }
+  .pc-media img { top:32px; left:8px; width:calc(100% - 16px); height:calc(100% - 40px); }
   .pc-body { padding:10px 11px 4px; }
   .pc h3 { font-size:17px; }
   .pc-use, .pc-sp, .pc-scheme { display:none; }
   .pc-actions { padding:8px 9px 10px; gap:6px; }
-  .pc-go { height:38px; font-size:12px; } .pc-go b { display:none; }
+  .pc-go { height:38px; font-size:13px; } .pc-go b { display:none; } .pc-go .long { display:none; } .pc-go .short { display:inline; }
   .pc-icon { width:38px; height:38px; }
   .pc-form { top:8px; left:8px; font-size:10px; padding:3px 8px; }
   .pc-offer { top:8px; right:8px; font-size:10px; padding:3px 8px; }

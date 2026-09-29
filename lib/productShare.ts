@@ -19,7 +19,6 @@ export function productShareText(p: CopyProduct, scheme = '', hasFilm = false): 
     scheme && `🎁 *This month:* ${scheme}`,
     ' ',
     `👉 Details${hasFilm ? ' + 1-min video' : ''}: ${SITE}/products/${p.id}`,
-    `📞 Order / enquiry (Call or WhatsApp): ${COMPANY.phone}`,
     `— ${COMPANY.name}`,
   ]
   return lines.filter((l): l is string => typeof l === 'string' && l !== '').join('\n').replace('\n \n', '\n\n')
