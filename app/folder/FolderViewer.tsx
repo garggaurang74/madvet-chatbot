@@ -15,12 +15,23 @@ export interface ViewerPage {
   names:     string   // every site product this page covers, for search
 }
 
+// Page images keep fixed names (pages/63.webp), and browsers and the storage
+// CDN hold them for a day — so when the folder changes (a page inserted,
+// 29 Sep: Nuroforce Pro at 63) the old picture would show under the new title.
+// The version is a hash of the manifest, so it changes exactly when the folder does.
+let VER = ''
 const IMG = (p: number, size: 'pages' | 'thumbs' = 'pages') =>
-  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/film-downloads/folder/${size}/${String(p).padStart(2, '0')}.webp`
+  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/film-downloads/folder/${size}/${String(p).padStart(2, '0')}.webp${VER ? `?v=${VER}` : ''}`
+function hashPages(pages: ViewerPage[]): string {
+  let h = 5381
+  for (const ch of pages.map(p => `${p.p}${p.kind}${p.title}`).join('|')) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0
+  return h.toString(36)
+}
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9ऀ-ॿ]/g, '')
 
 export default function FolderViewer({ pages }: { pages: ViewerPage[] }) {
+  VER = hashPages(pages)
   const [i, setI]           = useState(0)
   const [zoom, setZoom]     = useState(false)
   const [query, setQuery]   = useState('')
