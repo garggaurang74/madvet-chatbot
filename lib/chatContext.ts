@@ -184,6 +184,10 @@ export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constr
   const expanded = new Set<string>(words)
   for (const [t, en] of Object.entries(TERMS)) if (low.includes(t)) en.forEach(e => expanded.add(e))
   const q = squash(text)
+  // A pack size in the question ("Butacin 100ml") picks that pack: without
+  // this Butacin 30ml ranked first for a 100ml question, its details said
+  // "no scheme", and the bot told a retailer there was none (30 Sep).
+  const asked = sizesIn(text)
 
   const scored = k.products.filter(p => !c || obeys(p, c)).map(p => {
     const name = squash(p.product_name || '')
@@ -191,7 +195,14 @@ export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constr
     const aliases = (p.aliases || '').toLowerCase()
     const body = `${p.indication} ${p.description} ${p.category} ${p.species} ${p.usp_benefits} ${p.salt_ingredient}`.toLowerCase()
     let s = 0
-    if (base.length >= 4 && q.includes(base)) s += 40                       // the product is named
+    if (base.length >= 4 && q.includes(base)) {                             // the product is named
+      s += 40
+      if (asked.length) {
+        const own = sizesIn(`${p.product_name} ${p.packaging}`)
+        if (own.some(x => asked.includes(x))) s += 25
+        else if (own.length) s -= 15
+      }
+    }
     else if (name.length >= 6 && q.includes(name.slice(0, 6))) s += 15
     for (const a of aliases.split(/[,;/|]/).map(x => squash(x)).filter(x => x.length >= 4)) if (q.includes(a)) s += 30
     for (const w of expanded) {
@@ -211,6 +222,14 @@ export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constr
   }).filter(x => x.s > 0).sort((a, b) => b.s - a.s)
 
   return scored.slice(0, max).map(x => x.p)
+}
+
+// Pack sizes written in a text, in ml or g (a litre or kg as 1000).
+function sizesIn(t: string): number[] {
+  return [...t.matchAll(/(\d+(?:\.\d+)?)\s*(ml|ltr|litre|liter|l|gms?|gm|g|kg)\b/gi)].map(m => {
+    const n = parseFloat(m[1]), u = m[2].toLowerCase()
+    return /^(ltr|litre|liter|l|kg)$/.test(u) ? n * 1000 : n
+  })
 }
 
 // Complaint → the molecules whose MAIN job it is, strongest first. A word in an

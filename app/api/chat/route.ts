@@ -22,7 +22,7 @@ function detectLanguage(text: string): DetectedLang {
 
   // ── Weak signals: could appear in English context ──
   // Need 2+ matches to confirm Hinglish
-  const weakHinglish = /\b(kya|hai|mein|dein|batao|nahi|haan|acha|bhi|wala|wali|meri|mera|uska|uski|kaun|konsa|rahi|raha|sakte|hota|hoti|toh|aur|kis|iska|iski|usse|isse|apna|apni|apne|koi|kuch|sab|jab|tab|agar|lekin|par|per|phir|fir|yeh|woh|yaha|waha|idhar|udhar|kal|aaj|subah|shaam|raat|din|waqt|zyada|kam|thoda|bohot|sabse)\b/gi
+  const weakHinglish = /\b(ki|ka|ke|ko|hain|hoga|hogi|milega|milegi|bataiye|batayein|batana|chahie|chaiye|karo|kijiye|kitni|kitne|konsi|kaunsi|kaunsa|kya|hai|mein|dein|batao|nahi|haan|acha|bhi|wala|wali|meri|mera|uska|uski|kaun|konsa|rahi|raha|sakte|hota|hoti|toh|aur|kis|iska|iski|usse|isse|apna|apni|apne|koi|kuch|sab|jab|tab|agar|lekin|par|per|phir|fir|yeh|woh|yaha|waha|idhar|udhar|kal|aaj|subah|shaam|raat|din|waqt|zyada|kam|thoda|bohot|sabse)\b/gi
 
   const strongMatches = (text.match(strongHinglish) || []).length
   const weakMatches   = (text.match(weakHinglish) || []).length
