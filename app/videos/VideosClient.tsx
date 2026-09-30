@@ -166,11 +166,11 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
             <div className="vp-hero-copy">
               <div className="vp-eyebrow"><span />Madvet Animal Healthcare</div>
               <h1>
-                {hi ? <>हर दवा,<br /><em>एक छोटी फ़िल्म</em></> : <>Every product,<br /><em>one short film</em></>}
+                {hi ? <>दवा कैसे काम करती है,<br /><em>डेढ़ मिनट में</em></> : <>See how it works,<br /><em>in a minute and a half</em></>}
               </h1>
               <p>
-                {hi ? 'किस बीमारी में काम आती है, शरीर में कैसे काम करती है, और कितनी देनी है — हिंदी में, कुछ ही मिनटों में।'
-                    : 'What it treats, how it works in the animal and how much to give — in Hindi, in a few minutes.'}
+                {hi ? 'किस बीमारी में काम आती है, शरीर में कैसे काम करती है, और कब देनी है — साफ़ हिंदी में, काउंटर पर दिखाने या WhatsApp पर भेजने के लिए।'
+                    : 'What it treats, how it works in the animal and when to reach for it — in plain Hindi, to play at the counter or send on WhatsApp.'}
               </p>
               <div className="vp-stats">
                 <div><b>{videos.length}</b><span lang={hi ? 'hi' : 'en'}>{hi ? 'फ़िल्में' : 'Films'}</span></div>

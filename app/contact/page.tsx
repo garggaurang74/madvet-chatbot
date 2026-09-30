@@ -49,7 +49,7 @@ export default function ContactPage() {
             <div className="ct-split">
               <div>
                 <div className="cp-kicker">Our people</div>
-                <h2>Meets, visits and the trade</h2>
+                <h2>In the clinic, at the counter</h2>
                 <PhotoSlideshow slides={TEAM_PHOTOS} />
               </div>
               <div>
@@ -70,7 +70,7 @@ export default function ContactPage() {
             <h2>What would you like to do?</h2>
             <div className="cp-cards" style={{ marginTop: 28 }}>
               <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent('Order / distribution — Madvet')}&body=${encodeURIComponent(ENQUIRY)}`} className="cp-card"><span className="ic">📦</span><h3>Order or distribute</h3><p>Stock Madvet, place an order or take up distribution in your area.</p><span className="go">Email us →</span></a>
-              <Link href="/ask" className="cp-card"><span className="ic">💬</span><h3>Ask about a product</h3><p>Dose, composition or indication — our assistant answers from the catalogue.</p><span className="go">Ask AI →</span></Link>
+              <Link href="/ask" className="cp-card"><span className="ic">💬</span><h3>Ask about a product</h3><p>Composition, indications or which product fits a case — answered from our own catalogue.</p><span className="go">Ask AI →</span></Link>
               <Link href="/schemes" className="cp-card"><span className="ic">🎁</span><h3>This month’s schemes</h3><p>Trade offers for retailers and stockists, updated by our office.</p><span className="go">See schemes →</span></Link>
               <Link href="/careers" className="cp-card"><span className="ic">🤝</span><h3>Join the team</h3><p>Field sales and distribution roles across the region.</p><span className="go">Careers →</span></Link>
             </div>

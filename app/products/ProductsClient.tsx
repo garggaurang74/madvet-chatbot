@@ -138,8 +138,8 @@ export default function ProductsClient({ products, packIds = [], schemes = {} }:
           <div className="pl-hero-in">
             <div>
               <div className="pl-eyebrow">{hi ? 'मैडवेट एनिमल हेल्थकेयर' : 'Madvet Animal Healthcare'}</div>
-              <h1>{hi ? <>हमारे <em>उत्पाद</em></> : <>The <em>range</em></>}</h1>
-              <p>{hi ? 'हर उत्पाद की संरचना, उपयोग, पैक और छोटी फ़िल्म — एक जगह।' : 'Composition, uses, packs and a short film for every product — send any of them to a customer in one tap.'}</p>
+              <h1>{hi ? <>मैडवेट की <em>पूरी रेंज</em></> : <>The Madvet <em>range</em></>}</h1>
+              <p>{hi ? `${products.length} पशु दवाएँ और सप्लीमेंट — नाम, दवा, बीमारी या पशु से खोजें, और उसका फ़ोल्डर पेज एक टैप में ग्राहक को भेजें।` : `${products.length} veterinary medicines and supplements. Search by product, molecule, disease or animal — and send its folder page to a customer in one tap.`}</p>
               <div className="pl-hero-cta"><FolderButtons hi={hi} /></div>
             </div>
             <div className="pl-stats">

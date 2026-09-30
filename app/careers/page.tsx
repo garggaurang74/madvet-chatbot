@@ -38,7 +38,7 @@ export default function CareersPage() {
             <div className="cp-prose">
               <div className="cp-kicker">Working at Madvet</div>
               <p>Our field team is how Madvet reaches veterinarians and dairy farmers — in towns and deep in the interior. The work is to explain our products well, support our retailers and stockists, and bring back what the market needs.</p>
-              <p>We train our people on the products they sell: every product has its own film, folder page and composition on this site, and our training module is open to the whole team.</p>
+              <p>We train our people on the products they sell: every product has its folder page and full composition on this site, most have their own film, and our training module is open to the whole team.</p>
               <p>If you are committed to field work and want to learn, perform and grow in veterinary healthcare, send us your CV.</p>
             </div>
             <ul className="cp-list">
