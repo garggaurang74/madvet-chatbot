@@ -6,6 +6,7 @@ import { COMPANY, TESTIMONIALS } from '@/lib/company'
 import { fetchFilms, fetchProducts, filmFiles } from '@/lib/catalog'
 import { fetchSchemes } from '@/lib/schemes'
 import { PageMark } from '@/components/SiteFooter'
+import { speciesList, SP_ICON } from '@/lib/productCopy'
 
 export const metadata: Metadata = {
   title: 'Madvet Animal Healthcare — veterinary medicines, Ghaziabad',
@@ -26,6 +27,8 @@ export default async function HomePage() {
   for (const p of products) if (p.category) cats.set(p.category, (cats.get(p.category) || 0) + 1)
   const catList = [...cats.entries()].sort((a, b) => b[1] - a[1])
   const featured = shown.filter(f => f.ids.length).slice(0, 6)
+  // Animals the range treats, counted from the catalogue (calves are cattle).
+  const species = new Set(products.flatMap(p => speciesList(p.species)).filter(x => x in SP_ICON && x !== 'Calf'))
 
   return (
     <>
@@ -37,16 +40,15 @@ export default async function HomePage() {
         <header className="cp-hero">
           <div className="cp-hero-in">
             <div>
-              <div className="cp-eyebrow">Ghaziabad · since {COMPANY.since}</div>
-              <h1>Veterinary medicines, <em>explained in full</em>.</h1>
+              <div className="cp-eyebrow">Madvet · since {COMPANY.since}</div>
+              <h1>High potency.<br /><em>Top quality.</em></h1>
               <p className="lead">
-                {products.length} products for cattle, buffalo, sheep, goats, horses, dogs and cats — each
-                with its composition and indications in the open, a short Hindi film for the counter
-                and a page in our product folder. Supplied to veterinarians, retailers and stockists
-                since {COMPANY.since}.
+                Veterinary medicines and supplements for cattle, buffalo, sheep, goats, poultry,
+                horses, dogs and cats — {products.length} products for the conditions a vet sees every day, supplied
+                to veterinarians, retailers and stockists since {COMPANY.since}.
               </p>
               <div className="cp-cta">
-                <Link href="/products" className="cp-btn gold">Browse {products.length} products →</Link>
+                <Link href="/products" className="cp-btn gold">Explore the range →</Link>
                 <Link href="/schemes" className="cp-btn line">{month ? `${title(month)} schemes` : 'Trade schemes'}</Link>
               </div>
             </div>
@@ -59,43 +61,56 @@ export default async function HomePage() {
 
         <div className="cp-stats">
           <div className="cp-stat"><b>{products.length}</b><span>Products</span></div>
-          <div className="cp-stat"><b>{shown.length}</b><span>Product films</span></div>
-          <div className="cp-stat"><b>{catList.length}</b><span>Categories</span></div>
-          <div className="cp-stat"><b>{COMPANY.since}</b><span>Established</span></div>
+          <div className="cp-stat"><b>{catList.length}</b><span>Therapeutic categories</span></div>
+          <div className="cp-stat"><b>{species.size}</b><span>Animal species</span></div>
+          <div className="cp-stat"><b>{COMPANY.since}</b><span>Serving the trade since</span></div>
         </div>
 
         <section className="cp-sec">
           <div className="cp-wrap">
-            <div className="cp-kicker">Built for the trade</div>
-            <h2>Everything you need to recommend it</h2>
-            <p className="intro">A retailer should be able to explain a product as clearly as the vet who prescribed it. So every Madvet product comes with the same things: its full details, a film, a folder page and an assistant that answers questions about it.</p>
+            <div className="cp-kicker">Why Madvet</div>
+            <h2>Medicines the counter can stand behind</h2>
+            <p className="intro">Every Madvet product is held to one standard — high potency and top quality — and backed by a team that stays with the retailer long after the sale.</p>
             <div className="cp-cards">
-              <Link href="/products" className="cp-card"><span className="ic">💊</span><h3>Products</h3><p>Composition, indications and pack sizes for the whole range. Search by product, molecule, disease or animal.</p><span className="go">See the range →</span></Link>
-              <Link href="/videos" className="cp-card"><span className="ic">▶️</span><h3>Videos</h3><p>{shown.length} short Hindi films, one per product — play, download or send on WhatsApp.</p><span className="go">Watch →</span></Link>
-              <Link href="/folder" className="cp-card"><span className="ic">📖</span><h3>Product folder</h3><p>One page per product, written so anyone can follow it. Send a single page to a customer.</p><span className="go">Open the folder →</span></Link>
-              <Link href="/schemes" className="cp-card"><span className="ic">🎁</span><h3>Trade schemes</h3><p>{schemes.length ? `${schemes.length} offers this ${month ? title(month) : 'month'} — buy the quantity, get the gift.` : 'This month’s offers for retailers and stockists.'}</p><span className="go">See schemes →</span></Link>
-              <Link href="/ask" className="cp-card"><span className="ic">💬</span><h3>Ask AI</h3><p>Ask about any product, composition or indication. Answers come from our own catalogue, in Hindi or English.</p><span className="go">Ask a question →</span></Link>
+              <Link href="/products" className="cp-card"><span className="ic">💊</span><h3>Formulations that do more</h3><p>Many of our products pair two actives, or an active with the vitamins, minerals or herbs that support it — each combination chosen for the condition it treats.</p><span className="go">See the range →</span></Link>
+              <Link href="/products" className="cp-card"><span className="ic">🐄</span><h3>For every animal on the farm</h3><p>Antibiotics, pain and fever relief, parasite control, calcium, minerals, tonics and probiotics for large animals — and our {COMPANY.petBrand} range for dogs and cats.</p><span className="go">Browse by category →</span></Link>
+              <Link href="/about" className="cp-card"><span className="ic">🤝</span><h3>A team in the field</h3><p>Our representatives visit clinics and counters across the region, and every year the trade gathers at the Madvet Diwali Meet &amp; Award Ceremony.</p><span className="go">Meet the team →</span></Link>
+              <Link href="/schemes" className="cp-card"><span className="ic">🎁</span><h3>Schemes every month</h3><p>{schemes.length ? `${schemes.length} offers this ${month ? title(month) : 'month'} for retailers and stockists — buy the quantity, take home the gift.` : 'Trade offers for retailers and stockists, updated every month.'}</p><span className="go">See this month’s schemes →</span></Link>
             </div>
           </div>
         </section>
 
         <section className="cp-sec alt">
           <div className="cp-wrap">
+            <div className="cp-kicker">Tools for the counter</div>
+            <h2>Everything you need to sell it</h2>
+            <p className="intro">Whoever recommends a Madvet product has the full story to hand — to read, to show, or to send to a customer.</p>
+            <div className="cp-cards">
+              <Link href="/products" className="cp-card"><span className="ic">🔎</span><h3>Product details</h3><p>Composition, indications and pack sizes for every product. Search by name, molecule, disease or animal.</p><span className="go">Search the range →</span></Link>
+              <Link href="/folder" className="cp-card"><span className="ic">📖</span><h3>Product folder</h3><p>One clear page per product, dose included. Send a single page to a customer on WhatsApp.</p><span className="go">Open the folder →</span></Link>
+              <Link href="/videos" className="cp-card"><span className="ic">▶️</span><h3>Counter films</h3><p>Short Hindi films that show a customer what a product does and when to use it.</p><span className="go">Watch →</span></Link>
+              <Link href="/ask" className="cp-card"><span className="ic">💬</span><h3>Ask Madvet</h3><p>Questions on any product, answered from our own catalogue in English or हिंदी.</p><span className="go">Ask a question →</span></Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="cp-sec">
+          <div className="cp-wrap">
             <div className="cp-kicker">The range</div>
             <h2>{products.length} products across {catList.length} categories</h2>
-            <p className="intro">Antibiotic injections and boluses, pain and fever relief, dewormers and tick control, calcium, minerals and liver tonics, probiotics and herbal formulations — and pet care under our {COMPANY.petBrand} line.</p>
+            <p className="intro">Antibiotic injections and boluses, pain and fever relief, dewormers and tick control, calcium, minerals and liver tonics, probiotics and herbal formulations — and pet care under our {COMPANY.petBrand} line. Tap a category to see its products.</p>
             <div className="cp-chips">
-              {catList.map(([c, n]) => <Link key={c} href="/products" className="cp-chip">{c}<b>{n}</b></Link>)}
+              {catList.map(([c, n]) => <Link key={c} href={`/products?cat=${encodeURIComponent(c)}`} className="cp-chip">{c}<b>{n}</b></Link>)}
             </div>
           </div>
         </section>
 
         {featured.length > 0 && (
-          <section className="cp-sec">
+          <section className="cp-sec alt">
             <div className="cp-wrap">
               <div className="cp-kicker">Product films</div>
-              <h2>A one-minute film for the counter</h2>
-              <p className="intro">Each film says what the product does and when to reach for it, in plain Hindi — made to be played for a customer or forwarded on WhatsApp.</p>
+              <h2>Show a customer in a minute</h2>
+              <p className="intro">What the product does and when to use it, in plain Hindi — play it at the counter or forward it on WhatsApp.</p>
               <div className="cp-films">
                 {featured.map(f => (
                   <Link key={f.slug} href={`/videos?film=${encodeURIComponent(f.youtubeId || f.slug)}`} className="cp-film">
@@ -109,7 +124,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        <section className="cp-sec alt">
+        <section className="cp-sec">
           <div className="cp-wrap">
             <div className="cp-kicker">Our people</div>
             <h2>In the clinic, at the counter</h2>

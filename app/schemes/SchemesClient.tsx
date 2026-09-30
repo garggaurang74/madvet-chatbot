@@ -1,25 +1,25 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import SiteNav from '@/components/SiteNav'
+import ShareVideo from '@/components/ShareVideo'
 import { SITE } from '@/lib/share'
+import type { SchemeGroup } from '@/lib/schemeGroups'
 
-export interface SchemeGroup {
-  key:       string
-  name:      string
-  productId: number
-  image:     string
-  category:  string
-  film:      string
-  offers:    { qty: string; item: string; free: string }[]
-}
+export type { SchemeGroup }
 
 const title = (s: string) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-export default function SchemesClient({ month, groups }: { month: string; groups: SchemeGroup[] }) {
+export default function SchemesClient({ month, groups, focus = '' }: { month: string; groups: SchemeGroup[]; focus?: string }) {
   const [q, setQ] = useState('')
+  // A shared /schemes/<key> link opens on its own card.
+  useEffect(() => {
+    if (!focus) return
+    const el = document.getElementById(`s-${focus}`)
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250)
+  }, [focus])
   const shown = useMemo(() => {
     const k = squash(q)
     return k ? groups.filter(g => squash(g.name + g.offers.map(o => o.item + o.free).join(' ')).includes(k)) : groups
@@ -61,9 +61,12 @@ export default function SchemesClient({ month, groups }: { month: string; groups
         <main className="sc-grid">
           {shown.length === 0 && <p className="sc-empty">{groups.length ? 'No scheme matches that search.' : 'This month’s schemes are being updated.'}</p>}
           {shown.map(g => {
-            const share = `https://wa.me/?text=${encodeURIComponent([`*${title(g.name)}* — MADVET scheme ${monthName}`, ...g.offers.map(o => `• Buy ${o.qty} → FREE ${o.free}`), g.productId ? `${SITE}/products/${g.productId}` : `${SITE}/schemes`].join('\n'))}`
+            // The link opens this card and unfolds on WhatsApp into its own
+            // picture; on a phone the Share button sends the picture itself.
+            const text = [`*${g.productId ? g.name : title(g.name)}* — MADVET scheme${monthName ? ` · ${monthName}` : ''}`, ...g.offers.map(o => `• Buy ${o.qty} → FREE ${o.free ? title(o.free) : ''}`), `${SITE}/schemes/${g.key}`].join('\n')
+            const share = `https://wa.me/?text=${encodeURIComponent(text)}`
             return (
-              <article key={g.key} className="sc-card">
+              <article key={g.key} id={`s-${g.key}`} className={`sc-card${focus === g.key ? ' focus' : ''}`}>
                 <div className="sc-img">{g.image ? <img src={g.image} alt="" loading="lazy" /> : <span className="sc-noimg">{/\+|\bmix\b/i.test(g.name)
                   ? <><b>COMBO</b><i>{g.name.replace(/\s*\d+(?:\.\d+)?\s*(?:ml|ltr|l|gm|g|kg)\b/gi, '').replace(/\bmix\b/i, '').trim()}</i></>
                   : <><b>{(g.name.match(/\d+(?:\.\d+)?\s*(?:ml|ltr|l|gm|g|kg)\b/i) || [])[0] || 'MADVET'}</b><i>{g.name.replace(/\s*\d+(?:\.\d+)?\s*(?:ml|ltr|l|gm|g|kg)\b.*$/i, '')}</i></>}</span>}</div>
@@ -81,7 +84,8 @@ export default function SchemesClient({ month, groups }: { month: string; groups
                   <div className="sc-acts">
                     {g.productId > 0 && <Link href={`/products/${g.productId}`}>Product</Link>}
                     {g.film && <Link href={`/videos?film=${encodeURIComponent(g.film)}`}>{"\u25B6\uFE0E"} Film</Link>}
-                    <a className="wa" href={share} target="_blank" rel="noopener">WhatsApp</a>
+                    <ShareVideo name={`${g.name} scheme`} src={`/api/scheme-card/${g.key}`} mime="image/png" ext="png" text={text} waUrl={share} className="wa"
+                      loadingLabel={<>Preparing…</>} readyLabel={<>Tap again to send</>}>Share</ShareVideo>
                   </div>
                 </div>
               </article>
@@ -95,6 +99,7 @@ export default function SchemesClient({ month, groups }: { month: string; groups
 }
 
 const CSS = `
+.sc-card.focus { outline:3px solid #c8a96e; outline-offset:3px; box-shadow:0 18px 50px rgba(200,169,110,.35); }
 .sc-noimg { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:100%; height:100%; padding:6px; text-align:center; background:linear-gradient(160deg,#1a3a2a,#0f2318); border-radius:inherit; }
 .sc-noimg b { font-family:'DM Serif Display',serif; font-weight:400; font-size:20px; color:#e8d5a8; line-height:1; }
 .sc-noimg i { font-style:normal; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:rgba(245,240,232,.7); line-height:1.2; }

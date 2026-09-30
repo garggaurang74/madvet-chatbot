@@ -50,7 +50,9 @@ export default function FolderViewer({ pages }: { pages: ViewerPage[] }) {
     if (!cur) return
     const url = new URL(window.location.href)
     url.searchParams.set('p', String(cur.p))
-    window.history.replaceState(null, '', url)
+    // Keep the router's own history state: replacing it with null made the
+    // next page change a full reload (30 Sep).
+    window.history.replaceState(window.history.state, '', url)
     // keep the next and previous pages ready so a swipe never shows a blank
     for (const k of [i + 1, i - 1, i + 2]) if (pages[k]) { const im = new Image(); im.src = IMG(pages[k].p) }
     // scroll the strip only — scrollIntoView would also scroll the page

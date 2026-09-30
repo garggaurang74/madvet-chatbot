@@ -41,19 +41,20 @@ export default function SiteNav({ active, hi = false }: { active: NavKey; hi?: b
 const CSS = `
 .sn { position: relative; z-index: 60; height: 56px; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
   background: #0f2318; border-bottom: 1px solid rgba(200,169,110,.15); font-family: 'DM Sans', 'Noto Sans Devanagari', sans-serif; }
-.sn-brand { flex: none; display: flex; align-items: center; gap: 10px; color: #f5f0e8; text-decoration: none; font-family: 'DM Serif Display', serif; font-size: 19px; }
+/* .sn scopes these above page rules such as the company pages' ".cp a { color:inherit }", which turned the brand name dark on the dark bar (30 Sep) */
+.sn .sn-brand { flex: none; display: flex; align-items: center; gap: 10px; color: #f5f0e8; text-decoration: none; font-family: 'DM Serif Display', serif; font-size: 19px; }
 .sn-brand img { width: 32px; height: 32px; border-radius: 7px; object-fit: cover; }
 .sn-links { display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .sn-links::-webkit-scrollbar { display: none; }
-.sn-links a, .sn-links span { flex: none; padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; color: rgba(245,240,232,.62); text-decoration: none; white-space: nowrap; transition: color .15s, background .15s; }
-.sn-links a:hover { color: #f5f0e8; background: rgba(255,255,255,.05); }
-.sn-links .on { color: #e8d5a8; background: rgba(200,169,110,.14); }
-.sn-links .sn-train { margin-left: 8px; background: #c8a96e; color: #1a3a2a; font-weight: 700; }
-.sn-links .sn-train:hover { background: #d8b97e; color: #1a3a2a; }
+.sn .sn-links a, .sn .sn-links span { flex: none; padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; color: rgba(245,240,232,.62); text-decoration: none; white-space: nowrap; transition: color .15s, background .15s; }
+.sn .sn-links a:hover { color: #f5f0e8; background: rgba(255,255,255,.05); }
+.sn .sn-links .on { color: #e8d5a8; background: rgba(200,169,110,.14); }
+.sn .sn-links .sn-train { margin-left: 8px; background: #c8a96e; color: #1a3a2a; font-weight: 700; }
+.sn .sn-links .sn-train:hover { background: #d8b97e; color: #1a3a2a; }
 @media (max-width: 700px) {
   .sn { padding: 0 10px 0 12px; height: 50px; gap: 8px; }
-  .sn-brand span { display: none; }
-  .sn-links a, .sn-links span { padding: 6px 9px; font-size: 12.5px; }
-  .sn-links .sn-train { margin-left: 4px; }
+  .sn .sn-brand span { display: none; }
+  .sn .sn-links a, .sn .sn-links span { padding: 6px 9px; font-size: 12.5px; }
+  .sn .sn-links .sn-train { margin-left: 4px; }
 }
 `

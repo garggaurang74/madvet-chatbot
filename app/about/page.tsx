@@ -9,7 +9,7 @@ import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'About us | Madvet Animal Healthcare',
-  description: 'Madvet Animal Healthcare, Ghaziabad — veterinary medicines since 2010, with the composition and indications of every product published in full.',
+  description: 'Madvet Animal Healthcare, Ghaziabad — veterinary medicines and supplements for livestock and pets since 2010. High potency, top quality.',
 }
 
 export const revalidate = 600
@@ -28,8 +28,8 @@ export default async function AboutPage() {
           <div className="cp-hero-in">
             <div>
               <div className="cp-eyebrow">About Madvet · Ghaziabad · since {COMPANY.since}</div>
-              <h1>A veterinary company that <em>shows its work</em>.</h1>
-              <p className="lead">{COMPANY.name} has supplied veterinarians, retailers and stockists since {COMPANY.since}. We publish exactly what is in every product and what it is for, because the people who recommend our medicines should never have to guess.</p>
+              <h1>A veterinary brand, <em>built with the trade</em>.</h1>
+              <p className="lead">Since {COMPANY.since}, {COMPANY.name} has worked alongside veterinarians, retailers and stockists to put dependable medicines within reach of every livestock owner and pet parent they serve.</p>
             </div>
             <figure className="cp-photo" style={{ margin: 0, aspectRatio: '3 / 2' }}>
               <img src="/company/diwali-meet-1.jpg" alt="Madvet Diwali Meet and Award Ceremony" />
@@ -42,17 +42,17 @@ export default async function AboutPage() {
           <div className="cp-wrap cp-split">
             <div className="cp-prose">
               <div className="cp-kicker">What we stand for</div>
-              <h2>High potency. Top quality. Nothing hidden.</h2>
-              <p>The standard we hold every product to is the one we put in every film: <b>high potency and top quality</b>. The rest of how we work follows from it.</p>
-              <p>Many of our products are combinations — two actives that work together, or an active with the vitamins, minerals or herbs that support it. The choice of combination, strength and dose form is where a Madvet product differs from the same molecule on the next shelf, and we explain that choice for every product rather than leave it to the label.</p>
+              <h2>High potency. Top quality.</h2>
+              <p>Those four words are the promise on every Madvet product, and the standard each one is held to before it carries our name.</p>
+              <p>Many of our products are combinations — two actives that work together, or an active with the vitamins, minerals or herbs that support it. The choice of combination, strength and dose form is where a Madvet product differs from the same molecule on the next shelf.</p>
               <p>Today that is {products.length} products for cattle, buffalo, sheep, goats, horses, dogs and cats: antibiotics, pain and fever relief, parasite control, calcium, minerals and tonics, probiotics and herbal formulations. Pet products carry our sub-brand <b>{COMPANY.petBrand}</b>.</p>
             </div>
             <ul className="cp-list">
-              <li><b>Everything in the open</b>Composition and indications for every product on this site, and the dose on its page in our product folder.</li>
-              <li><b>A film for the counter</b>Short Hindi films a retailer can play for a customer or forward on WhatsApp.</li>
-              <li><b>A folder that teaches</b>One page per product, written so that anyone reading it understands every term on it.</li>
-              <li><b>Answers at any hour</b>Our assistant answers questions on any product from our own catalogue, in Hindi or English.</li>
+              <li><b>A complete range</b>From antibiotics and pain relief to parasite control, calcium, tonics and probiotics — one supplier for the whole shelf.</li>
+              <li><b>People in the field</b>Representatives who visit clinics and counters, and know the products they recommend.</li>
               <li><b>Schemes every month</b>Trade offers for retailers and stockists, kept current by our office.</li>
+              <li><b>Nothing hidden</b>Composition and indications for every product on this site, and the dose on its page in our product folder.</li>
+              <li><b>Help at the counter</b>Short Hindi films and a folder page for every product, to show or send to a customer.</li>
             </ul>
           </div>
         </section>
