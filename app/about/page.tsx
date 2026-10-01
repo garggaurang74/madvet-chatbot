@@ -76,7 +76,7 @@ export default async function AboutPage() {
         <section className="cp-sec">
           <div className="cp-wrap">
             <div className="cp-band">
-              <div><h3>See the full range</h3><p>{products.length} products, each with its composition and indications — most with a one-minute film.</p></div>
+              <div><h3>See the full range</h3><p>{products.length} products, each with its composition, indications and a one-minute film.</p></div>
               <div className="cp-cta" style={{ marginTop: 0 }}>
                 <Link href="/products" className="cp-btn gold">Products →</Link>
                 <Link href="/contact" className="cp-btn line">Contact us</Link>
