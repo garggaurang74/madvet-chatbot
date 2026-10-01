@@ -221,6 +221,8 @@ export const CONCEPTS: Concept[] = [
   { id: 'calcium', en: 'Calcium deficiency, weak bones', hi: 'कैल्शियम की कमी', triggers: ['calcium', 'kalsium', 'bones', 'hadi', 'हड्डी', 'कैल्शियम', 'कैल्सियम'], mol: [[/calcium/, 24], [/phosph|vitamin d3|cholecalciferol/, 6]] },
   { id: 'weakness', en: 'Weakness, debility', hi: 'कमजोरी', triggers: ['weak', 'debility', 'kamjori', 'kamjor', 'kamzori', 'thakawat', 'thakavat', 'thakaan', 'thakan', 'thaki', 'thaka', 'tired', 'lethargic', 'dull', 'sust', 'durbal', 'energy', 'tonic', 'कमजोरी', 'कमज़ोरी', 'थकावट', 'सुस्त', 'दुर्बल', 'टॉनिक', 'ताकत'],
     roles: { vitB: 18, phosphorus: 12, mineral: 8, liver: 8 }, ind: /weakness|debility|kamzori|कमजोरी/ },
+  { id: 'wasting', en: 'Losing weight, getting thin', hi: 'पशु का दुबला होना', triggers: ['weight loss', 'losing weight', 'getting thin', 'patla ho', 'patla hota', 'patli ho', 'patli hoti', 'dubla', 'dubli', 'vajan kam', 'vajan gat', 'वजन कम', 'वजन घट', 'दुबला', 'दुबली', 'पतला हो', 'पतली हो'],
+    roles: { vitB: 20, anthelmintic: 18, mineral: 14, liver: 12, probiotic: 10 } },
   { id: 'recovery', en: 'Recovery after illness', hi: 'बीमारी के बाद रिकवरी', triggers: ['recovery', 'after illness', 'bimari ke bad', 'बीमारी के बाद', 'रिकवरी'], roles: { vitB: 16, liver: 12, probiotic: 10 }, ind: /recovery/ },
   { id: 'anaemia', en: 'Anaemia, low blood', hi: 'खून की कमी', triggers: ['anemia', 'anaemia', 'kun ki kami', 'kun kam', 'खून की कमी', 'खून कम', 'एनीमिया'], mol: [[/ferrous|iron|liver extract|cyanocobalamin|mecobalamin/, 20]], ind: /anemia|anaemia/ },
   { id: 'liver', en: 'Liver problems', hi: 'लीवर की कमजोरी', triggers: ['liver', 'livar', 'jigar', 'hepat', 'लीवर', 'लिवर', 'जिगर'], roles: { liver: 30 }, ind: /liver/ },

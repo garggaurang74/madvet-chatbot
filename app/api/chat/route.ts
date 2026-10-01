@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
 import { getChatKnowledge, findRelevant, legacyRelevant, productDetails, parseConstraints, obeys, caseNotes } from '@/lib/chatContext'
-import { semanticSearchProducts } from '@/lib/semanticSearch'
+import { semanticSearchProducts, embedMissingOnce } from '@/lib/semanticSearch'
 import { checkAnswer } from '@/lib/chatGuard'
 import { logChat, newLogId } from '@/lib/chatLog'
 import { Redis } from '@upstash/redis'
@@ -25,7 +25,7 @@ function detectLanguage(text: string): DetectedLang {
 
   // ── Weak signals: could appear in English context ──
   // Need 2+ matches to confirm Hinglish
-  const weakHinglish = /\b(ki|ka|ke|ko|hain|hoga|hogi|milega|milegi|bataiye|batayein|batana|chahie|chaiye|karo|kijiye|kitni|kitne|konsi|kaunsi|kaunsa|kya|hai|mein|dein|batao|nahi|haan|acha|bhi|wala|wali|meri|mera|uska|uski|kaun|konsa|rahi|raha|sakte|hota|hoti|toh|aur|kis|iska|iski|usse|isse|apna|apni|apne|koi|kuch|sab|jab|tab|agar|lekin|par|per|phir|fir|yeh|woh|yaha|waha|idhar|udhar|kal|aaj|subah|shaam|raat|din|waqt|zyada|kam|thoda|bohot|sabse)\b/gi
+  const weakHinglish = /\b(ki|ka|ke|ko|de|hain|hoga|hogi|milega|milegi|bataiye|batayein|batana|chahie|chaiye|karo|kijiye|kitni|kitne|konsi|kaunsi|kaunsa|kya|hai|mein|dein|batao|nahi|haan|acha|bhi|wala|wali|meri|mera|uska|uski|kaun|konsa|rahi|raha|sakte|hota|hoti|toh|aur|kis|iska|iski|usse|isse|apna|apni|apne|koi|kuch|sab|jab|tab|agar|lekin|par|per|phir|fir|yeh|woh|yaha|waha|idhar|udhar|kal|aaj|subah|shaam|raat|din|waqt|zyada|kam|thoda|bohot|sabse)\b/gi
 
   const strongMatches = (text.match(strongHinglish) || []).length
   const weakMatches   = (text.match(weakHinglish) || []).length
@@ -166,6 +166,7 @@ export async function POST(req: NextRequest) {
 
     const truncatedMessage = latestMessage.slice(0, 2000)
     const kb               = await getChatKnowledge()
+    void embedMissingOnce()
     const products         = kb.products
     const cleanedHistory   = cleanHistory(messages)
 
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
     const semantic: number[] = []
     if (relevant.length < 2) {
       const found = await Promise.race([
-        semanticSearchProducts(truncatedMessage, 0.35, 4).catch(() => []),
+        semanticSearchProducts(truncatedMessage, 0.22, 4).catch(() => []),
         new Promise<never[]>(r => setTimeout(() => r([]), 2500)),
       ])
       for (const f of found) {

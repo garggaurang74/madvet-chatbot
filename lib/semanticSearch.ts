@@ -126,3 +126,22 @@ export async function embedAndStoreProduct(
     return false
   }
 }
+
+// ─────────────────────────────────────────────
+// SELF-HEAL: products saved without an embedding (four on 1 Oct 2026 —
+// Tonoforce 30ml, Fluck Stop-DS, BELI-OK, Nuroforce Pro) are invisible to
+// the meaning search. Once per server start, embed any that are missing.
+// ─────────────────────────────────────────────
+let healed = false
+export async function embedMissingOnce(): Promise<void> {
+  if (healed) return
+  healed = true
+  const supabase = getAdminSupabase()
+  if (!supabase) return
+  try {
+    const { data } = await supabase.from('products_enriched').select('*').is('embedding', null).limit(10)
+    for (const p of (data ?? []) as MadvetProduct[]) await embedAndStoreProduct(p.id!, p)
+  } catch (err) {
+    console.error('[SemanticSearch] embedMissingOnce:', err)
+  }
+}

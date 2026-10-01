@@ -52,7 +52,7 @@ export function checkAnswer(answer: string, o: {
   for (const m of text.matchAll(/\*\*([^*]{3,40})\*\*/g)) {
     const b = squash(m[1])
     if (!/[a-z]/.test(b) || b.length < 4) continue
-    if (/correction|madvet|scheme|note/.test(b)) continue
+    if (/correction|madvet|scheme|note|buy|free|pcs/.test(b) || /→|\d{2,}/.test(m[1])) continue
     const k = Math.min(6, b.length)
     if (!names.some(n => n.slice(0, k) === b.slice(0, k))) flags.push(`unknown-name:${m[1].slice(0, 30)}`)
   }
