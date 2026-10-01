@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
     semanticDebug.last = ''
     if (relevant.length < 2) {
       const found = await Promise.race([
-        semanticSearchProducts(truncatedMessage, 0.22, 4).catch(() => []),
+        semanticSearchProducts(truncatedMessage, 0.15, 4).catch(() => []),
         new Promise<never[]>(r => setTimeout(() => r([]), 2500)),
       ])
       for (const f of found) {

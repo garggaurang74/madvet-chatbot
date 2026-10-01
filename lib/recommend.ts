@@ -246,6 +246,8 @@ export const CONCEPTS: Concept[] = [
   { id: 'allergy', en: 'Allergy, rash, hives', hi: 'एलर्जी, पित्ती', triggers: ['allerg', 'rash', 'hives', 'urticaria', 'piti', 'cakate', 'एलर्जी', 'पित्ती', 'चकत्ते'],
     mol: [[/chlorpheniramine|pheniramine/, 30], [/isoflupredone/, 10]] },
   { id: 'coat', en: 'Hair fall, dull coat', hi: 'बाल झड़ना', triggers: ['hair fall', 'hairfal', 'coat', 'shedding', 'bal jad', 'bal girna', 'बाल झड', 'बाल गिर'], pet: true, mol: [[/omega/, 46]], roles: { petcoat: 30, skin: 10 } },
+  { id: 'roughcoat', en: 'Rough, dull coat (livestock)', hi: 'खुरदरे, बेजान बाल', triggers: ['rough coat', 'dull coat', 'bal kade', 'baal khade', 'chamak nahi', 'camak nahi', 'bal ruke', 'बाल खड़े', 'बाल खडे', 'चमक नहीं', 'रूखे बाल'],
+    roles: { anthelmintic: 18, mineral: 18, vitADE: 16, liver: 10 } },
   { id: 'growth', en: 'Poor growth', hi: 'बढ़वार कम', triggers: ['growth', 'badvar', 'badhvar', 'vikas', 'not growing', 'बढ़वार', 'बढवार', 'विकास'], roles: { growth: 22, calcium: 8, mineral: 8, vitADE: 6 }, ind: /growth/ },
   { id: 'immunity', en: 'Immunity', hi: 'रोग प्रतिरोधक क्षमता', triggers: ['immun', 'pratirodak', 'प्रतिरोधक', 'इम्युनिटी', 'इम्यूनिटी'], roles: { immunity: 20, vitADE: 8, mineral: 6 } },
   { id: 'mineral', en: 'Mineral deficiency, eating soil', hi: 'खनिज की कमी, मिट्टी खाना', triggers: ['mineral', 'mitti', 'mitti kana', 'pica', 'kanij', 'मिट्टी खा', 'खनिज', 'मिनरल'], mol: [[/mineral mixture|minerals mixture/, 46]], roles: { mineral: 26, phosphorus: 10, calcium: 6 }, ind: /mineral/ },
@@ -296,6 +298,7 @@ export function conceptsIn(q: string): Matched[] {
   if (ids.has('colic')) drop('pain')
   if (ids.has('lame')) drop('pain')
   if (ids.has('fmd')) drop('footrot')
+  if (ids.has('roughcoat')) drop('coat')
   if (ids.has('prolapse')) drop('uterus')
   if (ids.has('letdown')) drop('milkdrop')
   return out

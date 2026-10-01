@@ -1008,6 +1008,21 @@
     77,
     78
    ]
+  },
+  {
+   "q": "gaay ke baal khade rehte hain aur sharir me chamak nahi",
+   "concept": "roughcoat",
+   "expect": [
+    8,
+    1,
+    43,
+    44,
+    45,
+    89,
+    17,
+    64,
+    90
+   ]
   }
  ]
 }
