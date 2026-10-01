@@ -238,6 +238,10 @@ export async function POST(req: NextRequest) {
 
           const flushPending = (text: string) => {
             if (!text) return
+            // The house's Hindi, enforced rather than requested (the folder's
+            // rule, CLAUDE.md): लीवर never जिगर/लिवर, फ्लूक never फ्लक. Pieces
+            // are only ever cut at a space (below), so a word cannot straddle two.
+            text = text.replace(/जिगर|लिवर/g, 'लीवर').replace(/फ्लक/g, 'फ्लूक')
             const safe = text.replace(/\n/g, '\\n')
             controller.enqueue(encoder.encode(`t:${safe}\n`))
           }
@@ -263,8 +267,11 @@ export async function POST(req: NextRequest) {
               // Safe to flush everything except the last HOLD_BACK chars
               // (they might be the leading bytes of a split marker)
               if (pendingBuf.length > HOLD_BACK) {
-                flushPending(pendingBuf.slice(0, pendingBuf.length - HOLD_BACK))
-                pendingBuf = pendingBuf.slice(pendingBuf.length - HOLD_BACK)
+                const cut = pendingBuf.lastIndexOf(' ', pendingBuf.length - HOLD_BACK)
+                if (cut > 0) {
+                  flushPending(pendingBuf.slice(0, cut))
+                  pendingBuf = pendingBuf.slice(cut)
+                }
               }
             }
           }
