@@ -7,6 +7,7 @@ import { fetchFilms, fetchFolder, filmFiles, fetchProducts } from '@/lib/catalog
 import { fetchPackIds, packUrl } from '@/lib/packs'
 import { schemeMap, folderPageOf, folderJpg } from '@/lib/productData'
 import { purposeLine } from '@/lib/productCopy'
+import { goesWith, alternatives } from '@/lib/recommend'
 
 // Pre-built and served from the edge; refreshed every 5 minutes, and at once
 // when /admin saves (app/api/revalidate clears this path and the 'products'
@@ -117,14 +118,19 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   if (!product) notFound()
   const scheme = (await schemeMap(all)).get(product.id) || ''
   const img = (x: { id: number; image_url: string }) => packs.has(x.id) ? packUrl(x.id) : x.image_url
-  const related: RelatedProduct[] = all
-    .filter(x => x.category === product.category && x.id !== product.id)
-    .slice(0, 8)
-    .map(x => ({ id: x.id, name: x.name, category: x.category, packaging: x.packaging, formulation: x.formulation, img: img(x), cut: packs.has(x.id) }))
+  const card = (x: typeof all[number]) => ({ id: x.id, name: x.name, category: x.category, packaging: x.packaging, formulation: x.formulation, img: img(x), cut: packs.has(x.id) })
+  // What a vet pairs it with, and why (lib/recommend.ts) — then other products
+  // that do the same job. Until 1 Oct this was "same category", so an
+  // antibiotic page offered eight more antibiotics and nothing to go with one.
+  const self = all.find(x => x.id === product.id) || product
+  const filmed = new Set(films.flatMap(f => f.ids))
+  const partners: RelatedProduct[] = goesWith(self, all, { max: 4, prefer: filmed }).map(g => ({ ...card(g.item), why: g.en, whyHi: g.hi }))
+  const taken = new Set(partners.map(x => x.id))
+  const related: RelatedProduct[] = alternatives(self, all, 6).filter(x => !taken.has(x.id)).map(card)
 
   // The factory's film for this product, if there is one
   const f = films.find(x => x.ids.includes(product.id))
   const film: ProductFilm | null = f ? { key: f.youtubeId || f.slug, youtubeId: f.youtubeId, vertical: f.vertical, ...filmFiles(f) } : null
   const folderPage = folder.find(pg => pg.ids?.includes(product.id))?.p ?? 0
-  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} related={related} shareImg={folderPage ? folderJpg(folderPage) : `/api/card/${product.id}`} />
+  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} partners={partners} related={related} shareImg={folderPage ? folderJpg(folderPage) : `/api/card/${product.id}`} />
 }

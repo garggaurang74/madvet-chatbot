@@ -1,7 +1,10 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
-import { getChatKnowledge, findRelevant, productDetails, parseConstraints, obeys } from '@/lib/chatContext'
+import { getChatKnowledge, findRelevant, productDetails, parseConstraints, obeys, caseNotes } from '@/lib/chatContext'
+import { semanticSearchProducts } from '@/lib/semanticSearch'
+import { checkAnswer } from '@/lib/chatGuard'
+import { logChat, newLogId } from '@/lib/chatLog'
 import { Redis } from '@upstash/redis'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -174,7 +177,22 @@ export async function POST(req: NextRequest) {
     const cons       = parseConstraints(`${recentUser} ${truncatedMessage}`)
     const relevant   = findRelevant(kb, truncatedMessage, 5, cons)
     for (const p of findRelevant(kb, recentUser, 3, cons)) if (!relevant.includes(p)) relevant.push(p)
-    const details    = productDetails(kb, relevant.slice(0, 7))
+    // The meaning index (an embedding of every product, written on save) for a
+    // question the word-and-complaint search could not place — "meri gaay
+    // thaki thaki rehti hai" — added after, never ahead of, what it found.
+    const semantic: number[] = []
+    if (relevant.length < 2) {
+      const found = await Promise.race([
+        semanticSearchProducts(truncatedMessage, 0.35, 4).catch(() => []),
+        new Promise<never[]>(r => setTimeout(() => r([]), 2500)),
+      ])
+      for (const f of found) {
+        const p = products.find(x => x.id === f.id)
+        if (p && obeys(p, cons) && !relevant.includes(p)) { relevant.push(p); semantic.push(p.id!) }
+      }
+    }
+    const notes      = caseNotes(kb, truncatedMessage, relevant)
+    const details    = [productDetails(kb, relevant.slice(0, 7)), notes.text].filter(Boolean).join('\n\n')
     const rule       = cons.note
       ? `\n\n⚠️ CUSTOMER CONDITION — ${cons.note}. Recommend ONLY products whose [FORM] fits it. The details above already obey it; if none of them fits the problem, say that plainly instead of offering a product that breaks the condition.`
       : ''
@@ -225,6 +243,8 @@ export async function POST(req: NextRequest) {
     const encoder = new TextEncoder()
     let fullText  = ''
 
+    const logId   = newLogId()
+    const started = Date.now()
     const readable = new ReadableStream({
       async start(controller) {
         try {
@@ -295,14 +315,27 @@ export async function POST(req: NextRequest) {
           const primaryProducts       = primaryIds.map(byId).filter(ok)
           const complementaryProducts = complementaryIds.map(byId).filter(ok)
 
+          // Facts checked against the data before the customer leaves.
+          const guard = checkAnswer(fullText, {
+            named: primaryProducts as any[], relevant, all: products, schemeOf: kb.schemeOf, month: kb.month, hindi: detectedLang === 'HINDI',
+          })
+          if (guard.fix) flushPending(guard.fix)
+
           // Send product metadata as a final JSON line
           const meta = JSON.stringify({
             type:          'products',
             primary:       primaryProducts,
             complementary: complementaryProducts,
             lang:          detectedLang,
+            logId,
           })
           controller.enqueue(encoder.encode(`\nm:${meta}`))
+
+          await logChat(logId, {
+            q: truncatedMessage, lang: detectedLang, concepts: notes.concepts.map(c => c.id),
+            found: relevant.map(p => p.id!), semantic, primary: primaryIds, complementary: complementaryIds,
+            answer: stripProductTag(fullText) + guard.fix, flags: guard.flags, ms: Date.now() - started,
+          })
 
         } catch (e) {
           console.error('[Madvet] Stream error:', e)

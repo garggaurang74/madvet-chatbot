@@ -18,6 +18,7 @@ import FolderButtons from '@/components/FolderButtons'
 import ShareVideo from '@/components/ShareVideo'
 import { cleanIndications, packLabel, speciesList, SP_ICON, purposeLine } from '@/lib/productCopy'
 import { productShareText, productWaUrl, productCardUrl } from '@/lib/productShare'
+import { search, companionsFor, type Concept } from '@/lib/recommend'
 
 const PACKS = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/film-downloads/packs`
 
@@ -114,11 +115,19 @@ export default function ProductsClient({ products, packIds = [], schemes = {} }:
   }, [products])
   const allForms = useMemo(() => FORMS.filter(f => products.some(p => formOf(p) === f)), [products])
 
-  const shown = useMemo(() => {
-    let list = products.filter(p =>
+  // Search understands complaints, not just words (lib/recommend.ts): "dudh
+  // ghat gaya", "doodh kam" and "दूध कम" all find the milk products, ranked by
+  // what the molecule does. A plain name or molecule search behaves as before.
+  const { shown, concepts, partners } = useMemo(() => {
+    const base = products.filter(p =>
       (!cat || p.category === cat) && (!sp || speciesList(p.species).includes(sp)) && (!form || formOf(p) === form))
-    if (q.trim()) list = list.map(p => ({ p, s: score(p, q) })).filter(x => x.s > 0).sort((a, b) => b.s - a.s).map(x => x.p)
-    return list
+    if (!q.trim()) return { shown: base, concepts: [] as Concept[], partners: [] as ReturnType<typeof companionsFor<Product>> }
+    const r = search(base, q)
+    let list = r.hits.map(h => h.item)
+    // Nothing understood and no word found: fall back to the old word score,
+    // so a search never comes back emptier than it used to.
+    if (!list.length) list = base.map(p => ({ p, s: score(p, q) })).filter(x => x.s > 0).sort((a, b) => b.s - a.s).map(x => x.p)
+    return { shown: list, concepts: r.concepts, partners: r.concepts.length ? companionsFor(r.hits, products, 2) : [] }
   }, [products, q, cat, sp, form])
 
   const grouped = !q.trim() && !cat
@@ -186,6 +195,18 @@ export default function ProductsClient({ products, packIds = [], schemes = {} }:
             {shown.length} {hi ? 'उत्पाद' : shown.length === 1 ? 'product' : 'products'}
             {filtersOn && <button onClick={() => { setQ(''); setCat(''); setSp(''); setForm('') }}>{hi ? 'फ़िल्टर हटाएँ' : 'Clear filters'}</button>}
           </div>
+          {concepts.length > 0 && (
+            <div className="pl-meaning">
+              <span>{hi ? 'इनके लिए दवाएँ:' : 'Medicines for:'}</span>
+              {concepts.map(c => <b key={c.id}>{hi ? c.hi : c.en}</b>)}
+              {concepts.some(c => c.supportive) && (
+                <p>{hi ? 'यह एक वायरस है — इसकी कोई सीधी दवा नहीं है। नीचे की दवाएँ साथ आने वाले बुखार, दर्द, घाव और बैक्टीरियल संक्रमण के लिए हैं।' : 'This is a virus — no medicine treats it directly. The products below treat what comes with it: fever, pain, wounds and secondary bacterial infection.'}</p>
+              )}
+              {partners.length > 0 && (
+                <p className="pl-with">{hi ? 'अक्सर साथ में:' : 'Often given with it:'} {partners.map((x, i) => <span key={x.item.id}>{i ? ' · ' : ''}<Link href={`/products/${x.item.id}`}>{x.item.name}</Link> <i>({hi ? x.hi : x.en})</i></span>)}</p>
+              )}
+            </div>
+          )}
           {shown.length === 0 && (
             <div className="pl-empty">
               <p>{hi ? 'कोई उत्पाद नहीं मिला।' : 'No product matches that.'}</p>
@@ -240,6 +261,12 @@ function Card({ p, i, hi, pack, scheme }: { p: Product; i: number; hi: boolean; 
 }
 
 const CSS = `
+.pl-meaning { margin:0 0 18px; padding:14px 16px; border-radius:14px; background:#f4efe3; border:1px solid rgba(26,58,42,.1); font-size:14px; color:var(--ink, #1a2a20); }
+.pl-meaning > span { color:var(--muted, #5b6b60); margin-right:8px; }
+.pl-meaning > b { display:inline-block; margin:2px 6px 2px 0; padding:3px 10px; border-radius:999px; background:#1a3a2a; color:#f5f0e8; font-size:13px; }
+.pl-meaning p { margin:10px 0 0; line-height:1.5; }
+.pl-meaning .pl-with a { color:#1a3a2a; font-weight:700; }
+.pl-meaning .pl-with i { font-style:normal; color:var(--muted, #5b6b60); }
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; overflow-x: clip; }
 :root { --forest:#1a3a2a; --night:#0f2318; --cream:#f5f0e8; --cream-dark:#ede6d6; --gold:#c8a96e; --gold-light:#e8d5a8; --ink:#1c2b22; --muted:#5b6b60; }

@@ -11,14 +11,18 @@ CREATE TABLE IF NOT EXISTS chat_feedback (
 
 import { NextRequest } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
+import { logFeedback } from '@/lib/chatLog'
 
 export async function POST(req: NextRequest) {
   try {
-    const { messageId, rating, messageContent } = await req.json()
+    const { messageId, rating, messageContent, logId } = await req.json()
 
     if (!rating || !['up', 'down'].includes(rating)) {
       return new Response(JSON.stringify({ error: 'Invalid rating' }), { status: 400 })
     }
+
+    // Beside the question it answers, in the chat log (lib/chatLog.ts).
+    if (typeof logId === 'string') await logFeedback(logId, rating)
 
     const supabase = getSupabaseClient()
     if (supabase) {

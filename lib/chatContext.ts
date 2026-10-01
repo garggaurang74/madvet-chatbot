@@ -17,6 +17,7 @@ import { fetchFilms, fetchFolder, type SiteFilm, type FolderPage } from './catal
 import { fetchSchemes, schemeMatch } from './schemes'
 import { COMPANY } from './company'
 import { SITE } from './share'
+import { search, goesWith, conceptsIn, type RecItem, type Concept } from './recommend'
 
 const clip = (s: string | undefined, n: number) => {
   const t = (s || '').replace(/\s+/g, ' ').trim()
@@ -81,7 +82,14 @@ export interface ChatKnowledge {
   pageOf: Map<number, number>
   schemeOf: Map<number, string[]>   // product id → its lines on this month's sheet
   month: string
+  recs: Map<number, RecItem>        // each product in lib/recommend.ts's shape
 }
+
+export const asRec = (p: MadvetProduct): RecItem => ({
+  id: p.id!, name: (p.product_name || '').trim(), salt: p.salt_ingredient || '', category: p.category || '', species: p.species || '',
+  indication: p.indication || '', description: p.description || '', benefits: p.usp_benefits || '', aliases: p.aliases || '',
+  packaging: p.packaging || '', formulation: p.formulation || '',
+})
 
 let memo: { at: number; value: ChatKnowledge } | null = null
 
@@ -144,7 +152,8 @@ export async function getChatKnowledge(): Promise<ChatKnowledge> {
     ? `## Trade schemes — ${month || 'this month'} (from the office sheet, for retailers/stockists; final terms are confirmed by the Madvet representative; full list at ${SITE}/schemes)\n${schemeLines.join('\n')}`
     : `## Trade schemes\nNo schemes are listed right now.`
 
-  const value = { products, knowledge, schemesText, filmOf, pageOf, schemeOf, month: month || 'this month' }
+  const recs = new Map(products.map(p => [p.id!, asRec(p)]))
+  const value = { products, knowledge, schemesText, filmOf, pageOf, schemeOf, month: month || 'this month', recs }
   memo = { at: Date.now(), value }
   return value
 }
@@ -173,7 +182,18 @@ const TERMS: Record<string, string[]> = {
 }
 const STOP = new Set(['the', 'and', 'for', 'kya', 'hai', 'mein', 'ke', 'ki', 'ka', 'ko', 'se', 'aur', 'what', 'which', 'with', 'about', 'batao', 'bataiye', 'dawa', 'dawai', 'medicine', 'product', 'products', 'है', 'में', 'के', 'की', 'का', 'को', 'से', 'और', 'क्या', 'दवा', 'please', 'give', 'best', 'use', 'kaun', 'konsa', 'कौन'])
 
+// The products a question is about. lib/recommend.ts first — the same search
+// the site uses, which knows a complaint by its meaning ("dudh ghat gaya") and
+// ranks by molecule; the older word score below only when that finds nothing.
+// Scored on the site's test set (eval/), 1 Oct: 81% → 100%, held-out 68% → 100%.
 export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints): MadvetProduct[] {
+  const byId = new Map(k.products.map(p => [p.id!, p]))
+  const pool = k.products.filter(p => !c || obeys(p, c)).map(p => k.recs.get(p.id!) || asRec(p))
+  const hits = search(pool, text, { max }).hits.map(h => byId.get(h.item.id)!).filter(Boolean)
+  return hits.length ? hits : legacyRelevant(k, text, max, c)
+}
+
+function legacyRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints): MadvetProduct[] {
   // When the customer sets a condition on form ("no injection"), the form
   // words describe the condition, not the product, so they must not score
   // injections up.
@@ -267,6 +287,22 @@ const SPECIES: [RegExp, string[]][] = [
 ]
 export function speciesIn(text: string): string[] {
   return SPECIES.filter(([re]) => re.test(text)).flatMap(([, w]) => w)
+}
+
+// What the question was recognised as, and what usually goes with the best
+// match, so the model's add-on follows a sound pairing instead of habit.
+export function caseNotes(k: ChatKnowledge, text: string, list: MadvetProduct[]): { text: string; concepts: Concept[] } {
+  const concepts = conceptsIn(text).map(m => m.concept)
+  const out: string[] = []
+  if (concepts.length) out.push(`## Recognised complaint: ${concepts.map(c => `${c.en} (${c.hi})`).join('; ')}`)
+  if (concepts.some(c => c.supportive)) out.push(`⚠️ This is a VIRAL disease — no medicine treats the virus. Say so plainly, then offer products only for what comes with it (fever, pain, wounds, secondary bacterial infection). Never say any product cures it. Link the protocol film if one is listed.`)
+  const top = list[0] && k.recs.get(list[0].id!)
+  if (top) {
+    const pool = k.products.map(p => k.recs.get(p.id!)!).filter(Boolean)
+    const g = goesWith(top, pool, { max: 3 })
+    if (g.length) out.push(`## Commonly given with #${top.id} (use as the complementary add-on ONLY when it fits this case):\n${g.map(x => `- #${x.item.id} ${x.item.name} — ${x.en}`).join('\n')}`)
+  }
+  return { text: out.join('\n'), concepts }
 }
 
 export function productDetails(k: ChatKnowledge, list: MadvetProduct[]): string {

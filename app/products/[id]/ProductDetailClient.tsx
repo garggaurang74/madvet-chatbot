@@ -26,13 +26,13 @@ export interface ProductFilm {
   download:   string
   downloadMB: number
 }
-export interface RelatedProduct { id: number; name: string; category: string; packaging: string; formulation: string; img: string; cut: boolean }
+export interface RelatedProduct { id: number; name: string; category: string; packaging: string; formulation: string; img: string; cut: boolean; why?: string; whyHi?: string }
 
 type Lang = 'en' | 'hi'
 const HI_SP: Record<string, string> = { Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी', Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा', Calf: 'बछड़ा', Camel: 'ऊँट', Pig: 'सूअर' }
 
-export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', related = [], shareImg = '' }: {
-  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; related?: RelatedProduct[]; shareImg?: string
+export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', partners = [], related = [], shareImg = '' }: {
+  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; partners?: RelatedProduct[]; related?: RelatedProduct[]; shareImg?: string
 }) {
   const [lang, setLang] = useState<Lang>('en')
   const [playing, setPlaying] = useState(false)
@@ -167,9 +167,25 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
             </div>
           </div>
 
+          {partners.length > 0 && (
+            <section className="pd-related">
+              <h2>{T('Goes well with', 'इसके साथ दें')}</h2>
+              <p className="pd-rel-sub">{T('What is commonly given alongside it, and why. The vet decides the treatment.', 'आम तौर पर इसके साथ क्या दिया जाता है, और क्यों। इलाज पशु चिकित्सक तय करते हैं।')}</p>
+              <div className="pd-rel-grid">
+                {partners.map(r => (
+                  <Link key={r.id} href={`/products/${r.id}`} className="pd-rel">
+                    <div className="pd-rel-img">{r.img ? <img src={r.img} alt="" className={r.cut ? 'cut' : 'photo'} loading="lazy" /> : null}</div>
+                    <b>{r.name}</b>
+                    {r.why && <em>{hi ? r.whyHi || r.why : r.why}</em>}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
           {related.length > 0 && (
             <section className="pd-related">
-              <h2>{T('More in', 'और भी')} {hi ? HI_CATS[p.category] || p.category : p.category}</h2>
+              <h2>{T('Other options for the same job', 'इसी काम के और विकल्प')}</h2>
               <div className="pd-rel-grid">
                 {related.map(r => (
                   <Link key={r.id} href={`/products/${r.id}`} className="pd-rel">
@@ -278,6 +294,8 @@ html, body { margin:0; padding:0; overflow-x:clip; }
 .pd-rel-img img.photo { mix-blend-mode:multiply; }
 .pd-rel b { font-size:15px; color:var(--forest); }
 .pd-rel span { font-size:12.5px; color:var(--muted); }
+.pd-rel em { font-style:normal; font-size:13px; line-height:1.4; color:var(--ink); opacity:.8; }
+.pd-rel-sub { margin:-8px 0 16px; font-size:14px; color:var(--muted); }
 
 .pd-modal { position:fixed; inset:0; z-index:100; background:rgba(8,20,13,.86); display:flex; align-items:center; justify-content:center; padding:20px; animation:pdFade .2s both; }
 @keyframes pdFade { from { opacity:0; } }
@@ -288,6 +306,10 @@ html, body { margin:0; padding:0; overflow-x:clip; }
 
 @media (max-width:900px) {
   .pd-hero-in, .pd-main { padding-left:16px; padding-right:16px; }
+  .pd-rel-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .pd-rel { padding:10px; border-radius:14px; }
+  .pd-rel-img { height:110px; }
+  .pd-rel b { font-size:14px; }
   .pd-top { grid-template-columns:1fr; gap:24px; margin-top:14px; }
   .pd-stage { height:320px; border-radius:22px; }
   .pd-grid { grid-template-columns:1fr; }
