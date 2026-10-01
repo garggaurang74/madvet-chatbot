@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
 import { getChatKnowledge, findRelevant, legacyRelevant, productDetails, parseConstraints, obeys, caseNotes } from '@/lib/chatContext'
-import { semanticSearchProducts, embedMissingOnce } from '@/lib/semanticSearch'
+import { semanticSearchProducts, embedMissingOnce, semanticDebug } from '@/lib/semanticSearch'
 import { checkAnswer } from '@/lib/chatGuard'
 import { logChat, newLogId } from '@/lib/chatLog'
 import { Redis } from '@upstash/redis'
@@ -182,6 +182,7 @@ export async function POST(req: NextRequest) {
     // question the word-and-complaint search could not place — "meri gaay
     // thaki thaki rehti hai" — added after, never ahead of, what it found.
     const semantic: number[] = []
+    semanticDebug.last = ''
     if (relevant.length < 2) {
       const found = await Promise.race([
         semanticSearchProducts(truncatedMessage, 0.22, 4).catch(() => []),
@@ -336,7 +337,7 @@ export async function POST(req: NextRequest) {
           await logChat(logId, {
             q: truncatedMessage, lang: detectedLang, concepts: notes.concepts.map(c => c.id),
             found: relevant.map(p => p.id!), semantic, primary: primaryIds, complementary: complementaryIds,
-            answer: stripProductTag(fullText) + guard.fix, flags: guard.flags, ms: Date.now() - started,
+            answer: stripProductTag(fullText) + guard.fix, flags: semanticDebug.last ? [...guard.flags, `semantic(${semanticDebug.last})`] : guard.flags, ms: Date.now() - started,
           })
 
         } catch (e) {

@@ -56,16 +56,17 @@ export function buildProductEmbedText(p: MadvetProduct): string {
 // SEMANTIC SEARCH via Supabase pgvector RPC
 // Returns products ranked by semantic similarity
 // ─────────────────────────────────────────────
+export const semanticDebug: { last: string } = { last: '' }
 export async function semanticSearchProducts(
   query:           string,
   matchThreshold = 0.45,   // cosine similarity threshold (0–1, higher = stricter)
   matchCount     = 5
 ): Promise<MadvetProduct[]> {
   const supabase = getSupabaseClient()
-  if (!supabase) return []
+  if (!supabase) { semanticDebug.last = 'no supabase'; return [] }
 
   const embedding = await generateEmbedding(query)
-  if (!embedding) return []
+  if (!embedding) { semanticDebug.last = 'no embedding'; return [] }
 
   try {
     const { data, error } = await supabase.rpc('match_madvet_products', {
@@ -74,6 +75,7 @@ export async function semanticSearchProducts(
       match_count:     matchCount,
     })
 
+    semanticDebug.last = error ? `rpc: ${error.message}` : `ok ${(data ?? []).length}: ${(data ?? []).map((d: any) => `${d.id}:${String(d.similarity).slice(0, 4)}`).join(' ')}`
     if (error) {
       // If pgvector isn't set up yet, fail silently — other search layers still work
       if (error.message.includes('function') || error.message.includes('does not exist')) {
