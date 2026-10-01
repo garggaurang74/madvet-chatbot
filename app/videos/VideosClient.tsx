@@ -8,6 +8,7 @@ import FolderButtons from '@/components/FolderButtons'
 import SiteNav from '@/components/SiteNav'
 import { CAT_ORDER, HI_CATS, getColor } from '../products/ProductsClient'
 import { Pill, LangToggle, type Lang } from '@/components/Controls'
+import { search } from '@/lib/recommend'
 
 export interface VideoItem {
   key:        string   // youtubeId, or the film's slug while it is not on YouTube
@@ -141,7 +142,19 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
   // One section per category once the range is big enough to fill them;
   // until then nine one-card sections read as empty, so show one grid.
   const grouped = useMemo(() => {
-    const shown = videos.filter(v => (activeCat === 'all' || v.category === activeCat) && matches(v, searchText))
+    const inCat = videos.filter(v => activeCat === 'all' || v.category === activeCat)
+    if (searchText.trim()) {
+      // A complaint finds its films by meaning, ranked by what the medicine
+      // does (lib/recommend.ts); a protocol film that names the complaint
+      // comes first, being Madvet's whole plan for it; then any film the plain
+      // word match finds that the ranking did not.
+      const items = inCat.map((v, i) => ({ id: i, v, name: v.name, salt: v.salt, category: v.category, species: v.species, indication: v.indication, aliases: v.aliases }))
+      const ranked = search(items.filter(x => x.v.productId), searchText).hits.map(h => h.item.v)
+      const words = inCat.filter(v => matches(v, searchText))
+      const list = [...new Set([...words.filter(v => !v.productId), ...ranked, ...words])]
+      return list.length ? [{ cat: '', items: list }] : []
+    }
+    const shown = inCat
     const order = (v: VideoItem) => cats.indexOf(v.category)
     if (shown.length < 12 || activeCat !== 'all') {
       return shown.length ? [{ cat: '', items: [...shown].sort((a, b) => order(a) - order(b)) }] : []

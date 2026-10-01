@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   lang?:                  'HINDI' | 'ENGLISH'
   showFeedback?:          boolean
   dark?:                  boolean
+  logId?:                 string
 }
 
 function cleanForSpeech(text: string): string {
@@ -164,6 +165,7 @@ export default function MessageBubble({
   lang,
   showFeedback = false,
   dark = false,
+  logId,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const [feedbackSent, setFeedbackSent] = useState<string | null>(null)
@@ -175,7 +177,7 @@ export default function MessageBubble({
       await fetch('/api/feedback', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ messageId, rating, messageContent: content }),
+        body:    JSON.stringify({ messageId, rating, messageContent: content, logId }),
       })
       setFeedbackSent(rating)
     } catch {}

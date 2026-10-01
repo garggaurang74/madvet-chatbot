@@ -23,6 +23,7 @@ export interface ChatMessage {
   lang?: 'HINDI' | 'ENGLISH'
   isError?: boolean
   retryText?: string
+  logId?: string
 }
 
 export default function ChatWindow() {
@@ -209,7 +210,7 @@ export default function ChatWindow() {
                 if (meta.type === 'products') {
                   setMessages(prev => prev.map(m =>
                     m.id === assistantId
-                      ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [], lang: meta.lang ?? 'ENGLISH' }
+                      ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [], lang: meta.lang ?? 'ENGLISH', logId: meta.logId }
                       : m
                   ))
                 }
@@ -225,7 +226,7 @@ export default function ChatWindow() {
             if (meta.type === 'products') {
               setMessages(prev => prev.map(m =>
                 m.id === assistantId
-                  ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [], lang: meta.lang ?? 'ENGLISH' }
+                  ? { ...m, primaryProducts: meta.primary ?? [], complementaryProducts: meta.complementary ?? [], lang: meta.lang ?? 'ENGLISH', logId: meta.logId }
                   : m
               ))
             }
@@ -350,6 +351,7 @@ export default function ChatWindow() {
                       primaryProducts={m.primaryProducts}
                       complementaryProducts={m.complementaryProducts}
                       lang={m.lang}
+                      logId={m.logId}
                       showFeedback={m.role === 'assistant' && m.content.length > 0 && !m.isError}
                     />
                     {m.isError && m.retryText && (
