@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { MADVET_SYSTEM_PROMPT } from '@/lib/systemPrompt'
-import { getChatKnowledge, findRelevant, productDetails, parseConstraints, obeys, caseNotes } from '@/lib/chatContext'
+import { getChatKnowledge, findRelevant, legacyRelevant, productDetails, parseConstraints, obeys, caseNotes } from '@/lib/chatContext'
 import { semanticSearchProducts } from '@/lib/semanticSearch'
 import { checkAnswer } from '@/lib/chatGuard'
 import { logChat, newLogId } from '@/lib/chatLog'
@@ -175,8 +175,8 @@ export async function POST(req: NextRequest) {
     // A condition the customer set ("no injection", "sirf bolus", "pilane wali")
     // holds for the rest of the conversation until they change it.
     const cons       = parseConstraints(`${recentUser} ${truncatedMessage}`)
-    const relevant   = findRelevant(kb, truncatedMessage, 5, cons)
-    for (const p of findRelevant(kb, recentUser, 3, cons)) if (!relevant.includes(p)) relevant.push(p)
+    const relevant   = findRelevant(kb, truncatedMessage, 5, cons, false)
+    for (const p of findRelevant(kb, recentUser, 3, cons, false)) if (!relevant.includes(p)) relevant.push(p)
     // The meaning index (an embedding of every product, written on save) for a
     // question the word-and-complaint search could not place — "meri gaay
     // thaki thaki rehti hai" — added after, never ahead of, what it found.
@@ -191,7 +191,8 @@ export async function POST(req: NextRequest) {
         if (p && obeys(p, cons) && !relevant.includes(p)) { relevant.push(p); semantic.push(p.id!) }
       }
     }
-    const notes      = caseNotes(kb, truncatedMessage, relevant)
+    if (!relevant.length) for (const p of legacyRelevant(kb, truncatedMessage, 5, cons)) relevant.push(p)
+    const notes      = caseNotes(kb, truncatedMessage, relevant, cons)
     const details    = [productDetails(kb, relevant.slice(0, 7)), notes.text].filter(Boolean).join('\n\n')
     const rule       = cons.note
       ? `\n\n⚠️ CUSTOMER CONDITION — ${cons.note}. Recommend ONLY products whose [FORM] fits it. The details above already obey it; if none of them fits the problem, say that plainly instead of offering a product that breaks the condition.`

@@ -186,14 +186,17 @@ const STOP = new Set(['the', 'and', 'for', 'kya', 'hai', 'mein', 'ke', 'ki', 'ka
 // the site uses, which knows a complaint by its meaning ("dudh ghat gaya") and
 // ranks by molecule; the older word score below only when that finds nothing.
 // Scored on the site's test set (eval/), 1 Oct: 81% → 100%, held-out 68% → 100%.
-export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints): MadvetProduct[] {
+// fallback=false leaves the old word score out, so the caller can try the
+// meaning index first: the old score finds SOMETHING for nearly any sentence,
+// and five weak hits would keep the better layer from ever being asked.
+export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints, fallback = true): MadvetProduct[] {
   const byId = new Map(k.products.map(p => [p.id!, p]))
   const pool = k.products.filter(p => !c || obeys(p, c)).map(p => k.recs.get(p.id!) || asRec(p))
   const hits = search(pool, text, { max }).hits.map(h => byId.get(h.item.id)!).filter(Boolean)
-  return hits.length ? hits : legacyRelevant(k, text, max, c)
+  return hits.length || !fallback ? hits : legacyRelevant(k, text, max, c)
 }
 
-function legacyRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints): MadvetProduct[] {
+export function legacyRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints): MadvetProduct[] {
   // When the customer sets a condition on form ("no injection"), the form
   // words describe the condition, not the product, so they must not score
   // injections up.
@@ -291,14 +294,15 @@ export function speciesIn(text: string): string[] {
 
 // What the question was recognised as, and what usually goes with the best
 // match, so the model's add-on follows a sound pairing instead of habit.
-export function caseNotes(k: ChatKnowledge, text: string, list: MadvetProduct[]): { text: string; concepts: Concept[] } {
+export function caseNotes(k: ChatKnowledge, text: string, list: MadvetProduct[], c?: Constraints): { text: string; concepts: Concept[] } {
   const concepts = conceptsIn(text).map(m => m.concept)
   const out: string[] = []
   if (concepts.length) out.push(`## Recognised complaint: ${concepts.map(c => `${c.en} (${c.hi})`).join('; ')}`)
   if (concepts.some(c => c.supportive)) out.push(`⚠️ This is a VIRAL disease — no medicine treats the virus. Say so plainly, then offer products only for what comes with it (fever, pain, wounds, secondary bacterial infection). Never say any product cures it. Link the protocol film if one is listed.`)
   const top = list[0] && k.recs.get(list[0].id!)
   if (top) {
-    const pool = k.products.map(p => k.recs.get(p.id!)!).filter(Boolean)
+    // An add-on obeys the customer's condition too ("no injection").
+    const pool = k.products.filter(p => !c || obeys(p, c)).map(p => k.recs.get(p.id!)!).filter(Boolean)
     const g = goesWith(top, pool, { max: 3 })
     if (g.length) out.push(`## Commonly given with #${top.id} (use as the complementary add-on ONLY when it fits this case):\n${g.map(x => `- #${x.item.id} ${x.item.name} — ${x.en}`).join('\n')}`)
   }

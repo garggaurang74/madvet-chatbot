@@ -219,7 +219,7 @@ export const CONCEPTS: Concept[] = [
   { id: 'milkfever', en: 'Milk fever, cow down after calving', hi: 'मिल्क फीवर, ब्याने के बाद गिरना', triggers: ['milk fever', 'down cow', 'downer', 'ut nahi', 'ut nahi rahi', 'beti hui', 'gir gayi', 'hypocalc', 'मिल्क फीवर', 'उठ नहीं', 'बैठ गई', 'गिर गई'],
     mol: [[/calcium/, 26]], roles: { calcium: 28 }, ind: /milk fever|hypocalc/ },
   { id: 'calcium', en: 'Calcium deficiency, weak bones', hi: 'कैल्शियम की कमी', triggers: ['calcium', 'kalsium', 'bones', 'hadi', 'हड्डी', 'कैल्शियम', 'कैल्सियम'], mol: [[/calcium/, 24], [/phosph|vitamin d3|cholecalciferol/, 6]] },
-  { id: 'weakness', en: 'Weakness, debility', hi: 'कमजोरी', triggers: ['weak', 'debility', 'kamjori', 'kamjor', 'kamzori', 'tkavat', 'takavat', 'sust', 'durbal', 'energy', 'tonic', 'कमजोरी', 'कमज़ोरी', 'थकावट', 'सुस्त', 'दुर्बल', 'टॉनिक', 'ताकत'],
+  { id: 'weakness', en: 'Weakness, debility', hi: 'कमजोरी', triggers: ['weak', 'debility', 'kamjori', 'kamjor', 'kamzori', 'thakawat', 'thakavat', 'thakaan', 'thakan', 'thaki', 'thaka', 'tired', 'lethargic', 'dull', 'sust', 'durbal', 'energy', 'tonic', 'कमजोरी', 'कमज़ोरी', 'थकावट', 'सुस्त', 'दुर्बल', 'टॉनिक', 'ताकत'],
     roles: { vitB: 18, phosphorus: 12, mineral: 8, liver: 8 }, ind: /weakness|debility|kamzori|कमजोरी/ },
   { id: 'recovery', en: 'Recovery after illness', hi: 'बीमारी के बाद रिकवरी', triggers: ['recovery', 'after illness', 'bimari ke bad', 'बीमारी के बाद', 'रिकवरी'], roles: { vitB: 16, liver: 12, probiotic: 10 }, ind: /recovery/ },
   { id: 'anaemia', en: 'Anaemia, low blood', hi: 'खून की कमी', triggers: ['anemia', 'anaemia', 'kun ki kami', 'kun kam', 'खून की कमी', 'खून कम', 'एनीमिया'], mol: [[/ferrous|iron|liver extract|cyanocobalamin|mecobalamin/, 20]], ind: /anemia|anaemia/ },
@@ -407,6 +407,9 @@ export function search<T extends RecItem>(items: T[], query: string, opts: { max
     if (s <= 0) continue
 
     const fits = speciesFits(p, species)
+    // No animal named: most who ask keep cattle, so a dog-only tablet should
+    // not outrank the cattle product for "bukhar".
+    if (!species.length && concepts.length && isPetOnly(p)) s -= 8
     if (fits === true) s += 12
     else if (fits === false) { if (concepts.length || words.length) s -= 40; else continue }
     if (s <= 0) continue
@@ -431,7 +434,7 @@ export function sizesIn(t: string): number[] {
 // Role → the supporting roles a vet commonly pairs with it, and why, in words
 // a retailer can repeat. Supportive care only — never a second drug of the
 // same class, never a claim about the partner beyond what its class does.
-interface Pair { role: Role; en: string; hi: string }
+interface Pair { role: Role; en: string; hi: string; petOnly?: boolean }
 const PAIRS: Partial<Record<Role, Pair[]>> = {
   antibiotic: [
     { role: 'antipyretic', en: 'Brings down fever and pain while the antibiotic works', hi: 'एंटीबायोटिक के साथ बुखार और दर्द में आराम' },
@@ -496,6 +499,8 @@ const PAIRS: Partial<Record<Role, Pair[]>> = {
   liver: [
     { role: 'probiotic', en: 'Gut support with the liver tonic', hi: 'लीवर टॉनिक के साथ पाचन को सहारा' },
     { role: 'flukicide', en: 'When flukes are the cause of the liver trouble', hi: 'जब लीवर की खराबी फ्लूक से हो' },
+    { role: 'immunity', en: 'Immunity and overall health alongside', hi: 'साथ में रोग प्रतिरोधक क्षमता और सेहत', petOnly: true },
+    { role: 'growth', en: 'Growth and bones for the young animal', hi: 'बढ़ते पशु की बढ़वार और हड्डियाँ', petOnly: true },
   ],
   galactogogue: [
     { role: 'mineral', en: 'Minerals a milking animal runs short of', hi: 'दूध देने वाले पशु के लिए खनिज' },
@@ -599,7 +604,8 @@ function bestFor<T extends RecItem>(p: T, role: Role, all: T[], used: Set<number
 }
 const overlap = (a: RecItem, b: RecItem) => { const sa = speciesSet(a); return [...speciesSet(b)].filter(x => sa.has(x)).length }
 
-export function goesWith<T extends RecItem>(p: T, all: T[], opts: { max?: number; prefer?: Set<number> } = {}): Partner<T>[] {
+export function goesWith<T extends RecItem>(p: T, all: T[], opts: { max?: number; prefer?: Set<number>; rule?: FormRule } = {}): Partner<T>[] {
+  if (opts.rule) all = all.filter(x => obeysForm(x, opts.rule!))
   const role = primaryRole(p)
   if (!role) return []
   const out: Partner<T>[] = []
@@ -607,6 +613,7 @@ export function goesWith<T extends RecItem>(p: T, all: T[], opts: { max?: number
   const usedFam = new Set<string>([family(p)])
   for (const pair of PAIRS[role] || []) {
     if (rolesOf(p).has(pair.role)) continue           // it already does that
+    if (pair.petOnly && !isPetOnly(p)) continue
     const x = bestFor(p, pair.role, all, used, opts.prefer)
     if (!x || usedFam.has(family(x))) continue
     used.add(x.id); usedFam.add(family(x))
