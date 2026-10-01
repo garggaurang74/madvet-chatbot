@@ -357,7 +357,7 @@ export interface SearchResult<T extends RecItem = RecItem> { hits: Hit<T>[]; con
 
 export function search<T extends RecItem>(items: T[], query: string, opts: { max?: number; textMustMatch?: boolean } = {}): SearchResult<T> {
   const q = (query || '').trim()
-  if (!q) return { hits: items.map(item => ({ item, score: 0, why: [] })), concepts: [], species: [] }
+  if (!q) return { hits: items.slice(0, opts.max ?? items.length).map(item => ({ item, score: 0, why: [] })), concepts: [], species: [] }
   const matched = conceptsIn(q)
   const concepts = matched.map(m => m.concept)
   const species = speciesInQuery(q)

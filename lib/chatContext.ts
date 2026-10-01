@@ -190,6 +190,10 @@ const STOP = new Set(['the', 'and', 'for', 'kya', 'hai', 'mein', 'ke', 'ki', 'ka
 // meaning index first: the old score finds SOMETHING for nearly any sentence,
 // and five weak hits would keep the better layer from ever being asked.
 export function findRelevant(k: ChatKnowledge, text: string, max = 6, c?: Constraints, fallback = true): MadvetProduct[] {
+  // An empty text (a first message has no earlier turns) is about nothing —
+  // search('') lists the whole catalogue, which put three unrelated products
+  // into every opening question for an hour on 1 Oct.
+  if (!text.trim()) return []
   const byId = new Map(k.products.map(p => [p.id!, p]))
   const pool = k.products.filter(p => !c || obeys(p, c)).map(p => k.recs.get(p.id!) || asRec(p))
   const hits = search(pool, text, { max }).hits.map(h => byId.get(h.item.id)!).filter(Boolean)
