@@ -204,7 +204,7 @@ export const CONCEPTS: Concept[] = [
     mol: [[/permethrin|fipronil|flumethrin/, 18], [/ivermectin/, 8]], ind: /flea/ },
   { id: 'diarrhoea', en: 'Diarrhoea, loose dung', hi: 'दस्त', triggers: ['diarh', 'diarrh', 'diarrhoea', 'diarea', 'loose motion', 'loose dung', 'dast', 'patla gobar', 'pecis', 'dysentery', 'scour', 'दस्त', 'पतला गोबर', 'पेचिश'],
     mol: [[/metronidazole|furazolidone|tinidazole/, 26], [/loperamide/, 10], [/yeast|lactobac|saccharomyces/, 8]] },
-  { id: 'bloat', en: 'Bloat, gas', hi: 'अफारा, गैस', triggers: ['bloat', 'afara', 'afra', 'gas', 'pet fula', 'tympan', 'अफारा', 'आफरा', 'गैस', 'पेट फूल'],
+  { id: 'bloat', near: [['pet', 'पेट', 'belly', 'stomach', 'kok', 'कोख'], ['bada', 'fula', 'ful', 'tana', 'tight', 'swollen', 'फूल', 'बड़ा', 'बडा', 'तना']], en: 'Bloat, gas', hi: 'अफारा, गैस', triggers: ['bloat', 'afara', 'afra', 'gas', 'pet fula', 'tympan', 'अफारा', 'आफरा', 'गैस', 'पेट फूल'],
     mol: [[/simethicone|dimethicone|dill/, 30], [/yeast|lactobac/, 6]] },
   { id: 'appetite', near: [['kana', 'cara', 'feed', 'fed', 'kati', 'kata', 'kane', 'खाना', 'चारा', 'खाती', 'खाता'], ['nahi', 'cod', 'band', 'kam', 'not', 'off', 'नहीं', 'छोड', 'बंद', 'कम']], en: 'Off feed, poor appetite', hi: 'भूख न लगना, चारा न खाना', triggers: ['appetite', 'of fed', 'off feed', 'not eating', 'buk', 'buk nahi', 'kana nahi', 'cara nahi', 'anorex', 'indigest', 'badhajmi', 'bad hajmi', 'भूख', 'चारा नहीं', 'खाना नहीं', 'बदहजमी', 'अपच'],
     roles: { probiotic: 22, liver: 12, vitB: 8 }, ind: /appetite|off feed|anorexia|indigestion|भूख/ },

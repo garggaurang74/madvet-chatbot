@@ -1023,6 +1023,13 @@
     64,
     90
    ]
+  },
+  {
+   "q": "meri bakri ka pet bahut bada lag raha hai aur woh sust hai",
+   "concept": "bloat",
+   "expect": [
+    41
+   ]
   }
  ]
 }
