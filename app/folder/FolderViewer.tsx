@@ -13,6 +13,7 @@ export interface ViewerPage {
   productId: number   // 0 when the page is not a product, or its product was removed
   film:      string   // /videos?film=<key>, '' when the product has no film
   names:     string   // every site product this page covers, for search
+  ids:       number[] // those products' ids — ?id=<product> opens this page
 }
 
 // Page images keep fixed names (pages/63.webp), and browsers and the storage
@@ -42,10 +43,17 @@ export default function FolderViewer({ pages }: { pages: ViewerPage[] }) {
   const cur = pages[i]
 
   // ?p=12 opens page 12, and the address follows the page so it can be shared.
+  // ?id=45 opens the page of product 45 (4 Oct): a page NUMBER moves every
+  // time a product page is added before it, which broke the "page N" links in
+  // YouTube descriptions; a product id never moves. id wins over p.
   useEffect(() => {
-    const p = Number(new URLSearchParams(window.location.search).get('p'))
+    const q = new URLSearchParams(window.location.search)
+    const id = Number(q.get('id'))
+    const byId = id > 0 ? pages.findIndex(pg => (pg.ids ?? []).includes(id)) : -1
+    if (byId >= 0) { setI(byId); return }
+    const p = Number(q.get('p'))
     if (p >= 1 && p <= n) setI(p - 1)
-  }, [n])
+  }, [n, pages])
   useEffect(() => {
     if (!cur) return
     const url = new URL(window.location.href)

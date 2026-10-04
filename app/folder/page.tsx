@@ -25,6 +25,7 @@ export default async function FolderPage() {
       film: withFilm ? filmOf.get(withFilm)! : '',
       // search should find a page by any product it covers, e.g. "30ml"
       names: ids.map(id => products.find(p => p.id === id)?.name || '').join(' '),
+      ids,
     }
   })
   return <FolderViewer pages={view} />
