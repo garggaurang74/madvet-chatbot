@@ -20,3 +20,11 @@
 .chat-md h1, .chat-md h2, .chat-md h3 { font-weight: 700; margin: .7em 0 .3em; font-size: 1.05em; }
 .chat-md-dark, .chat-md-dark strong { color: #fff; }
 .chat-md-dark a { color: #86efac; }
+
+/* iPhone Safari zooms the whole page in when a text box with text under 16px
+   gets focus, and the page stays zoomed with its right side cut off — the
+   client's /schemes screenshots (4 Oct) showed exactly that while typing in
+   the search box. 16px on touch screens stops the zoom on every page at once. */
+@media (max-width: 900px) {
+  input, select, textarea { font-size: 16px !important; }
+}
