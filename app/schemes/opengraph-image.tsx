@@ -5,7 +5,7 @@ import { MonthLink } from '@/lib/schemeCard'
 
 // What the /schemes link unfolds into on WhatsApp: the month, the count and
 // four of the packs with their offers — a picture a retailer opens.
-export const revalidate = 300
+export const revalidate = 60
 export const alt = 'MADVET trade schemes this month'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'

@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   openGraph: { title: "MADVET trade schemes — this month's offers", description: 'Buy the quantity, get the gift. Every offer for retailers and stockists, updated by our office.', type: 'website' },
 }
 
-// Pre-built, refreshed every 5 minutes (was rendered per visit until 30 Sep).
-export const revalidate = 300
+// Pre-built, refreshed every minute (5 until 4 Oct: the office edits the sheet and checks the page straight away).
+export const revalidate = 60
 
 export default async function SchemesPage() {
   const { month, groups } = await schemeGroups()

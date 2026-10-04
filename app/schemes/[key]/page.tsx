@@ -5,7 +5,7 @@ import SchemesClient from '../SchemesClient'
 
 // One scheme's own address, so a shared link opens on that product's card and
 // unfolds on WhatsApp into its own picture (/api/scheme-card/<key>?shape=og).
-export const revalidate = 300
+export const revalidate = 60
 
 export async function generateStaticParams() {
   return (await schemeGroups()).groups.map(g => ({ key: g.key }))

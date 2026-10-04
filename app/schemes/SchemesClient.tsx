@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import SiteNav from '@/components/SiteNav'
 import ShareVideo from '@/components/ShareVideo'
 import { SITE } from '@/lib/share'
@@ -14,6 +15,19 @@ const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 export default function SchemesClient({ month, groups, focus = '' }: { month: string; groups: SchemeGroup[]; focus?: string }) {
   const [q, setQ] = useState('')
+  // A phone keeps this page as it was when the tab was left, so an edit to the
+  // sheet never showed until a manual reload (client, 4 Oct: "heal5x is still
+  // not updated"). Re-read on return to the tab, on a back/forward restore, and
+  // every minute while it is open; the server copy is at most a minute old.
+  const router = useRouter()
+  useEffect(() => {
+    const fresh = () => { if (document.visibilityState === 'visible') router.refresh() }
+    const restored = (e: PageTransitionEvent) => { if (e.persisted) router.refresh() }
+    document.addEventListener('visibilitychange', fresh)
+    window.addEventListener('pageshow', restored)
+    const t = setInterval(fresh, 60_000)
+    return () => { document.removeEventListener('visibilitychange', fresh); window.removeEventListener('pageshow', restored); clearInterval(t) }
+  }, [router])
   // A shared /schemes/<key> link opens on its own card.
   useEffect(() => {
     if (!focus) return

@@ -93,7 +93,7 @@ let lastGood: { month: string; schemes: Scheme[] } | null = null
 
 export async function fetchSchemes(): Promise<{ month: string; schemes: Scheme[] }> {
   try {
-    const res = await fetch(SCHEMES_CSV, { next: { revalidate: 300 } })
+    const res = await fetch(SCHEMES_CSV, { next: { revalidate: 60 } })
     const text = res.ok ? await res.text() : ''
     // An HTML page is Google asking for a sign-in, not the sheet.
     const got = text && !/^\s*</.test(text) ? readSchemes(text) : { month: '', schemes: [] }
