@@ -31,8 +31,8 @@ export interface RelatedProduct { id: number; name: string; category: string; pa
 type Lang = 'en' | 'hi'
 const HI_SP: Record<string, string> = { Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी', Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा', Calf: 'बछड़ा', Camel: 'ऊँट', Pig: 'सूअर' }
 
-export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', partners = [], related = [], shareImg = '' }: {
-  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; partners?: RelatedProduct[]; related?: RelatedProduct[]; shareImg?: string
+export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', labels = [], partners = [], related = [], shareImg = '' }: {
+  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; labels?: string[]; partners?: RelatedProduct[]; related?: RelatedProduct[]; shareImg?: string
 }) {
   const [lang, setLang] = useState<Lang>('en')
   const [playing, setPlaying] = useState(false)
@@ -144,6 +144,16 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                 <section className="pd-card">
                   <h2>{T('Composition', 'संरचना')}</h2>
                   <ul className="pd-comp">{comp.map(x => { const m = x.match(/^(.*?)\s*((?:\d[\d.,]*\s*(?:mg|mcg|g|gm|iu|i\.u\.|%|ml|m\.s\.|million|cfu)[^,]*))$/i); return <li key={x}><span>{m ? m[1] : x}</span>{m && <b>{m[2]}</b>}</li> })}</ul>
+                </section>
+              )}
+              {/* The carton label itself — the source every line above is checked
+                  against (client, 5 Oct). Uploaded from /admin → Carton Label. */}
+              {labels.length > 0 && (
+                <section className="pd-card">
+                  <h2>{T('Carton label', 'कार्टन लेबल')}</h2>
+                  <div className="pd-labels">
+                    {labels.map((u, k) => <a key={u} href={u} target="_blank" rel="noopener"><img src={u} alt={`${p.name} label ${k + 1}`} loading="lazy" /></a>)}
+                  </div>
                 </section>
               )}
               <section className="pd-card facts">
@@ -274,6 +284,8 @@ html, body { margin:0; padding:0; overflow-x:clip; }
 .pd-ticks li { position:relative; padding-left:30px; font-size:15px; line-height:1.55; }
 .pd-ticks li::before { content:'✓'; position:absolute; left:0; top:1px; width:20px; height:20px; border-radius:50%; background:var(--forest); color:var(--gold-light); font-size:12px; display:grid; place-items:center; font-weight:800; }
 .pd-about { margin:0; font-size:15.5px; line-height:1.75; color:#34443a; }
+.pd-labels { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+.pd-labels img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:10px; border:1px solid rgba(26,58,42,.12); background:#fff; }
 .pd-comp { margin:0; padding:0; list-style:none; }
 .pd-comp li { display:flex; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px dashed rgba(26,58,42,.14); font-size:15px; }
 .pd-comp li:last-child { border-bottom:0; }

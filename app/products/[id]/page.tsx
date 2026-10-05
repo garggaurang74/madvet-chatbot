@@ -1,3 +1,4 @@
+import { labelIndex } from '@/lib/labels'
 import { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
@@ -114,7 +115,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [product, films, folder, packs, all] = await Promise.all([fetchProduct(Number(id)), fetchFilms(), fetchFolder(), fetchPackIds(), fetchProducts()])
+  const [product, films, folder, packs, all, labelIx] = await Promise.all([fetchProduct(Number(id)), fetchFilms(), fetchFolder(), fetchPackIds(), fetchProducts(), labelIndex()])
   if (!product) notFound()
   const scheme = (await schemeMap(all)).get(product.id) || ''
   const img = (x: { id: number; image_url: string }) => packs.has(x.id) ? packUrl(x.id) : x.image_url
@@ -132,5 +133,5 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const f = films.find(x => x.ids.includes(product.id))
   const film: ProductFilm | null = f ? { key: f.youtubeId || f.slug, youtubeId: f.youtubeId, vertical: f.vertical, ...filmFiles(f) } : null
   const folderPage = folder.find(pg => pg.ids?.includes(product.id))?.p ?? 0
-  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} partners={partners} related={related} shareImg={folderPage ? folderJpg(folderPage) : `/api/card/${product.id}`} />
+  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} labels={(labelIx.labels[String(product.id)] || []).map(l => l.url)} partners={partners} related={related} shareImg={folderPage ? folderJpg(folderPage) : `/api/card/${product.id}`} />
 }

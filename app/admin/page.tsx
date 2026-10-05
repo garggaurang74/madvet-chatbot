@@ -9,7 +9,7 @@ type ProductData = {
   indication: string; aliases: string; dosage: string
   usp_benefits: string; image_url: string; formulation: string
 }
-type AdminMode  = 'home' | 'add' | 'image' | 'video' | 'remove'
+type AdminMode  = 'home' | 'add' | 'image' | 'video' | 'remove' | 'labels'
 type AddStage   = 'step1' | 'enriching' | 'review' | 'saving' | 'done' | 'error'
 type ImageStage = 'select' | 'upload' | 'preview' | 'saving' | 'done' | 'error'
 
@@ -1000,6 +1000,106 @@ function RemoveProductMode() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Carton labels ─────────────────────────────────────────────────────────────
+// The factory asks for a label when the website row cannot settle a product's
+// composition, dose or species (lib/labels.ts). Photos go up as taken — no AI
+// enhance, which could soften the print — only shrunk to 2400 px so a phone
+// photo is not 10 MB. Several per product (front, back, sides).
+async function shrinkPhoto(file: File): Promise<string> {
+  const src = await toDataUrl(file)
+  const img = new Image()
+  await new Promise<void>((ok, bad) => { img.onload = () => ok(); img.onerror = () => bad(new Error('Photo could not be read')); img.src = src })
+  const k = Math.min(1, 2400 / Math.max(img.width, img.height))
+  const c = document.createElement('canvas')
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
+  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+  return c.toDataURL('image/jpeg', 0.9)
+}
+
+function LabelMode() {
+  const [products, setProducts] = useState<{id:number;product_name:string;image_url:string}[]>([])
+  const [index, setIndex]       = useState<{requests:Record<string,{reason:string}>;labels:Record<string,{url:string}[]>}>({requests:{},labels:{}})
+  const [search, setSearch]     = useState('')
+  const [busy, setBusy]         = useState<number|null>(null)
+  const [msg, setMsg]           = useState('')
+  const pick = useRef<HTMLInputElement>(null)
+  const target = useRef<number>(0)
+
+  const load = () => fetch('/api/labels', { cache: 'no-store' }).then(r => r.json()).then(setIndex).catch(() => {})
+  useEffect(() => {
+    load()
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (url && key) createClient(url, key).from('products_enriched').select('id,product_name,image_url')
+      .order('product_name', { ascending: true }).limit(500).then(({ data }) => setProducts((data || []) as any))
+  }, [])
+
+  const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files || [])]; e.target.value = ''
+    const id = target.current; if (!id || !files.length) return
+    setBusy(id); setMsg('')
+    try {
+      for (const f of files) {
+        const data = await shrinkPhoto(f)
+        const res = await fetch('/api/labels', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: id, base64: data.split(',')[1], mime: 'image/jpeg' }) })
+        const j = await res.json()
+        if (!res.ok) throw new Error(j.error || 'Upload failed')
+      }
+      setMsg(`✅ ${files.length} label photo${files.length > 1 ? 's' : ''} saved — shows on the product page within a minute`)
+      await load()
+    } catch (err) { setMsg('❌ ' + String(err)) }
+    setBusy(null)
+  }
+  const choose = (id: number) => { target.current = id; pick.current?.click() }
+
+  const asked = products.filter(p => index.requests[String(p.id)] && !(index.labels[String(p.id)] || []).length)
+  const q = search.toLowerCase()
+  const others = products.filter(p => !asked.includes(p) && (!q || p.product_name.toLowerCase().includes(q)))
+
+  const Row = ({ p, reason }: { p: {id:number;product_name:string;image_url:string}; reason?: string }) => {
+    const have = (index.labels[String(p.id)] || []).length
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+        {p.image_url ? <img src={p.image_url} alt="" className="w-12 h-12 rounded-lg object-contain bg-white/5" /> : <div className="w-12 h-12 rounded-lg bg-white/5" />}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{p.product_name}</p>
+          {reason && <p className="text-xs text-amber-300/80 mt-0.5">{reason}</p>}
+          {have > 0 && <p className="text-xs text-green-400 mt-0.5">{have} label photo{have > 1 ? 's' : ''} saved</p>}
+        </div>
+        <button onClick={() => choose(p.id)} disabled={busy === p.id}
+          className="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-500 disabled:opacity-50 text-xs font-semibold whitespace-nowrap">
+          {busy === p.id ? 'Saving…' : have ? '+ Photo' : '📷 Label'}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <input ref={pick} type="file" accept="image/*" multiple className="hidden" onChange={upload} />
+      <div>
+        <h2 className="text-xl font-semibold mb-1">Carton label bhejo</h2>
+        <p className="text-sm text-white/50">Label ki saaf photo — jis side par composition, dose, species aur indications likhe hon. Ek product ki kai photos de sakte ho.</p>
+        {msg && <p className="text-sm mt-3">{msg}</p>}
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-amber-300 mb-2">Label chahiye ({asked.length})</h3>
+        <div className="space-y-2">
+          {asked.length ? asked.map(p => <Row key={p.id} p={p} reason={index.requests[String(p.id)].reason} />)
+            : <p className="text-sm text-white/40">Abhi koi label nahi chahiye ✅</p>}
+        </div>
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-white/70 mb-2">Kisi bhi product ka label</h3>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Product dhoondo…"
+          className="w-full mb-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-base outline-none focus:border-green-600" />
+        <div className="space-y-2 max-h-[420px] overflow-y-auto">{others.slice(0, 60).map(p => <Row key={p.id} p={p} />)}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const [unlocked, setUnlocked] = useState(false)
   const [mode, setMode]         = useState<AdminMode>('home')
@@ -1070,6 +1170,17 @@ export default function AdminPage() {
               </div>
             </button>
 
+            <button onClick={()=>setMode('labels')}
+              className="w-full p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500 hover:bg-amber-900/20 transition-colors text-left group">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl flex-shrink-0 group-hover:bg-amber-500/30 transition-colors">📋</div>
+                <div>
+                  <p className="font-semibold text-base mb-1">Carton Label Bhejo</p>
+                  <p className="text-sm text-white/50">Jin products ka label chahiye unki list · label ki photo lo · website par product page par dikhega</p>
+                </div>
+              </div>
+            </button>
+
             <button onClick={()=>setMode('remove')}
               className="w-full p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-red-600 hover:bg-red-900/20 transition-colors text-left group">
               <div className="flex items-start gap-4">
@@ -1087,6 +1198,7 @@ export default function AdminPage() {
         {mode === 'image' && <AddImageMode   onHome={()=>setMode('home')} />}
         {mode === 'video' && <AddVideoMode   onHome={()=>setMode('home')} />}
         {mode === 'remove' && <RemoveProductMode />}
+        {mode === 'labels' && <LabelMode />}
       </div>
     </div>
   )
