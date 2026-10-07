@@ -9,7 +9,8 @@ export const metadata: Metadata = {
 }
 
 // Pre-built, refreshed every minute (5 until 4 Oct: the office edits the sheet and checks the page straight away).
-export const revalidate = 60
+// Every visit reads the live sheet (7 Oct: instant).
+export const dynamic = 'force-dynamic'
 
 export default async function SchemesPage() {
   const { month, groups } = await schemeGroups()

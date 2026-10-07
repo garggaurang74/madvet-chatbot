@@ -9,6 +9,12 @@
 // sheet holds more than one month block, the block for the current month wins,
 // else the first.
 
+// The office's own sheet, read directly (7 Oct: "make sure update is instant").
+// Google's "publish to web" copy (the fallback) refreshes only every few
+// minutes; the export of the live sheet does not lag. Needs the sheet shared
+// "anyone with the link can view".
+export const SCHEMES_LIVE_CSV = process.env.SCHEMES_SHEET_LIVE ||
+  'https://docs.google.com/spreadsheets/d/1Y8WXrvY14Mv3dlENCaKPZ7Q1cbZNCKb9/export?format=csv&gid=306239682'
 export const SCHEMES_CSV = process.env.SCHEMES_SHEET_CSV ||
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE5xwaL2_w_w1Gt5F1QbU4nvVgtkusANzAEEVmfsJKzPuR3sV_A4UIdnkp_zkcZA/pub?output=csv'
 
@@ -93,8 +99,13 @@ let lastGood: { month: string; schemes: Scheme[] } | null = null
 
 export async function fetchSchemes(): Promise<{ month: string; schemes: Scheme[] }> {
   try {
-    const res = await fetch(SCHEMES_CSV, { next: { revalidate: 60 } })
-    const text = res.ok ? await res.text() : ''
+    // live sheet first, uncached; the published copy if Google refuses it
+    let res = await fetch(SCHEMES_LIVE_CSV, { cache: 'no-store' }).catch(() => null)
+    let text = res?.ok ? await res.text() : ''
+    if (!text || /^\s*</.test(text)) {
+      res = await fetch(SCHEMES_CSV, { next: { revalidate: 60 } })
+      text = res.ok ? await res.text() : ''
+    }
     // An HTML page is Google asking for a sign-in, not the sheet.
     const got = text && !/^\s*</.test(text) ? readSchemes(text) : { month: '', schemes: [] }
     if (got.schemes.length) { lastGood = got; return got }
