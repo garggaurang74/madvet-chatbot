@@ -1053,7 +1053,8 @@ function LabelMode() {
   }
   const choose = (id: number) => { target.current = id; pick.current?.click() }
 
-  const asked = products.filter(p => index.requests[String(p.id)] && !(index.labels[String(p.id)] || []).length)
+  // still asked: no photo yet, or the factory marked it 'more' (a photo came but not the panel it needs)
+  const asked = products.filter(p => { const r = index.requests[String(p.id)] as any; return r && (!(index.labels[String(p.id)] || []).length || r.more) })
   const q = search.toLowerCase()
   const others = products.filter(p => !asked.includes(p) && (!q || p.product_name.toLowerCase().includes(q)))
 
