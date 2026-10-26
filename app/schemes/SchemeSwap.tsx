@@ -7,6 +7,7 @@ import { offerKey, piecesFor, type SwapData } from '@/lib/swap'
 
 const title = (s: string) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).replace(/(\d)(Ml|Gm|Ltr|Kg)\b/g, (_, d, u) => d + u.toLowerCase())
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const rs = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
 
 // Below the scheme cards: tick the schemes you are buying, pick ONE overstock
@@ -38,6 +39,7 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
   const opts = swap.products.map(p => ({ ...p, n: piecesFor(total, p.price, p.available) }))
     .sort((a, b) => total > 0 ? (Number(b.n > 0) - Number(a.n > 0)) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name))
   const anyFits = opts.some(o => o.n > 0)
+  const nextChange = /^\d{4}-\d{2}-\d{2}$/.test(swap.next_change || '') ? `${+swap.next_change!.slice(8)} ${MONTHS[+swap.next_change!.slice(5, 7) - 1]}` : ''
   const set = (id: string, n: number) => setTimes(t => { const c = { ...t }; if (n > 0) c[id] = Math.min(n, 99); else delete c[id]; return c })
 
   const msg = prod && pcs > 0 ? [
@@ -108,6 +110,7 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
             {msg && <a className="sc-btn wa sw-wa" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener">Send this swap to your MADVET representative</a>}
           </div>
         </div>
+        <p className="sw-change">Schemes and the products on this list change once a month, on the 1st{nextChange && <> — next change <b>{nextChange}</b></>}.</p>
         <p className="sw-note">Quantities are rounded down. The office confirms the final quantity with your order. Schemes not listed here can't be swapped yet.</p>
       </div>
     </section>
@@ -157,7 +160,9 @@ const CSS = `
 .sw-worth i { font-style:normal; font-weight:400; font-size:12px; color:rgba(245,240,232,.6); }
 .sw-get small { margin-top:6px; color:rgba(245,240,232,.7); }
 .sw-wa { display:block; margin-top:12px; }
-.sw-note { margin:18px 0 0; font-size:12px; color:rgba(245,240,232,.55); }
+.sw-change { margin:18px 0 0; padding:10px 14px; border-radius:10px; border:1px solid rgba(200,169,110,.35); background:rgba(200,169,110,.1); color:var(--gold-light); font-size:13.5px; }
+.sw-change b { color:#fff; }
+.sw-note { margin:10px 0 0; font-size:12px; color:rgba(245,240,232,.55); }
 @media (max-width:860px) {
   .sw-in { padding:36px 16px; }
   .sw-cols { grid-template-columns:1fr; }

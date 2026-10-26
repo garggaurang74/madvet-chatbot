@@ -9,7 +9,7 @@
 
 export interface SwapOffer { key: string; item: string; qty: string; free: string; value: number | null }
 export interface SwapProduct { code: string; name: string; unit: string; price: number; ptr?: number; mrp: number; available: number }
-export interface SwapData { generated_at: string; markup: number; offers: SwapOffer[]; products: SwapProduct[] }
+export interface SwapData { generated_at: string; next_change?: string; offers: SwapOffer[]; products: SwapProduct[] }
 
 const squash = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 export const offerKey = (o: { item: string; qty: string; free: string }) => [o.item, o.qty, o.free].map(squash).join('|')
