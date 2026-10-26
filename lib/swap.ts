@@ -1,6 +1,6 @@
 // "Take stock instead of the gift" on /schemes. The office app (madvet-extracted
 // app/scheme_swap.py) values every scheme's gift at MADVET's own cost and prices
-// the Focus overstock at purchase + GST + freight + 25%, then drops one JSON in
+// the Focus overstock at its PTS (owner, 26 Oct 2026), then drops one JSON in
 // the public bucket every 10 minutes. The page only matches sheet lines to it
 // by text; a line the office adds in between has no swap until the next drop.
 // The gift's own value is never shown: the retailer sees pieces and
