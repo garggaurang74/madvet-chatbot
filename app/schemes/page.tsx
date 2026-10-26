@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { schemeGroups } from '@/lib/schemeGroups'
 import SchemesClient from './SchemesClient'
-import { fetchSwap } from '@/lib/swap'
+import { fetchSwap } from '@/lib/swapServer'
 
 export const metadata: Metadata = {
   title: 'Trade Schemes | Madvet Animal Healthcare',

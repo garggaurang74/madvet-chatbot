@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { schemeGroups, titleCase } from '@/lib/schemeGroups'
 import SchemesClient from '../SchemesClient'
-import { fetchSwap } from '@/lib/swap'
+import { fetchSwap } from '@/lib/swapServer'
 
 // One scheme's own address, so a shared link opens on that product's card and
 // unfolds on WhatsApp into its own picture (/api/scheme-card/<key>?shape=og).
