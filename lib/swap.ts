@@ -7,7 +7,9 @@
 // "free goods worth" pieces x PTR and x MRP (owner, 26 Oct 2026). PTR is 0
 // when the office Price List has no confirmed row for the product.
 
-export interface SwapOffer { key: string; item: string; qty: string; free: string; value: number | null }
+/** in_stock: false = the scheme's own product is short on the shelf (hidden on
+ *  the page); null = not linked to PKS yet (shown). */
+export interface SwapOffer { key: string; item: string; qty: string; free: string; value: number | null; in_stock?: boolean | null }
 export interface SwapProduct { code: string; name: string; unit: string; price: number; ptr?: number; mrp: number; available: number }
 export interface SwapData { generated_at: string; next_change?: string; offers: SwapOffer[]; products: SwapProduct[] }
 

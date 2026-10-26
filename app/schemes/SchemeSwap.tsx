@@ -20,7 +20,8 @@ type Line = { code: string; n: number }
 export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; swap: SwapData | null }) {
   const lines = useMemo(() => {
     if (!swap) return []
-    const val = new Map(swap.offers.filter(o => o.value).map(o => [o.key, o.value as number]))
+    // only schemes whose product is in stock (owner, 26 Oct 2026)
+    const val = new Map(swap.offers.filter(o => o.value && o.in_stock !== false).map(o => [o.key, o.value as number]))
     return groups.flatMap(g => g.offers.map((o, k) => ({
       id: `${g.key}:${k}`, name: g.productId ? g.name : title(g.name), qty: o.qty, free: title(o.free), value: val.get(offerKey(o)) || 0,
     }))).filter(l => l.value > 0)
