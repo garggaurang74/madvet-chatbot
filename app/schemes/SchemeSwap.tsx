@@ -92,7 +92,7 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
                   <li key={o.code} className={`${code === o.code ? 'on' : ''}${picked.length && !fits ? ' no' : ''}`}>
                     <label>
                       <input type="radio" name="sw-prod" checked={code === o.code} onChange={() => setCode(o.code)} />
-                      <span className="sw-ln"><b>{o.name}</b></span>
+                      <span className="sw-ln"><b>{o.name}</b>{(o.ptr || 0) > 0 && <i className="sw-ptr">PTR {rs(o.ptr || 0)}</i>}</span>
                     </label>
                     {picked.length > 0 && (fits
                       ? <span className="sw-tag ok">{o.n} {o.n === 1 ? o.unit.replace(/s$/, '') : o.unit}</span>
@@ -144,6 +144,7 @@ const CSS = `
 .sw-prods { max-height:300px; margin:0 0 14px; }
 .sw-prods input[type=radio] { width:18px; height:18px; accent-color:#1a3a2a; flex:none; }
 .sw-prods li.no { background:#fdf0ef; }
+.sw-ptr { color:#5c6b62 !important; }
 .sw-prods li.no b { color:#8f2f26; }
 .sw-tag { flex:none; font-size:12px; font-weight:700; padding:4px 9px; border-radius:20px; white-space:nowrap; }
 .sw-tag.ok { background:#e3f3e7; color:#1d6b35; }
