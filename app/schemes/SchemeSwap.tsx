@@ -13,8 +13,8 @@ const rs = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDig
 // Below the scheme cards: tick the schemes you are buying, then take one or
 // more overstock products in place of the gifts, as far as the gift budget
 // goes (owner, 26 Oct 2026). Every piece spends budget; + only works while
-// what is left covers at least 90% of one more piece. The budget is shown as
-// a share used, never in rupees.
+// what is left pays for one more whole piece. The budget is shown as a share
+// used, never in rupees.
 type Line = { code: string; n: number }
 
 export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; swap: SwapData | null }) {
@@ -145,7 +145,7 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
           </div>
         </div>
         <p className="sw-change">Schemes change once a month, on the 1st. New products can be added to this list any time; products come off only on the 1st{nextChange && <> — next change <b>{nextChange}</b></>}.</p>
-        <p className="sw-note">Whole pieces only: a piece your gifts cover 90% of counts as a whole one. The office confirms the final quantity with your order. Schemes not listed here can't be swapped yet.</p>
+        <p className="sw-note">Quantities are rounded down. The office confirms the final quantity with your order. Schemes not listed here can't be swapped yet.</p>
       </div>
     </section>
   )

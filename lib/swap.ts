@@ -14,12 +14,6 @@ export interface SwapData { generated_at: string; next_change?: string; offers: 
 const squash = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 export const offerKey = (o: { item: string; qty: string; free: string }) => [o.item, o.qty, o.free].map(squash).join('|')
 
-/** Owner's rules: whole pieces only; a piece the budget covers at least 90% of
- *  counts as a whole one (2.92 -> 3, 2.85 -> 2); never past what is on the shelf. */
-export const ROUND_UP_AT = 0.9
-export const piecesFor = (value: number, price: number, available: number) => {
-  if (!(value > 0) || !(price > 0)) return 0
-  const x = value / price + 1e-9
-  const n = Math.floor(x) + (x - Math.floor(x) >= ROUND_UP_AT ? 1 : 0)
-  return Math.max(0, Math.min(n, Math.floor(available)))
-}
+/** Owner's rule: round DOWN, never past what is on the shelf. */
+export const piecesFor = (value: number, price: number, available: number) =>
+  value > 0 && price > 0 ? Math.max(0, Math.min(Math.floor(value / price + 1e-9), Math.floor(available))) : 0
