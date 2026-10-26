@@ -29,6 +29,8 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
   const prod = swap.products.find(p => p.code === code)
   const pcs = prod ? piecesFor(total, prod.price, prod.available) : 0
   const worth = prod && prod.mrp > 0 ? pcs * prod.mrp : 0
+  const worthPtr = prod && (prod.ptr || 0) > 0 ? pcs * (prod.ptr || 0) : 0
+  const worthText = [worthPtr && `${rs(worthPtr)} at PTR`, worth && `${rs(worth)} at MRP`].filter(Boolean).join(' · ')
   const capped = prod ? Math.floor(total / prod.price + 1e-9) > prod.available : false
   const shown = q ? lines.filter(l => squash(l.name + l.free).includes(squash(q))) : lines
   // every product with what the ticked gifts buy of it; the ones that qualify
@@ -42,7 +44,7 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
     '*MADVET scheme swap*', '',
     'Schemes I am buying:',
     ...picked.map(l => `• ${times[l.id] > 1 ? `${times[l.id]} × ` : ''}Buy ${l.qty} ${l.name} (gift: ${l.free})`),
-    '', `Instead of the gifts I want: *${pcs} ${prod.unit} ${prod.name}*${worth ? ` (free goods worth ${rs(worth)} at MRP)` : ''}`, '', `${SITE}/schemes#swap`,
+    '', `Instead of the gifts I want: *${pcs} ${prod.unit} ${prod.name}*${worthText ? ` (free goods worth ${worthText})` : ''}`, '', `${SITE}/schemes#swap`,
   ].join('\n') : ''
 
   return (
@@ -55,7 +57,7 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
 
         <div className="sw-cols">
           <div className="sw-box">
-            <div className="sw-step"><b>1</b> Schemes you are buying</div>
+            <div className="sw-step"><b>1</b> Schemes you are buying{picked.length > 0 && <span className="sw-count">{picked.length} ticked</span>}</div>
             <input className="sw-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search — Stop Stop, sugar…" aria-label="Search schemes to swap" />
             <ul className="sw-list">
               {shown.map(l => {
@@ -97,13 +99,10 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
                 )
               })}
             </ul>
-            <div className="sw-sum">
-              <div><span>Schemes ticked</span><b>{picked.length}</b></div>
-            </div>
             <div className={`sw-get${picked.length && prod && pcs === 0 ? ' bad' : ''}`}>
               {!picked.length ? <p>Tick at least one scheme on the left.</p>
                 : !prod ? <p>{anyFits ? 'Now choose a product above.' : 'Nothing qualifies yet. Tick more schemes.'}</p>
-                : pcs > 0 ? <><span>You get</span><strong>{pcs} {prod.unit}</strong><em>{prod.name}</em>{worth > 0 && <b className="sw-worth">Free goods worth {rs(worth)}<i> at MRP</i></b>}{capped && <small>That is all we have in stock.</small>}</>
+                : pcs > 0 ? <><span>You get</span><strong>{pcs} {prod.unit}</strong><em>{prod.name}</em>{worthText && <b className="sw-worth">Free goods worth{worthPtr > 0 && <> {rs(worthPtr)}<i> at PTR</i></>}{worthPtr > 0 && worth > 0 && <i> · </i>}{worth > 0 && <> {rs(worth)}<i> at MRP</i></>}</b>}{capped && <small>That is all we have in stock.</small>}</>
                 : <><span>Not enough</span><p>The ticked schemes are not enough for one {prod.unit === 'strips' ? 'strip' : 'piece'} of {prod.name}. Tick more schemes or choose a product marked in green.</p></>}
             </div>
             {msg && <a className="sc-btn wa sw-wa" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener">Send this swap to your MADVET representative</a>}
@@ -125,6 +124,7 @@ const CSS = `
 .sw-box { background:#fff; color:#1c2b22; border-radius:16px; padding:18px; box-shadow:0 18px 50px rgba(0,0,0,.25); }
 .sw-res { position:sticky; top:72px; }
 .sw-step { display:flex; align-items:center; gap:10px; font-weight:700; font-size:14px; margin-bottom:12px; }
+.sw-count { margin-left:auto; font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; background:var(--forest); color:var(--gold-light); }
 .sw-step b { width:24px; height:24px; border-radius:50%; background:var(--gold); color:var(--forest); display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
 .sw-q, .sw select { width:100%; padding:11px 13px; border-radius:9px; border:1px solid var(--cream-dark); font:inherit; font-size:14px; background:var(--cream); color:inherit; }
 .sw-list { list-style:none; margin:10px 0 0; padding:0; max-height:420px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
@@ -138,7 +138,7 @@ const CSS = `
 .sw-x { display:flex; align-items:center; gap:4px; flex:none; font-size:13px; font-weight:700; }
 .sw-x button { width:26px; height:26px; border-radius:7px; border:1px solid var(--cream-dark); background:#fff; font:inherit; font-size:15px; cursor:pointer; }
 .sw-none { color:#7d8a82; justify-content:center; }
-.sw-prods { max-height:300px; margin:0; }
+.sw-prods { max-height:300px; margin:0 0 14px; }
 .sw-prods input[type=radio] { width:18px; height:18px; accent-color:#1a3a2a; flex:none; }
 .sw-prods li.no { background:#fdf0ef; }
 .sw-prods li.no b { color:#8f2f26; }
@@ -148,10 +148,6 @@ const CSS = `
 .sw-bad { margin:0 0 10px; padding:10px 12px; border-radius:9px; background:#fbe0dd; color:#b3261e; font-weight:700; font-size:13.5px; line-height:1.45; }
 .sw-get.bad { background:linear-gradient(160deg,#8f2f26,#5c1a14); }
 .sw-get.bad span { color:#ffd6d1; }
-.sw-sum { display:grid; grid-template-columns:1fr; gap:10px; margin:14px 0; }
-.sw-sum div { background:var(--cream); border-radius:10px; padding:10px 12px; }
-.sw-sum span { display:block; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#7d8a82; }
-.sw-sum b { font-size:20px; color:var(--forest); }
 .sw-get { min-height:112px; border-radius:12px; padding:16px; background:linear-gradient(160deg,#1a3a2a,#0f2318); color:var(--cream); display:flex; flex-direction:column; justify-content:center; }
 .sw-get p { margin:0; color:rgba(245,240,232,.75); line-height:1.5; }
 .sw-get span { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); }

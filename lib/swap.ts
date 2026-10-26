@@ -4,10 +4,11 @@
 // the public bucket every 10 minutes. The page only matches sheet lines to it
 // by text; a line the office adds in between has no swap until the next drop.
 // The gift's own value is never shown: the retailer sees pieces and
-// "free goods worth" pieces x MRP (owner, 26 Oct 2026).
+// "free goods worth" pieces x PTR and x MRP (owner, 26 Oct 2026). PTR is 0
+// when the office Price List has no confirmed row for the product.
 
 export interface SwapOffer { key: string; item: string; qty: string; free: string; value: number | null }
-export interface SwapProduct { code: string; name: string; unit: string; price: number; mrp: number; available: number }
+export interface SwapProduct { code: string; name: string; unit: string; price: number; ptr?: number; mrp: number; available: number }
 export interface SwapData { generated_at: string; markup: number; offers: SwapOffer[]; products: SwapProduct[] }
 
 const squash = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
