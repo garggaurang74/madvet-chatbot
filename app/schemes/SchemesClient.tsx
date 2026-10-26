@@ -7,13 +7,15 @@ import SiteNav from '@/components/SiteNav'
 import ShareVideo from '@/components/ShareVideo'
 import { SITE } from '@/lib/share'
 import type { SchemeGroup } from '@/lib/schemeGroups'
+import type { SwapData } from '@/lib/swap'
+import SchemeSwap from './SchemeSwap'
 
 export type { SchemeGroup }
 
 const title = (s: string) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-export default function SchemesClient({ month, groups, focus = '' }: { month: string; groups: SchemeGroup[]; focus?: string }) {
+export default function SchemesClient({ month, groups, focus = '', swap = null }: { month: string; groups: SchemeGroup[]; focus?: string; swap?: SwapData | null }) {
   const [q, setQ] = useState('')
   // A phone keeps this page as it was when the tab was left, so an edit to the
   // sheet never showed until a manual reload (client, 4 Oct: "heal5x is still
@@ -106,6 +108,7 @@ export default function SchemesClient({ month, groups, focus = '' }: { month: st
             )
           })}
         </main>
+        <SchemeSwap groups={groups} swap={swap} />
         <p className="sc-note">Schemes apply to orders placed this month and may change without notice. Ask your MADVET representative to confirm before ordering.</p>
       </div>
     </>

@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { schemeGroups } from '@/lib/schemeGroups'
 import SchemesClient from './SchemesClient'
+import { fetchSwap } from '@/lib/swap'
 
 export const metadata: Metadata = {
   title: 'Trade Schemes | Madvet Animal Healthcare',
@@ -13,6 +14,6 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function SchemesPage() {
-  const { month, groups } = await schemeGroups()
-  return <SchemesClient month={month} groups={groups} />
+  const [{ month, groups }, swap] = await Promise.all([schemeGroups(), fetchSwap()])
+  return <SchemesClient month={month} groups={groups} swap={swap} />
 }

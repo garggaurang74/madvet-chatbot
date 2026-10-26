@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { schemeGroups, titleCase } from '@/lib/schemeGroups'
 import SchemesClient from '../SchemesClient'
+import { fetchSwap } from '@/lib/swap'
 
 // One scheme's own address, so a shared link opens on that product's card and
 // unfolds on WhatsApp into its own picture (/api/scheme-card/<key>?shape=og).
@@ -30,8 +31,8 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
 
 export default async function SchemePage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params
-  const { month, groups } = await schemeGroups()
+  const [{ month, groups }, swap] = await Promise.all([schemeGroups(), fetchSwap()])
   // A scheme that has ended: an old shared link lands on this month's schemes.
   if (!groups.some(g => g.key === key)) redirect('/schemes')
-  return <SchemesClient month={month} groups={groups} focus={key} />
+  return <SchemesClient month={month} groups={groups} focus={key} swap={swap} />
 }
