@@ -110,7 +110,7 @@ export default function SchemeSwap({ groups, swap }: { groups: SchemeGroup[]; sw
             {msg && <a className="sc-btn wa sw-wa" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener">Send this swap to your MADVET representative</a>}
           </div>
         </div>
-        <p className="sw-change">Schemes and the products on this list change once a month, on the 1st{nextChange && <> — next change <b>{nextChange}</b></>}.</p>
+        <p className="sw-change">Schemes change once a month, on the 1st. New products can be added to this list any time; products come off only on the 1st{nextChange && <> — next change <b>{nextChange}</b></>}.</p>
         <p className="sw-note">Quantities are rounded down. The office confirms the final quantity with your order. Schemes not listed here can't be swapped yet.</p>
       </div>
     </section>
