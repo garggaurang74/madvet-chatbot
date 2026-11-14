@@ -8,7 +8,7 @@ import { PageMark } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Contact | Madvet Animal Healthcare',
-  description: 'Email Madvet Animal Healthcare, Ghaziabad — orders, distribution, product questions and schemes.',
+  description: 'Email Madvet Animal Healthcare, Ghaziabad — orders, distribution and product questions.',
 }
 
 const ENQUIRY = 'नमस्ते Madvet, मुझे आपके प्रोडक्ट्स के बारे में जानकारी चाहिए।'
@@ -30,7 +30,7 @@ export default function ContactPage() {
             <div>
               <div className="cp-eyebrow">Contact</div>
               <h1>Talk to <em>Madvet</em>.</h1>
-              <p className="lead">Orders, distribution, a question about a product or this month&apos;s schemes — write to us and our office will reply.</p>
+              <p className="lead">Orders, distribution or a question about a product — write to us and our office will reply.</p>
             </div>
           </div>
         </header>
@@ -71,7 +71,6 @@ export default function ContactPage() {
             <div className="cp-cards" style={{ marginTop: 28 }}>
               <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent('Order / distribution — Madvet')}&body=${encodeURIComponent(ENQUIRY)}`} className="cp-card"><span className="ic">📦</span><h3>Order or distribute</h3><p>Stock Madvet, place an order or take up distribution in your area.</p><span className="go">Email us →</span></a>
               <Link href="/ask" className="cp-card"><span className="ic">💬</span><h3>Ask about a product</h3><p>Composition, indications or which product fits a case — answered from our own catalogue.</p><span className="go">Ask AI →</span></Link>
-              <Link href="/schemes" className="cp-card"><span className="ic">🎁</span><h3>This month’s schemes</h3><p>Trade offers for retailers and stockists, updated by our office.</p><span className="go">See schemes →</span></Link>
               <Link href="/careers" className="cp-card"><span className="ic">🤝</span><h3>Join the team</h3><p>Field sales and distribution roles across the region.</p><span className="go">Careers →</span></Link>
             </div>
           </div>

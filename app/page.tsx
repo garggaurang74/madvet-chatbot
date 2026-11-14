@@ -4,7 +4,6 @@ import SiteNav from '@/components/SiteNav'
 import { COMPANY_CSS } from '@/components/companyCss'
 import { COMPANY, TESTIMONIALS } from '@/lib/company'
 import { fetchFilms, fetchProducts, filmFiles } from '@/lib/catalog'
-import { fetchSchemes } from '@/lib/schemes'
 import { PageMark } from '@/components/SiteFooter'
 import { speciesList, SP_ICON } from '@/lib/productCopy'
 
@@ -15,12 +14,10 @@ export const metadata: Metadata = {
 
 export const revalidate = 600
 
-const title = (s: string) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
-
 // Every number on this page is counted from the live catalogue, so it moves
 // when a product is added or retired in /admin and never needs editing here.
 export default async function HomePage() {
-  const [products, films, { month, schemes }] = await Promise.all([fetchProducts(), fetchFilms(), fetchSchemes()])
+  const [products, films] = await Promise.all([fetchProducts(), fetchFilms()])
   const live = new Set(products.map(p => p.id))
   const shown = films.filter(f => !f.ids.length || f.ids.some(id => live.has(id)))
   const cats = new Map<string, number>()
@@ -49,7 +46,6 @@ export default async function HomePage() {
               </p>
               <div className="cp-cta">
                 <Link href="/products" className="cp-btn gold">Explore the range →</Link>
-                <Link href="/schemes" className="cp-btn line">{month ? `${title(month)} schemes` : 'Trade schemes'}</Link>
               </div>
             </div>
             <figure className="cp-photo" style={{ margin: 0, aspectRatio: '3 / 2' }}>
@@ -75,7 +71,6 @@ export default async function HomePage() {
               <Link href="/products" className="cp-card"><span className="ic">💊</span><h3>Formulations that do more</h3><p>Many of our products pair two actives, or an active with the vitamins, minerals or herbs that support it — each combination chosen for the condition it treats.</p><span className="go">See the range →</span></Link>
               <Link href="/products" className="cp-card"><span className="ic">🐄</span><h3>For every animal on the farm</h3><p>Antibiotics, pain and fever relief, parasite control, calcium, minerals, tonics and probiotics for large animals — and our {COMPANY.petBrand} range for dogs and cats.</p><span className="go">Browse by category →</span></Link>
               <Link href="/about" className="cp-card"><span className="ic">🤝</span><h3>A team in the field</h3><p>Our representatives visit clinics and counters across the region, and every year the trade gathers at the Madvet Diwali Meet &amp; Award Ceremony.</p><span className="go">Meet the team →</span></Link>
-              <Link href="/schemes" className="cp-card"><span className="ic">🎁</span><h3>Schemes every month</h3><p>{schemes.length ? `${schemes.length} offers this ${month ? title(month) : 'month'} for retailers and stockists — buy the quantity, take home the gift.` : 'Trade offers for retailers and stockists, updated every month.'}</p><span className="go">See this month’s schemes →</span></Link>
             </div>
           </div>
         </section>

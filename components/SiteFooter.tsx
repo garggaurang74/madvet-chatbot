@@ -66,7 +66,6 @@ export default function SiteFooter() {
               <Link href="/products">Products</Link>
               <Link href="/videos">Videos</Link>
               <Link href="/folder">Product folder</Link>
-              <Link href="/schemes">Trade schemes</Link>
             </div>
             <div>
               <h4>Company</h4>

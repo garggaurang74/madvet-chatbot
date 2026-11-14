@@ -6,7 +6,12 @@ import type { Product } from '@/app/products/types'
 import { fetchSchemes, schemeMatch } from './schemes'
 import { schemeLine } from './productShare'
 
+// Owner, 14 Nov 2026: schemes show ONLY on the Schemes tab. Off = no scheme
+// badge, line, card band or share line on any product. Flip to bring them back.
+const SCHEMES_ON_PRODUCTS = false
+
 export async function schemeMap(products?: Product[]): Promise<Map<number, string>> {
+  if (!SCHEMES_ON_PRODUCTS) return new Map()
   const [ps, { schemes }] = await Promise.all([products ? Promise.resolve(products) : fetchProducts(), fetchSchemes()])
   const out = new Map<number, string>()
   for (const s of schemes) {

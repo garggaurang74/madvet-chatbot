@@ -14,7 +14,7 @@
 import type { MadvetProduct } from './supabase'
 import { getCachedProducts } from './productCache'
 import { fetchFilms, fetchFolder, type SiteFilm, type FolderPage } from './catalog'
-import { fetchSchemes, schemeMatch } from './schemes'
+import { fetchSchemes } from './schemes'
 import { COMPANY } from './company'
 import { SITE } from './share'
 import { search, goesWith, conceptsIn, type RecItem, type Concept } from './recommend'
@@ -95,7 +95,7 @@ let memo: { at: number; value: ChatKnowledge } | null = null
 
 export async function getChatKnowledge(): Promise<ChatKnowledge> {
   if (memo && Date.now() - memo.at < 5 * 60 * 1000) return memo.value
-  const [products, films, folder, { month, schemes }] = await Promise.all([
+  const [products, films, folder, { month }] = await Promise.all([
     getCachedProducts(), fetchFilms(), fetchFolder(), fetchSchemes(),
   ])
   const filmOf = new Map<number, SiteFilm>()
@@ -140,17 +140,10 @@ export async function getChatKnowledge(): Promise<ChatKnowledge> {
     ...productLines,
   ].join('\n')
 
-  const forMatch = products.map(x => ({ id: x.id!, name: x.product_name || '', packaging: x.packaging }))
+  // Owner, 14 Nov 2026: schemes live ONLY on the Schemes tab, so the bot
+  // quotes none and points there instead.
   const schemeOf = new Map<number, string[]>()
-  const schemeLines = schemes.map(s => {
-    const p = schemeMatch(s, forMatch).product
-    const line = `Buy ${s.qty} ${s.item} → free ${s.free}`
-    if (p) schemeOf.set(p.id, [...(schemeOf.get(p.id) || []), line])
-    return `- ${line}${p ? ` (#${p.id})` : ''}`
-  })
-  const schemesText = schemes.length
-    ? `## Trade schemes — ${month || 'this month'} (from the office sheet, for retailers/stockists; final terms are confirmed by the Madvet representative; full list at ${SITE}/schemes)\n${schemeLines.join('\n')}`
-    : `## Trade schemes\nNo schemes are listed right now.`
+  const schemesText = `## Trade schemes\nDo not quote or discuss any scheme. If asked, say this month's schemes are on the Schemes page: ${SITE}/schemes`
 
   const recs = new Map(products.map(p => [p.id!, asRec(p)]))
   const value = { products, knowledge, schemesText, filmOf, pageOf, schemeOf, month: month || 'this month', recs }
@@ -331,10 +324,6 @@ export function productDetails(k: ChatKnowledge, list: MadvetProduct[]): string 
       `Page: ${SITE}/products/${p.id}`,
       f && `Film: ${SITE}/videos?film=${encodeURIComponent(f.youtubeId || f.slug)}`,
       pg && `Folder page: ${SITE}/folder?p=${pg}`,
-      // A small model misses one line in a 60-line scheme list, so each
-      // product carries its own lines here — including "none", which is also
-      // an answer.
-      `Trade schemes this ${k.month}: ${(k.schemeOf.get(p.id!) || []).join(' | ') || 'none listed for this product'}`,
     ].filter(Boolean).join('\n')
   }).join('\n\n')
 }

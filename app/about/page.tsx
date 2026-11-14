@@ -50,7 +50,6 @@ export default async function AboutPage() {
             <ul className="cp-list">
               <li><b>A complete range</b>From antibiotics and pain relief to parasite control, calcium, tonics and probiotics — one supplier for the whole shelf.</li>
               <li><b>People in the field</b>Representatives who visit clinics and counters, and know the products they recommend.</li>
-              <li><b>Schemes every month</b>Trade offers for retailers and stockists, kept current by our office.</li>
               <li><b>Nothing hidden</b>Composition and indications for every product on this site, and the dose on its page in our product folder.</li>
               <li><b>Help at the counter</b>Short Hindi films and a folder page for every product, to show or send to a customer.</li>
             </ul>

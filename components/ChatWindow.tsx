@@ -334,7 +334,7 @@ export default function ChatWindow() {
                 <img src="/icon.png?v=3" alt="" width={72} height={72} className="mb-5 rounded-2xl shadow-sm" />
                 <h1 className="text-3xl sm:text-4xl mb-3 text-[#1a3a2a]" style={{ fontFamily: "'DM Serif Display', serif" }}>Ask about any Madvet product</h1>
                 <p className="text-[#1c2b22]/60 text-[15px] mb-7 max-w-md leading-relaxed">
-                  Composition, indications, schemes, or which product suits a problem — ask in English or हिंदी. Answers come from our own catalogue.
+                  Composition, indications, or which product suits a problem — ask in English or हिंदी. Answers come from our own catalogue.
                 </p>
                 <QuickReplies onSelect={sendMessage} visible={showQuickReplies} />
               </div>
