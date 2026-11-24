@@ -31,24 +31,24 @@ export interface RelatedProduct { id: number; name: string; category: string; pa
 type Lang = 'en' | 'hi'
 const HI_SP: Record<string, string> = { Cattle: 'गाय', Buffalo: 'भैंस', Sheep: 'भेड़', Goat: 'बकरी', Dog: 'कुत्ता', Cat: 'बिल्ली', Poultry: 'मुर्गी', Horse: 'घोड़ा', Calf: 'बछड़ा', Camel: 'ऊँट', Pig: 'सूअर' }
 
-export default function ProductDetailClient({ product: p, film, folderPage = 0, pack = '', scheme = '', labels = [], partners = [], related = [], shareImg = '' }: {
-  product: Product; film?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; labels?: string[]; partners?: RelatedProduct[]; related?: RelatedProduct[]; shareImg?: string
+export default function ProductDetailClient({ product: p, film, story, folderPage = 0, pack = '', scheme = '', labels = [], partners = [], related = [], shareImg = '' }: {
+  product: Product; film?: ProductFilm | null; story?: ProductFilm | null; folderPage?: number; pack?: string; scheme?: string; labels?: string[]; partners?: RelatedProduct[]; related?: RelatedProduct[]; shareImg?: string
 }) {
   const [lang, setLang] = useState<Lang>('en')
-  const [playing, setPlaying] = useState(false)
+  const [playing, setPlaying] = useState<'' | 'film' | 'story'>('')
   // The film is an entry in the address bar (#film), so a phone's back button
   // closes the film instead of leaving the product — the same rule as /videos.
   const pushed = useRef(false)
-  const play = useCallback(() => {
+  const play = useCallback((which: 'film' | 'story' = 'film') => {
     window.history.pushState(window.history.state, '', `${location.pathname}${location.search}#film`)
     pushed.current = true
-    setPlaying(true)
+    setPlaying(which)
   }, [])
   const stop = useCallback(() => {
-    if (pushed.current) { pushed.current = false; window.history.back() } else setPlaying(false)
+    if (pushed.current) { pushed.current = false; window.history.back() } else setPlaying('')
   }, [])
   useEffect(() => {
-    const onPop = () => { if (location.hash !== '#film') { pushed.current = false; setPlaying(false) } }
+    const onPop = () => { if (location.hash !== '#film') { pushed.current = false; setPlaying('') } }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -64,6 +64,9 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
   const linkedYt = p.video_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)?.[1] || ''
   const ytId = film ? film.youtubeId : linkedYt
   const hasFilm = !!(film || ytId)
+  // What the player shows: the product film, or its second, story film
+  const now = playing === 'story' ? story : film
+  const nowYt = playing === 'story' ? story?.youtubeId || '' : ytId
   const shareText = productShareText(p, scheme, hasFilm)
   const orderText = `नमस्ते Madvet, मुझे *${p.name}* (${packLabel(p)}) चाहिए / Hello Madvet, I would like to order *${p.name}* (${packLabel(p)}).\n${SITE}/products/${p.id}`
   const img = pack || p.image_url
@@ -101,7 +104,8 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                   <div className="pd-sp">{sps.map(s => <span key={s}>{SP_ICON[s]} {hi ? HI_SP[s] || s : s}</span>)}</div>
                 )}
                 <div className="pd-cta">
-                  {hasFilm && <button className="pd-btn film" onClick={play}><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg> {T('Watch the 1-minute film', '1 मिनट की फ़िल्म देखें')}</button>}
+                  {hasFilm && <button className="pd-btn film" onClick={() => play('film')}><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg> {T('Watch the 1-minute film', '1 मिनट की फ़िल्म देखें')}</button>}
+                  {story && <button className="pd-btn film" onClick={() => play('story')}><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg> {T('Watch the story film', 'कहानी वाली फ़िल्म देखें')}</button>}
                   <ShareVideo name={p.name} src={productCardUrl(p.id)} mime="image/png" ext="png" text={shareText} waUrl={productWaUrl(shareText)} className="pd-btn wa"
                     loadingLabel={<>{T('Preparing…', 'तैयार हो रहा है…')}</>} readyLabel={<>{T('Tap again to send', 'भेजने के लिए फिर दबाएँ')}</>}>
                     {T('Send to a customer on WhatsApp', 'WhatsApp पर ग्राहक को भेजें')}
@@ -111,6 +115,7 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
                 <div className="pd-links">
                   {folderPage > 0 && <Link href={`/folder?p=${folderPage}`}>📖 {T('Product folder', 'प्रोडक्ट फ़ोल्डर')} · {T('page', 'पेज')} {folderPage}</Link>}
                   {film && <a href={film.download} download>⬇ {T('Download film', 'फ़िल्म डाउनलोड')} · {film.downloadMB} MB</a>}
+                  {story && <a href={story.download} download>⬇ {T('Download story film', 'कहानी वाली फ़िल्म डाउनलोड')} · {story.downloadMB} MB</a>}
                 </div>
               </div>
             </div>
@@ -210,11 +215,11 @@ export default function ProductDetailClient({ product: p, film, folderPage = 0, 
 
         {playing && (
           <div className="pd-modal" onClick={stop} role="dialog" aria-label={`${p.name} film`}>
-            <div className={`pd-player ${film?.vertical !== false ? 'tall' : ''}`} onClick={e => e.stopPropagation()}>
+            <div className={`pd-player ${now?.vertical !== false ? 'tall' : ''}`} onClick={e => e.stopPropagation()}>
               <button className="pd-close" onClick={e => { e.stopPropagation(); stop() }} aria-label="Close">×</button>
-              {ytId
-                ? <iframe src={`https://www.youtube.com/embed/${ytId}?rel=0&playsinline=1&autoplay=1`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-                : film && <video src={film.mp4} poster={film.poster} controls autoPlay playsInline />}
+              {nowYt
+                ? <iframe src={`https://www.youtube.com/embed/${nowYt}?rel=0&playsinline=1&autoplay=1`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+                : now && <video src={now.mp4} poster={now.poster} controls autoPlay playsInline />}
             </div>
           </div>
         )}

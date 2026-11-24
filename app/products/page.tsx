@@ -25,7 +25,7 @@ async function ProductsFetcher() {
   const schemes = Object.fromEntries(await schemeMap(products))
   // Each product with a factory film gets a Video button that opens it
   const filmOf = new Map<number, string>()
-  for (const f of films) for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
+  for (const f of films) if (f.kind !== 'drama') for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
   // Only what the grid shows or searches travels to the phone — the Hindi
   // copy and the old video links belong to the product page.
   const lean = products.map(p => ({ ...p, description_hi: '', usp_benefits_hi: '', video_url: '', ...(filmOf.has(p.id) ? { film_key: filmOf.get(p.id) } : {}) }))

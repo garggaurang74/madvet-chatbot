@@ -136,6 +136,7 @@ export interface SiteFilm {
   youtubeId: string
   vertical:  boolean
   bytes:     number
+  kind?:     'drama'   // the product's SECOND film: a short story told in dialogue
 }
 
 export async function fetchFilms(): Promise<SiteFilm[]> {

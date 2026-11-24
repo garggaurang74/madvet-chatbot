@@ -23,7 +23,7 @@ export const titleCase = (s: string) => s.toLowerCase().replace(/\b\w/g, c => c.
 export async function schemeGroups(): Promise<{ month: string; groups: SchemeGroup[] }> {
   const [{ month, schemes }, products, films, packs] = await Promise.all([fetchSchemes(), fetchProducts(), fetchFilms(), fetchPackIds()])
   const filmOf = new Map<number, string>()
-  for (const f of films) for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
+  for (const f of films) if (f.kind !== 'drama') for (const id of f.ids) filmOf.set(id, f.youtubeId || f.slug)
 
   // A line whose exact product is not on the site (a pack we do not list —
   // CALCIFORCE 30ML — or a combo) keeps its own card, titled as the sheet

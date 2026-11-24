@@ -130,8 +130,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const related: RelatedProduct[] = alternatives(self, all, 6).filter(x => !taken.has(x.id)).map(card)
 
   // The factory's film for this product, if there is one
-  const f = films.find(x => x.ids.includes(product.id))
+  const f = films.find(x => x.kind !== 'drama' && x.ids.includes(product.id))
   const film: ProductFilm | null = f ? { key: f.youtubeId || f.slug, youtubeId: f.youtubeId, vertical: f.vertical, ...filmFiles(f) } : null
+  // ...and its second one, the story film (client, 24 Nov)
+  const d = films.find(x => x.kind === 'drama' && x.ids.includes(product.id))
+  const story: ProductFilm | null = d ? { key: d.slug, youtubeId: d.youtubeId, vertical: d.vertical, ...filmFiles(d) } : null
   const folderPage = folder.find(pg => pg.ids?.includes(product.id))?.p ?? 0
-  return <ProductDetailClient product={product} film={film} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} labels={(labelIx.labels[String(product.id)] || []).map(l => l.url)} partners={partners} related={related} shareImg={folderPage ? folderJpg(folderPage) : `/api/card/${product.id}`} />
+  return <ProductDetailClient product={product} film={film} story={story} folderPage={folderPage} pack={packs.has(product.id) ? packUrl(product.id) : ''} scheme={scheme} labels={(labelIx.labels[String(product.id)] || []).map(l => l.url)} partners={partners} related={related} shareImg={folderPage ? folderJpg(folderPage) : `/api/card/${product.id}`} />
 }
