@@ -46,7 +46,7 @@ export default async function VideosPage() {
       name: f.name, category: f.category || p?.category || '', species: p?.species ?? '', indication: p?.indication ?? '',
       salt: p?.salt ?? '', aliases: p?.aliases ?? '',
       image: p?.image_url ?? '', vertical: f.vertical, title: f.nameHi,
-      download: files.download, downloadMB: files.downloadMB,
+      download: files.download, downloadMB: files.downloadMB, drama: f.kind === 'drama',
     })
   }
 
@@ -67,7 +67,7 @@ export default async function VideosPage() {
       salt: p.salt, aliases: p.aliases,
       vertical: false, title: '',
       download: size !== undefined ? downloadUrl(id, p.name) : '',
-      downloadMB: size ? Math.max(1, Math.round(size / 1e6)) : 0,
+      downloadMB: size ? Math.max(1, Math.round(size / 1e6)) : 0, drama: false,
     })
   }
   const older = await Promise.all([...byYt.values()].map(async v => ({ ...v, ...(await oembed(v.youtubeId)) })))

@@ -27,6 +27,7 @@ export interface VideoItem {
   title:      string
   download:   string   // small MP4 for WhatsApp; '' when none is uploaded
   downloadMB: number
+  drama:      boolean  // the product's second film, a short story in dialogue
 }
 
 // Every word typed must appear somewhere: name (English or Hindi), composition,
@@ -142,7 +143,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
   // One section per category once the range is big enough to fill them;
   // until then nine one-card sections read as empty, so show one grid.
   const grouped = useMemo(() => {
-    const inCat = videos.filter(v => activeCat === 'all' || v.category === activeCat)
+    const inCat = videos.filter(v => activeCat === 'all' || (activeCat === 'drama' ? v.drama : v.category === activeCat))
     if (searchText.trim()) {
       // A complaint finds its films by meaning, ranked by what the medicine
       // does (lib/recommend.ts); a protocol film that names the complaint
@@ -224,6 +225,7 @@ export default function VideosClient({ videos, channelUrl }: { videos: VideoItem
             </label>
             <div className="vp-pills">
               <Pill label={hi ? 'सब' : 'All'} active={activeCat === 'all'} onClick={() => setActiveCat('all')} />
+              {videos.some(v => v.drama) && <Pill label={hi ? 'कहानी वाली फ़िल्में' : 'Story films'} active={activeCat === 'drama'} onClick={() => setActiveCat('drama')} />}
               {cats.map(c => <Pill key={c} label={catLabel(c)} active={activeCat === c} onClick={() => setActiveCat(c)} />)}
             </div>
           </div>
